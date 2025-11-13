@@ -26,6 +26,7 @@
       <button @click="workJob" :disabled="energy < 10" class="bg-green-600 hover:bg-green-700 rounded-xl p-3 font-semibold disabled:opacity-50">💼 Подработать (+200₽, -10⚡)</button>
       <button @click="borrowMoney" :disabled="energy < 5 || reputation <= 0" class="bg-blue-600 hover:bg-blue-700 rounded-xl p-3 font-semibold disabled:opacity-50">🤝 Занять у друга (+500₽, -5⚡, -1❤️)</button>
       <button @click="takeCredit" :disabled="energy < 5" class="bg-yellow-600 hover:bg-yellow-700 rounded-xl p-3 font-semibold disabled:opacity-50">🏦 Взять кредит (+1000₽, +100💳, -5⚡)</button>
+      <button @click="resetGame" class="bg-red-600 hover:bg-red-700 rounded-xl p-3 font-semibold">🔄 Сбросить прогресс</button>
     </div>
 
     <p v-if="message" class="mt-6 text-lg text-gray-300">{{ message }}</p>
@@ -33,13 +34,35 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 
 const money = ref(1000)
 const energy = ref(50)
 const reputation = ref(10)
 const debt = ref(0)
 const message = ref('')
+
+// Загружаем сохранения при запуске
+onMounted(() => {
+  const saved = localStorage.getItem('dodepaSave')
+  if (saved) {
+    const data = JSON.parse(saved)
+    money.value = data.money ?? 1000
+    energy.value = data.energy ?? 50
+    reputation.value = data.reputation ?? 10
+    debt.value = data.debt ?? 0
+  }
+})
+
+// Автосохранение при изменении значений
+watch([money, energy, reputation, debt], () => {
+  localStorage.setItem('dodepaSave', JSON.stringify({
+    money: money.value,
+    energy: energy.value,
+    reputation: reputation.value,
+    debt: debt.value
+  }))
+}, { deep: true })
 
 function playCasino() {
   if (money.value < 100) {
@@ -79,5 +102,14 @@ function takeCredit() {
   debt.value += 100
   energy.value -= 5
   message.value = 'Банк одобрил кредит (+1000₽, +100💳, -5⚡)'
+}
+
+function resetGame() {
+  money.value = 1000
+  energy.value = 50
+  reputation.value = 10
+  debt.value = 0
+  message.value = 'Прогресс сброшен!'
+  localStorage.removeItem('dodepaSave')
 }
 </script>
