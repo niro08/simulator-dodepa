@@ -2,7 +2,8 @@
   <CasinoUI
     :stats="casinoStore.stats"
     :logs="casinoStore.logs"
-    @play-casino="casinoStore.playCasino"
+    @bet-placed="casinoStore.placeBet"
+    @spin-result="casinoStore.handleSlotResult"
     @work-job="casinoStore.workJob"
     @borrow-money="casinoStore.borrowMoney"
     @take-credit="casinoStore.takeCredit"
