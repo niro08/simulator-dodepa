@@ -23,15 +23,21 @@
       </div>
     </section>
 
-    <BetPanel
-      :bet="stats.bet"
-      @update:bet="$emit('update:bet', $event)"
-    />
-
     <div class="actions-main">
-      <button @click="$emit('play-casino')" class="btn-play">🎲 Играть в казино (-{{ stats.bet }}₽)</button>
+      <button @click="openSlotMachine" class="btn-play">🎰 Слот-машина</button>
       <button @click="$emit('work-job')" :disabled="stats.energy < 10">💼 Подработать (+200₽, -10⚡)</button>
     </div>
+
+    <SlotMachine
+      :is-visible="isSlotVisible"
+      :bet="stats.bet"
+      :money="stats.money"
+      :energy="stats.energy"
+      @close="closeSlotMachine"
+      @bet-placed="$emit('bet-placed')"
+      @spin-result="$emit('spin-result', $event)"
+      @update:bet="$emit('update:bet', $event)"
+    />
 
     <div class="panels-grid">
       <BankPanel
@@ -57,10 +63,11 @@
 </template>
 
 <script setup lang="ts">
-import BetPanel from './BetPanel.vue'
+import { ref } from 'vue'
 import BankPanel from './BankPanel.vue'
 import FriendPanel from './FriendPanel.vue'
 import LogsList from './LogsList.vue'
+import SlotMachine from './SlotMachine.vue'
 
 export interface Stats {
   money: number
@@ -70,17 +77,28 @@ export interface Stats {
   bet: number
 }
 
-const props = defineProps<{ stats: Stats; logs: string[] }>()
+defineProps<{ stats: Stats; logs: string[] }>()
 const emit = defineEmits([
-  'play-casino',
   'work-job',
   'borrow-money',
   'take-credit',
   'help-friend',
   'repay-debt',
   'reset-game',
-  'update:bet'
+  'update:bet',
+  'bet-placed',
+  'spin-result'
 ])
+
+const isSlotVisible = ref(false)
+
+function openSlotMachine() {
+  isSlotVisible.value = true
+}
+
+function closeSlotMachine() {
+  isSlotVisible.value = false
+}
 </script>
 
 <style scoped>

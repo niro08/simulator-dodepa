@@ -110,10 +110,29 @@ export const useCasinoStore = defineStore('casino', () => {
     }
   }
 
+  function placeBet() {
+    // Снимаем ставку перед игрой
+    if (money.value >= bet.value) {
+      money.value -= bet.value
+      persist()
+    }
+  }
+
+  function handleSlotResult(result: { isWin: boolean; amount: number }) {
+    if (result.isWin) {
+      money.value += result.amount
+      appendLog(`🎰 Слот-машина: Ты выиграл ${result.amount}₽!`)
+    } else {
+      energy.value += 5
+      appendLog('🎰 Слот-машина: Проигрыш... но азарт даёт +5⚡')
+    }
+
+    persist()
+  }
+
   function setBet(value: number) {
-    const numeric = Number.isFinite(value) ? value : MIN_BET
-    const normalized = Math.max(MIN_BET, Math.floor(numeric))
-    bet.value = normalized
+    const numeric = Number.isFinite(value) ? value : 0
+    bet.value = Math.max(0, Math.floor(numeric))
     persist()
   }
 
@@ -134,6 +153,8 @@ export const useCasinoStore = defineStore('casino', () => {
     logs,
     stats,
     setBet,
+    placeBet,
+    handleSlotResult,
     ...actions
   }
 })

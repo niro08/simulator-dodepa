@@ -65,7 +65,7 @@ export const playCasino: GameAction = (state) => {
   state.money -= state.bet
   const winChance = Math.random()
 
-  if (winChance < 0.1) {
+  if (winChance < 0.5) {
     const win = Math.floor(state.bet * (1.5 + Math.random() * 3))
     state.money += win
     return `Ты вытащил ${win}₽!`
