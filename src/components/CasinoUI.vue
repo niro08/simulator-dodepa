@@ -58,7 +58,7 @@
     </div>
 
     <div class="actions-secondary">
-      <button @click="$emit('reset-game')" class="danger">🔄 Сбросить прогресс</button>
+      <button @click="$emit('reset-game')" class="danger">🏠 Выйти в меню</button>
     </div>
 
     <LogsList :logs="logs" />
