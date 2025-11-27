@@ -8,10 +8,12 @@
         class="snowflake"
         :style="{
           left: flake.left,
-          animationDuration: flake.duration,
+          animationDuration: `${flake.duration}, ${flake.rotationDuration}`,
           animationDelay: flake.delay,
           fontSize: flake.size,
-          filter: `drop-shadow(0 0 ${flake.glow}px ${flake.glowColor})`
+          textShadow: `0 0 ${flake.glow}px ${flake.glowColor}, 0 0 ${flake.glow * 0.5}px ${flake.glowColor}, 0 0 ${flake.glow * 0.3}px ${flake.glowColor}`,
+          '--rotation-start': `${flake.rotation}deg`,
+          transform: `scale(${flake.scale})`
         }"
       >
         {{ flake.symbol }}
@@ -52,7 +54,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useBackgroundMusic } from '@/composables/useBackgroundMusic'
 
 const emit = defineEmits<{
   startGame: [isNewGame: boolean]
@@ -62,10 +65,11 @@ defineProps<{
   hasSave: boolean
 }>()
 
-const isMusicEnabled = ref(false)
+// Подключаем музыку
+const { isPlaying: isMusicEnabled, toggle: toggleMusic, getAudioIntensity } = useBackgroundMusic('/audio/dep.mp3')
 
 // Символы для снегопада
-const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣']
+const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣', '🤡']
 
 interface Snowflake {
   id: number
@@ -76,20 +80,32 @@ interface Snowflake {
   size: string
   glow: number
   glowColor: string
+  scale: number
+  rotation: number
+  rotationDuration: string
 }
 
 const snowflakes = ref<Snowflake[]>([])
+const baseGlowValues = ref<number[]>([])
+const baseScaleValues = ref<number[]>([])
+let animationFrameId: number | null = null
 
 // Генерация снежинок
 function generateSnowflakes() {
   const flakes: Snowflake[] = []
-  const count = 30 // Количество снежинок
+  const count = 30
 
   for (let i = 0; i < count; i++) {
     const symbol = casinoSymbols[Math.floor(Math.random() * casinoSymbols.length)] || '🎰'
     const glowColors = ['#ffd700', '#ff69b4', '#00ffff', '#ff4500', '#9370db', '#00ff00']
     const glowColorIndex = Math.floor(Math.random() * glowColors.length)
     const glowColor = glowColors[glowColorIndex] ?? '#ffd700'
+
+    const baseGlow = 2 + Math.random() * 8
+    baseGlowValues.value.push(baseGlow)
+
+    const baseScale = 1.0
+    baseScaleValues.value.push(baseScale)
 
     flakes.push({
       id: i,
@@ -98,17 +114,32 @@ function generateSnowflakes() {
       duration: `${5 + Math.random() * 10}s`,
       delay: `${Math.random() * 5}s`,
       size: `${1 + Math.random() * 1.5}rem`,
-      glow: 2 + Math.random() * 8,
-      glowColor
+      glow: baseGlow,
+      glowColor,
+      scale: baseScale,
+      rotation: Math.random() * 360, // Случайный начальный угол
+      rotationDuration: `${3 + Math.random() * 4}s` // Случайная скорость вращения
     })
   }
 
   snowflakes.value = flakes
 }
 
-function toggleMusic() {
-  isMusicEnabled.value = !isMusicEnabled.value
-  // TODO: Добавим логику включения музыки позже
+// Обновление свечения и размера снежинок по музыке
+function updateSnowflakesGlow() {
+  const intensity = getAudioIntensity()
+
+  snowflakes.value.forEach((flake, index) => {
+    const baseGlow = baseGlowValues.value[index] || 5
+    const baseScale = baseScaleValues.value[index] || 1
+
+    // Увеличиваем базовое свечение + добавляем интенсивность (до 60px)
+    flake.glow = baseGlow + intensity * 5
+    // Изменяем размер: базовый масштаб + пульсация (до +50% размера)
+    flake.scale = baseScale + intensity * 5
+  })
+
+  animationFrameId = requestAnimationFrame(updateSnowflakesGlow)
 }
 
 function continueGame() {
@@ -127,6 +158,15 @@ function startGame() {
 
 onMounted(() => {
   generateSnowflakes()
+  // Запускаем эквалайзер
+  updateSnowflakesGlow()
+})
+
+onUnmounted(() => {
+  // Останавливаем анимацию при размонтировании
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+  }
 })
 </script>
 
@@ -158,17 +198,27 @@ onMounted(() => {
 .snowflake {
   position: absolute;
   top: -50px;
-  animation: fall linear infinite;
+  animation: fall linear infinite, rotate linear infinite;
   opacity: 0.8;
   user-select: none;
+  will-change: transform, top;
 }
 
 @keyframes fall {
   0% {
-    transform: translateY(-50px) rotate(0deg);
+    top: -50px;
   }
   100% {
-    transform: translateY(100vh) rotate(360deg);
+    top: 100vh;
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(var(--rotation-start, 0deg)) scale(1);
+  }
+  100% {
+    transform: rotate(calc(var(--rotation-start, 0deg) + 360deg)) scale(1);
   }
 }
 
