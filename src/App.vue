@@ -8,7 +8,7 @@
     @borrow-money="casinoStore.borrowMoney"
     @take-credit="casinoStore.takeCredit"
     @help-friend="casinoStore.helpFriend"
-    @repay-debt="casinoStore.repayDebt"
+    @repay-debt="casinoStore.repayDebtAmount"
     @reset-game="casinoStore.resetGame"
     @update:bet="casinoStore.setBet"
   />

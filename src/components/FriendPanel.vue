@@ -1,13 +1,13 @@
 <template>
   <section class="panel friend">
     <header>
-      <h2>Друзья и связи</h2>
+      <h2>Друзья</h2>
       <p class="muted">Репутация: ❤️ {{ reputation }}</p>
     </header>
     <p>⚡ Энергия: {{ energy }}</p>
     <div class="buttons">
-      <button @click="$emit('borrow-money')" :disabled="reputation <= 0 || energy < 5">🤝 Попросить друга</button>
-      <button @click="$emit('help-friend')" :disabled="energy < 5">✨ Помочь другу</button>
+      <button @click="$emit('borrow-money')" :disabled="reputation <= 0 || energy < 5">🤝 Занять у друга (-5⚡, -1❤️)</button>
+      <button @click="$emit('help-friend')" :disabled="energy < 5">✨ Помочь другу (-5⚡, +1❤️)</button>
     </div>
   </section>
 </template>
@@ -37,13 +37,7 @@ defineProps<{ energy: number; reputation: number }>()
   gap: 0.5rem;
 }
 
-@media (min-width: 640px) {
-  .buttons {
-    flex-direction: row;
-  }
-
-  .buttons button {
-    flex: 1;
-  }
+.buttons button {
+  width: 100%;
 }
 </style>

@@ -12,6 +12,7 @@ import {
   takeCredit,
   helpFriend,
   repayDebt,
+  repayDebtWithAmount,
   resetGame,
   LOG_LIMIT,
   MIN_BET
@@ -130,6 +131,29 @@ export const useCasinoStore = defineStore('casino', () => {
     persist()
   }
 
+  function repayDebtAmount(amount: number) {
+    const state: CasinoState = {
+      money: money.value,
+      energy: energy.value,
+      reputation: reputation.value,
+      debt: debt.value,
+      bet: bet.value
+    }
+
+    const logEntry = repayDebtWithAmount(state, amount)
+
+    money.value = state.money
+    energy.value = state.energy
+    reputation.value = state.reputation
+    debt.value = state.debt
+    bet.value = state.bet
+
+    appendLog(logEntry)
+    persist()
+
+    return logEntry
+  }
+
   function setBet(value: number) {
     const numeric = Number.isFinite(value) ? value : 0
     bet.value = Math.max(0, Math.floor(numeric))
@@ -155,6 +179,7 @@ export const useCasinoStore = defineStore('casino', () => {
     setBet,
     placeBet,
     handleSlotResult,
+    repayDebtAmount,
     ...actions
   }
 })
