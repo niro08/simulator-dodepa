@@ -25,7 +25,6 @@
 
     <div class="actions-main">
       <button @click="openSlotMachine" class="btn-play">🎰 Слот-машина</button>
-      <button @click="$emit('work-job')" :disabled="stats.energy < 10">💼 Подработать (+200₽, -10⚡)</button>
     </div>
 
     <SlotMachine
@@ -40,11 +39,15 @@
     />
 
     <div class="panels-grid">
+      <WorkPanel
+        :energy="stats.energy"
+        @work-job="$emit('work-job')"
+      />
       <BankPanel
         :money="stats.money"
         :debt="stats.debt"
         @take-credit="$emit('take-credit')"
-        @repay-debt="$emit('repay-debt')"
+        @repay-debt="$emit('repay-debt', $event)"
       />
       <FriendPanel
         :energy="stats.energy"
@@ -64,6 +67,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import WorkPanel from './WorkPanel.vue'
 import BankPanel from './BankPanel.vue'
 import FriendPanel from './FriendPanel.vue'
 import LogsList from './LogsList.vue'

@@ -108,13 +108,20 @@ export const takeCredit: GameAction = (state) => {
     return 'Нет сил на оформление кредита'
   }
 
-  const debtIncrease = Math.floor(CREDIT_AMOUNT * (1 + CREDIT_INTEREST))
+  // Рандомная сумма: 500-1500₽ базово + бонус за репутацию (до +500₽)
+  const baseAmount = 500 + Math.floor(Math.random() * 1000)
+  const reputationBonus = Math.max(0, Math.floor(state.reputation * 50))
+  const creditAmount = baseAmount + reputationBonus
 
-  state.money += CREDIT_AMOUNT
+  // Процент: 20-30%
+  const interest = 0.2 + Math.random() * 0.1
+  const debtIncrease = Math.floor(creditAmount * (1 + interest))
+
+  state.money += creditAmount
   state.debt += debtIncrease
   state.energy -= CREDIT_COST
 
-  return `Банк выдал ${CREDIT_AMOUNT}₽, долг вырос на ${debtIncrease}₽`
+  return `Банк выдал ${creditAmount}₽, долг вырос на ${debtIncrease}₽`
 }
 
 export const helpFriend: GameAction = (state) => {
@@ -143,6 +150,29 @@ export const repayDebt: GameAction = (state) => {
   state.reputation += 1
 
   return `Ты закрыл ${REPAY_AMOUNT}₽ долга и поднял репутацию`
+}
+
+// Новая функция для погашения с выбором суммы
+export function repayDebtWithAmount(state: CasinoState, amount: number): string | void {
+  if (state.debt <= 0) {
+    return 'Долг уже погашен'
+  }
+  if (amount < 100) {
+    return 'Минимальная сумма погашения — 100₽'
+  }
+  if (state.money < amount) {
+    return 'Недостаточно средств для погашения'
+  }
+
+  const actualAmount = Math.min(amount, state.debt)
+  state.money -= actualAmount
+  state.debt -= actualAmount
+
+  // Репутация: +1 за каждые 200₽ (минимум +1)
+  const reputationGain = Math.max(1, Math.ceil(actualAmount / 200))
+  state.reputation += reputationGain
+
+  return `Ты погасил ${actualAmount}₽ долга (+${reputationGain}❤️)`
 }
 
 export const resetGame: GameAction = (state) => {
