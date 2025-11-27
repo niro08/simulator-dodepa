@@ -7,6 +7,30 @@
         <div class="slot-machine">
           <h2 class="slot-title">🎰 Слот-машина</h2>
 
+          <div class="slot-stats">
+            <div class="stat-item">
+              <span class="stat-label">Баланс:</span>
+              <span class="stat-value">{{ money }} ₽</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Энергия:</span>
+              <span class="stat-value">⚡ {{ energy }}</span>
+            </div>
+          </div>
+
+          <div class="bet-input-section">
+            <label for="bet-amount">Размер ставки:</label>
+            <input
+              id="bet-amount"
+              type="number"
+              :value="bet"
+              min="50"
+              step="50"
+              @input="onBetInput"
+              :disabled="isSpinning"
+            />
+          </div>
+
           <div class="slot-display">
             <div class="slot-reel" v-for="(_, index) in reels" :key="index">
               <div
@@ -26,20 +50,20 @@
           </div>
 
           <div class="slot-info">
-            <p>Ставка: <strong>{{ bet }} ₽</strong></p>
             <p v-if="!isSpinning && !resultMessage" class="hint">Нажми кнопку, чтобы крутить!</p>
           </div>
 
           <button
             class="spin-button"
-            :disabled="isSpinning || money < bet"
+            :disabled="isSpinning || money < bet || bet < 50"
             @click="spin"
           >
             <span v-if="isSpinning">Крутим...</span>
             <span v-else>🎲 КРУТИТЬ</span>
           </button>
 
-          <p v-if="money < bet" class="warning">Недостаточно денег для ставки</p>
+          <p v-if="bet < 50 && bet > 0" class="warning-text">⚠️ Минимальная ставка — 50₽</p>
+          <p v-else-if="money < bet" class="warning-text">❌ Недостаточно денег для ставки</p>
         </div>
       </div>
     </div>
@@ -53,13 +77,21 @@ const props = defineProps<{
   isVisible: boolean
   bet: number
   money: number
+  energy: number
 }>()
 
 const emit = defineEmits<{
   close: []
   'bet-placed': []
   'spin-result': [result: { isWin: boolean; amount: number }]
+  'update:bet': [value: number]
 }>()
+
+function onBetInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const value = Number(target.value)
+  emit('update:bet', value)
+}
 
 const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '💎', '7️⃣']
 const SYMBOL_HEIGHT = 80
@@ -104,10 +136,24 @@ function handleOverlayClick() {
 }
 
 async function spin() {
-  if (isSpinning.value || props.money < props.bet) return
+  if (isSpinning.value) return
 
   resultMessage.value = ''
   resultClass.value = ''
+
+  // Валидация минимальной ставки
+  if (props.bet < 50) {
+    resultMessage.value = '⚠️ Минимальная ставка — 50₽'
+    resultClass.value = 'warning'
+    return
+  }
+
+  // Проверка баланса
+  if (props.money < props.bet) {
+    resultMessage.value = '❌ Недостаточно денег для ставки'
+    resultClass.value = 'error'
+    return
+  }
 
   // Определяем результат (10% шанс на выигрыш)
   const isWin = Math.random() < 0.1
@@ -182,12 +228,7 @@ async function spin() {
   }
 
 
-  // Автозакрытие через 3 секунды
-  setTimeout(() => {
-    if (!isSpinning.value) {
-      close()
-    }
-  }, 3000)
+
 }
 </script>
 
@@ -260,6 +301,70 @@ async function spin() {
   text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
 }
 
+.slot-stats {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #a0a0b0;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bet-input-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bet-input-section label {
+  font-size: 0.875rem;
+  color: #a0a0b0;
+  font-weight: 600;
+}
+
+.bet-input-section input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bet-input-section input:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+.bet-input-section input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .slot-display {
   display: flex;
   gap: 1rem;
@@ -328,6 +433,20 @@ async function spin() {
   border: 2px solid #f59e0b;
 }
 
+.result-message .warning {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.2);
+  border: 2px solid #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+
+.result-message .error {
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.2);
+  border: 2px solid #e53e3e;
+  text-shadow: 0 0 10px rgba(229, 62, 62, 0.6);
+}
+
 .slot-info {
   text-align: center;
   color: #a0a0b0;
@@ -372,11 +491,13 @@ async function spin() {
   transform: none;
 }
 
-.warning {
-  color: #e53e3e;
+.warning-text {
+  color: #f59e0b;
   font-size: 0.875rem;
   margin: 0;
   text-align: center;
+  font-weight: 600;
+  padding: 0.25rem;
 }
 
 /* Animations */

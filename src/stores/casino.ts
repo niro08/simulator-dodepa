@@ -131,9 +131,8 @@ export const useCasinoStore = defineStore('casino', () => {
   }
 
   function setBet(value: number) {
-    const numeric = Number.isFinite(value) ? value : MIN_BET
-    const normalized = Math.max(MIN_BET, Math.floor(numeric))
-    bet.value = normalized
+    const numeric = Number.isFinite(value) ? value : 0
+    bet.value = Math.max(0, Math.floor(numeric))
     persist()
   }
 
