@@ -36,6 +36,9 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   border: 1px solid var(--color-border);
   transition: all 0.3s ease;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel:hover {

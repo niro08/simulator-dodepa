@@ -41,11 +41,15 @@
     <div class="panels-grid">
       <WorkPanel
         :energy="stats.energy"
+        :reputation="stats.reputation"
         @work-job="$emit('work-job')"
+        @shady-deal="$emit('shady-deal')"
       />
       <BankPanel
         :money="stats.money"
         :debt="stats.debt"
+        :energy="stats.energy"
+        :reputation="stats.reputation"
         @take-credit="$emit('take-credit')"
         @repay-debt="$emit('repay-debt', $event)"
       />
@@ -84,6 +88,7 @@ export interface Stats {
 defineProps<{ stats: Stats; logs: string[] }>()
 const emit = defineEmits([
   'work-job',
+  'shady-deal',
   'borrow-money',
   'take-credit',
   'help-friend',
