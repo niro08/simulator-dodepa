@@ -131,7 +131,7 @@ export const helpFriend: GameAction = (state) => {
 
   state.energy -= HELP_COST
   state.reputation += 1
-  return 'Ты помог другу: +1❤️ и -5⚡'
+  return `Ты помог другу: +1❤️ и -${HELP_COST}⚡`
 }
 
 export const repayDebt: GameAction = (state) => {

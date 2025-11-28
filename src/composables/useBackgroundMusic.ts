@@ -8,19 +8,8 @@ export function useBackgroundMusic(audioPath: string) {
   const dataArray = ref<Uint8Array | null>(null)
   const isInitialized = ref(false)
 
-  // Загружаем состояние музыки из localStorage
-  const loadMusicState = () => {
-    const saved = localStorage.getItem('musicEnabled')
-    return saved === 'true' // По умолчанию выключено (false)
-  }
-
-  // Инициализируем isPlaying с правильным значением из localStorage
-  const isPlaying = ref(loadMusicState())
-
-  const saveMusicState = (enabled: boolean) => {
-    localStorage.setItem('musicEnabled', String(enabled))
-    isPlaying.value = enabled
-  }
+  // Музыка всегда выключена по умолчанию
+  const isPlaying = ref(false)
 
   // Инициализация аудио
   const initAudio = () => {
@@ -71,6 +60,7 @@ export function useBackgroundMusic(audioPath: string) {
     }
 
     const newState = !isPlaying.value
+    isPlaying.value = newState
 
     if (newState) {
       // Включаем музыку
@@ -80,8 +70,6 @@ export function useBackgroundMusic(audioPath: string) {
       // Выключаем звук (но музыка продолжает играть для эквалайзера)
       setVolume(0)
     }
-
-    saveMusicState(newState)
   }
 
   // Получить текущую интенсивность звука (0-1)
@@ -101,7 +89,7 @@ export function useBackgroundMusic(audioPath: string) {
     const avgHigh = high.reduce((a, b) => a + b, 0) / high.length
 
     // Взвешенное среднее (больше веса басам и серединке)
-    return (avgBass * 0.5 + avgMid * 0.35 + avgHigh * 0.15) / 255
+    return (avgBass * 1.5 + avgMid * 0.6 + avgHigh * 0.2) / 255
   }
 
   onMounted(() => {
@@ -129,8 +117,7 @@ export function useBackgroundMusic(audioPath: string) {
   return {
     isPlaying,
     toggle,
-    getAudioIntensity,
-    loadMusicState
+    getAudioIntensity
   }
 }
 

@@ -13,7 +13,7 @@
           fontSize: flake.size,
           textShadow: `0 0 ${flake.glow}px ${flake.glowColor}, 0 0 ${flake.glow * 0.5}px ${flake.glowColor}, 0 0 ${flake.glow * 0.3}px ${flake.glowColor}`,
           '--rotation-start': `${flake.rotation}deg`,
-          transform: `scale(${flake.scale})`
+          '--scale': flake.scale
         }"
       >
         {{ flake.symbol }}
@@ -136,7 +136,7 @@ function updateSnowflakesGlow() {
     // Увеличиваем базовое свечение + добавляем интенсивность (до 60px)
     flake.glow = baseGlow + intensity * 5
     // Изменяем размер: базовый масштаб + пульсация (до +50% размера)
-    flake.scale = baseScale + intensity * 5
+    flake.scale = baseScale + intensity * 0.5
   })
 
   animationFrameId = requestAnimationFrame(updateSnowflakesGlow)
@@ -215,10 +215,10 @@ onUnmounted(() => {
 
 @keyframes rotate {
   0% {
-    transform: rotate(var(--rotation-start, 0deg)) scale(1);
+    transform: rotate(var(--rotation-start, 0deg)) scale(var(--scale, 1));
   }
   100% {
-    transform: rotate(calc(var(--rotation-start, 0deg) + 360deg)) scale(1);
+    transform: rotate(calc(var(--rotation-start, 0deg) + 360deg)) scale(var(--scale, 1));
   }
 }
 
