@@ -8,6 +8,7 @@ import {
   normalizeLogs,
   playCasino,
   workJob,
+  shadyDeal,
   borrowMoney,
   takeCredit,
   helpFriend,
@@ -97,6 +98,7 @@ export const useCasinoStore = defineStore('casino', () => {
   const actions = {
     playCasino: () => runAction(playCasino),
     workJob: () => runAction(workJob),
+    shadyDeal: () => runAction(shadyDeal),
     borrowMoney: () => runAction(borrowMoney),
     takeCredit: () => runAction(takeCredit),
     helpFriend: () => runAction(helpFriend),

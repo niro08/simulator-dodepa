@@ -9,37 +9,48 @@
       <p>💳 Долг: <strong>{{ debt }} ₽</strong></p>
     </div>
     <div class="buttons">
-      <button @click="$emit('take-credit')">🏦 Взять кредит (-5⚡)</button>
+      <button @click="$emit('take-credit')" :disabled="energy < CREDIT_COST || reputation - CREDIT_REPUTATION_LOSS < 0">
+        🏦 Взять кредит (-{{ CREDIT_COST }}⚡, -{{ CREDIT_REPUTATION_LOSS }}❤️)
+      </button>
     </div>
+    <p v-if="reputation - CREDIT_REPUTATION_LOSS < 0" class="warning-text">⚠️ Банк отказал в кредите из-за низкой репутации</p>
+    <p v-else-if="energy < CREDIT_COST" class="warning-text">⚠️ Нет сил на оформление кредита</p>
+    <p v-else class="warning-text-placeholder">&nbsp;</p>
     <div v-if="debt > 0" class="repay-section">
       <label for="repay-amount">Сумма погашения:</label>
       <input
         id="repay-amount"
         type="number"
         :value="repayAmount"
-        :min="100"
+        :min="REPAY_MIN_AMOUNT"
         :max="Math.min(debt, money)"
-        step="100"
+        :step="REPAY_MIN_AMOUNT"
         @input="onRepayInput"
       />
-      <button @click="$emit('repay-debt', repayAmount)" :disabled="money < repayAmount || repayAmount < 100">
-        💸 Погасить {{ repayAmount }}₽ (+{{ Math.ceil(repayAmount / 200) }}❤️)
+      <button @click="$emit('repay-debt', repayAmount)" :disabled="money < repayAmount || repayAmount < REPAY_MIN_AMOUNT">
+        💸 Погасить {{ repayAmount }}₽ (+{{ Math.floor(repayAmount / REPAY_REPUTATION_INTERVAL) }}❤️)
       </button>
     </div>
+    <div v-else class="repay-section-placeholder"></div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-const props = defineProps<{ money: number; debt: number }>()
+const props = defineProps<{ money: number; debt: number; energy: number; reputation: number }>()
 
-const repayAmount = ref(200)
+const CREDIT_COST = 15
+const CREDIT_REPUTATION_LOSS = 2
+const REPAY_MIN_AMOUNT = 1000
+const REPAY_REPUTATION_INTERVAL = 1000
+
+const repayAmount = ref(REPAY_MIN_AMOUNT)
 
 // Автоматически подстраиваем сумму если долг меньше
 watch(() => props.debt, (newDebt) => {
   if (newDebt > 0 && repayAmount.value > newDebt) {
-    repayAmount.value = Math.min(newDebt, 200)
+    repayAmount.value = Math.min(newDebt, REPAY_MIN_AMOUNT)
   }
 })
 
@@ -113,5 +124,25 @@ function onRepayInput(event: Event) {
 
 .repay-section button {
   width: 100%;
+}
+
+.warning-text {
+  color: #f59e0b;
+  font-size: 0.875rem;
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  padding: 0.25rem;
+  min-height: 1.5rem;
+}
+
+.warning-text-placeholder {
+  min-height: 1.5rem;
+  margin: 0;
+  padding: 0.25rem;
+}
+
+.repay-section-placeholder {
+  min-height: 140px;
 }
 </style>

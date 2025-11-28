@@ -45,12 +45,14 @@
             </div>
           </div>
 
-          <div class="result-message" v-if="resultMessage">
-            <p :class="resultClass">{{ resultMessage }}</p>
+          <div class="result-message">
+            <p v-if="resultMessage" :class="resultClass">{{ resultMessage }}</p>
+            <p v-else class="result-placeholder">&nbsp;</p>
           </div>
 
           <div class="slot-info">
             <p v-if="!isSpinning && !resultMessage" class="hint">Нажми кнопку, чтобы крутить!</p>
+            <p v-else class="hint-placeholder">&nbsp;</p>
           </div>
 
           <button
@@ -64,6 +66,7 @@
 
           <p v-if="bet < 50 && bet > 0" class="warning-text">⚠️ Минимальная ставка — 50₽</p>
           <p v-else-if="money < bet" class="warning-text">❌ Недостаточно денег для ставки</p>
+          <p v-else class="warning-text-placeholder">&nbsp;</p>
         </div>
       </div>
     </div>
@@ -405,10 +408,15 @@ async function spin() {
 }
 
 .result-message {
-  min-height: 40px;
+  min-height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.result-placeholder {
+  min-height: 70px;
+  margin: 0;
 }
 
 .result-message p {
@@ -450,10 +458,21 @@ async function spin() {
 .slot-info {
   text-align: center;
   color: #a0a0b0;
+  min-height: 30px;
 }
 
 .slot-info p {
   margin: 0.25rem 0;
+}
+
+.hint-placeholder {
+  min-height: 30px;
+}
+
+.warning-text-placeholder {
+  min-height: 1.5rem;
+  margin: 0;
+  padding: 0.25rem;
 }
 
 .slot-info .hint {

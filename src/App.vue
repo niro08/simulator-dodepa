@@ -12,6 +12,7 @@
       @bet-placed="casinoStore.placeBet"
       @spin-result="casinoStore.handleSlotResult"
       @work-job="casinoStore.workJob"
+      @shady-deal="casinoStore.shadyDeal"
       @borrow-money="casinoStore.borrowMoney"
       @take-credit="casinoStore.takeCredit"
       @help-friend="casinoStore.helpFriend"
