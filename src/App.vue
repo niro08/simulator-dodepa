@@ -52,9 +52,8 @@ const hasSave = computed(() => {
   if (!saved) return false
 
   try {
-    const data = JSON.parse(saved)
-    // Проверяем, что есть значимые данные (не начальное состояние)
-    return data.money !== 1000 || data.energy !== 50 || data.debt !== 0
+    JSON.parse(saved) // Проверяем что это валидный JSON
+    return true
   } catch {
     return false
   }
