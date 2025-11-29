@@ -96,12 +96,16 @@ function onBetInput(event: Event) {
   emit('update:bet', value)
 }
 
-const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '💎', '7️⃣']
-const SYMBOL_HEIGHT = 80
+const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '💎', '7️⃣', '🤡']
+
+// Определяем высоту символа в зависимости от размера экрана
+const getSymbolHeight = (): number => {
+  return window.innerWidth <= 640 ? 70 : 80
+}
 
 const reels = ref<string[]>(['🍒', '🍋', '🍊'])
-// Начальная позиция - показываем последний символ (индекс 20) из массива getReelSymbols
-const reelPositions = ref<number[]>([-SYMBOL_HEIGHT * 20, -SYMBOL_HEIGHT * 20, -SYMBOL_HEIGHT * 20])
+// Начальная позиция - показываем первый символ (индекс 0) по центру барабана
+const reelPositions = ref<number[]>([0, 0, 0])
 const isSpinning = ref(false)
 const resultMessage = ref('')
 const resultClass = ref('')
@@ -113,8 +117,11 @@ function getRandomSymbol(): string {
 function getReelSymbols(reelIndex: number): string[] {
   const finalSymbol = reels.value[reelIndex] || '🍒'
 
-  // Создаём массив для прокрутки: множество повторений + финальный символ в конце
+  // Создаём массив для прокрутки
   const result: string[] = []
+
+  // Начинаем с финального символа (он будет виден до кручения)
+  result.push(finalSymbol)
 
   // Добавляем несколько циклов всех символов для эффекта прокрутки
   for (let i = 0; i < 20; i++) {
@@ -122,7 +129,7 @@ function getReelSymbols(reelIndex: number): string[] {
     if (symbol) result.push(symbol)
   }
 
-  // В конце добавляем финальный символ - именно на нём остановится барабан
+  // В конце снова добавляем финальный символ - на нём остановится барабан
   result.push(finalSymbol)
 
   return result
@@ -188,9 +195,12 @@ async function spin() {
     return new Promise<void>((resolve) => {
       const spinTime = 2000 + reelIndex * 300
       const startTime = Date.now()
+      const SYMBOL_HEIGHT = getSymbolHeight()
 
-      // Финальная позиция - последний символ в массиве (индекс 20)
-      const finalPosition = -SYMBOL_HEIGHT * 20
+      // Начальная позиция - 0 (первый символ - финальный)
+      // Финальная позиция - последний символ в массиве (индекс 21, так как добавили символ в начало и конец)
+      const startPosition = 0
+      const finalPosition = -SYMBOL_HEIGHT * 21
 
       const animate = () => {
         const elapsed = Date.now() - startTime
@@ -199,7 +209,7 @@ async function spin() {
         if (progress < 1) {
           // Плавная прокрутка с замедлением в конце
           const easeOut = 1 - Math.pow(1 - progress, 3)
-          reelPositions.value[reelIndex] = finalPosition * easeOut
+          reelPositions.value[reelIndex] = startPosition + (finalPosition - startPosition) * easeOut
           requestAnimationFrame(animate)
         } else {
           // Устанавливаем финальную позицию
@@ -208,6 +218,8 @@ async function spin() {
         }
       }
 
+      // Сбрасываем позицию в начало перед анимацией
+      reelPositions.value[reelIndex] = startPosition
       animate()
     })
   })
@@ -562,11 +574,16 @@ async function spin() {
     gap: 0.5rem;
   }
 
-  .slot-reel,
+  .slot-reel {
+    width: 70px;
+    height: 70px;
+  }
+
   .symbol {
     width: 70px;
     height: 70px;
     font-size: 2.5rem;
+    line-height: 70px;
   }
 
   .slot-title {
