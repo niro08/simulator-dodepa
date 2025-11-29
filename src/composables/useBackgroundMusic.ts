@@ -62,20 +62,34 @@ export function useBackgroundMusic(audioPath: string) {
   }
 
   const toggle = async () => {
-    if (!isInitialized.value) {
-      initAudio()
-    }
+    try {
+      if (!isInitialized.value) {
+        initAudio()
+        // Safari требует небольшой задержки после инициализации
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
 
-    const newState = !isPlaying.value
-    isPlaying.value = newState
+      const newState = !isPlaying.value
+      isPlaying.value = newState
 
-    if (newState) {
-      // Включаем музыку
-      setVolume(0.5)
-      await play()
-    } else {
-      // Выключаем звук (но музыка продолжает играть для эквалайзера)
-      setVolume(0)
+      if (newState) {
+        // Включаем музыку
+        setVolume(0.5)
+        // Safari: обязательно resume контекста перед play
+        if (audioContext.value?.state === 'suspended') {
+          await audioContext.value.resume()
+        }
+        await play()
+      } else {
+        // Выключаем звук (но музыка продолжает играть для эквалайзера)
+        setVolume(0)
+        // В Safari всё равно продолжаем play для эквалайзера
+        if (audio.value?.paused) {
+          await play()
+        }
+      }
+    } catch (error) {
+      console.warn('Ошибка переключения музыки:', error)
     }
   }
 
@@ -101,17 +115,27 @@ export function useBackgroundMusic(audioPath: string) {
 
   // Получить интенсивность низких частот (басов) (0-1) - для размера
   const getBassIntensity = (): number => {
-    if (!analyser.value || !dataArray.value) return 0
+    if (!analyser.value || !dataArray.value || !audio.value) return 0.7
 
-    // @ts-ignore - Web Audio API типизация
-    analyser.value.getByteFrequencyData(dataArray.value)
+    // Safari: проверяем что AudioContext активен
+    if (audioContext.value?.state === 'suspended') {
+      return 0.7
+    }
 
-    // Берём только низкие частоты (басы) - первые 15 бинов
-    const bass = dataArray.value.slice(0, 10)
-    const avgBass = bass.reduce((a, b) => a + b, 0) / bass.length
+    try {
+      // @ts-ignore - Web Audio API типизация
+      analyser.value.getByteFrequencyData(dataArray.value)
 
-    // Нормализуем к диапазону 0-1
-    return avgBass / 255
+      // Берём только низкие частоты (басы) - первые 15 бинов
+      const bass = dataArray.value.slice(0, 15)
+      const avgBass = bass.reduce((a, b) => a + b, 0) / bass.length
+
+      // Нормализуем к диапазону 0-1
+      return avgBass / 255
+    } catch (error) {
+      // Safari может выбросить ошибку, возвращаем среднее значение
+      return 0.7
+    }
   }
 
   onMounted(() => {
