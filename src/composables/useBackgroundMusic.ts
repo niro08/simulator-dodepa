@@ -79,7 +79,7 @@ export function useBackgroundMusic(audioPath: string) {
     }
   }
 
-  // Получить текущую интенсивность звука (0-1)
+  // Получить текущую интенсивность звука (0-1) - для свечения
   const getAudioIntensity = (): number => {
     if (!analyser.value || !dataArray.value) return 0
 
@@ -97,6 +97,21 @@ export function useBackgroundMusic(audioPath: string) {
 
     // Взвешенное среднее (больше веса басам и серединке)
     return (avgBass * 1.5 + avgMid * 0.6 + avgHigh * 0.2) / 255
+  }
+
+  // Получить интенсивность низких частот (басов) (0-1) - для размера
+  const getBassIntensity = (): number => {
+    if (!analyser.value || !dataArray.value) return 0
+
+    // @ts-ignore - Web Audio API типизация
+    analyser.value.getByteFrequencyData(dataArray.value)
+
+    // Берём только низкие частоты (басы) - первые 15 бинов
+    const bass = dataArray.value.slice(0, 10)
+    const avgBass = bass.reduce((a, b) => a + b, 0) / bass.length
+
+    // Нормализуем к диапазону 0-1
+    return avgBass / 255
   }
 
   onMounted(() => {
@@ -125,7 +140,8 @@ export function useBackgroundMusic(audioPath: string) {
     isPlaying,
     toggle,
     stop,
-    getAudioIntensity
+    getAudioIntensity,
+    getBassIntensity
   }
 }
 

@@ -67,7 +67,7 @@ defineProps<{
 }>()
 
 // Подключаем музыку
-const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getAudioIntensity } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
+const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getBassIntensity } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
 
 // Символы для снегопада
 const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣', '🤡']
@@ -87,8 +87,6 @@ interface Snowflake {
 }
 
 const snowflakes = ref<Snowflake[]>([])
-const baseGlowValues = ref<number[]>([])
-const baseScaleValues = ref<number[]>([])
 let animationFrameId: number | null = null
 
 // Состояние анимации перехода
@@ -97,19 +95,15 @@ const isTransitioning = ref(false)
 // Генерация снежинок
 function generateSnowflakes() {
   const flakes: Snowflake[] = []
-  const count = 30
+  const isMobile = window.innerWidth <= 768
+  const count = isMobile ? 15 : 30 // 15 на мобильных, 30 на десктопе
 
   for (let i = 0; i < count; i++) {
     const symbol = casinoSymbols[Math.floor(Math.random() * casinoSymbols.length)] || '🎰'
     const glowColors = ['#ffd700', '#ff69b4', '#00ffff', '#ff4500', '#9370db', '#00ff00']
-    const glowColorIndex = Math.floor(Math.random() * glowColors.length)
-    const glowColor = glowColors[glowColorIndex] ?? '#ffd700'
+    const glowColor = glowColors[Math.floor(Math.random() * glowColors.length)] ?? '#ffd700'
 
     const baseGlow = 2 + Math.random() * 8
-    baseGlowValues.value.push(baseGlow)
-
-    const baseScale = 1.0
-    baseScaleValues.value.push(baseScale)
 
     flakes.push({
       id: i,
@@ -120,9 +114,9 @@ function generateSnowflakes() {
       size: `${1 + Math.random() * 1.5}rem`,
       glow: baseGlow,
       glowColor,
-      scale: baseScale,
-      rotation: Math.random() * 360, // Случайный начальный угол
-      rotationDuration: `${3 + Math.random() * 4}s` // Случайная скорость вращения
+      scale: 1.0,
+      rotation: Math.random() * 360,
+      rotationDuration: `${3 + Math.random() * 4}s`
     })
   }
 
@@ -130,18 +124,30 @@ function generateSnowflakes() {
 }
 
 // Обновление свечения и размера снежинок по музыке
+let lastUpdateTime = 0
+const isMobileDevice = window.innerWidth <= 768
+const UPDATE_INTERVAL = isMobileDevice ? 50 : 25 // 100мс на мобильных (~10fps), 50мс на десктопе (~20fps)
+
 function updateSnowflakesGlow() {
-  const intensity = getAudioIntensity()
+  const now = Date.now()
 
-  snowflakes.value.forEach((flake, index) => {
-    const baseGlow = baseGlowValues.value[index] || 5
-    const baseScale = baseScaleValues.value[index] || 1
+  // Throttling - обновляем только когда прошло достаточно времени
+  if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+    lastUpdateTime = now
 
-    // Увеличиваем базовое свечение + добавляем интенсивность (до 60px)
-    flake.glow = baseGlow + intensity * 5
-    // Изменяем размер: базовый масштаб + пульсация (до +50% размера)
-    flake.scale = baseScale + intensity * 0.5
-  })
+    const rawBassIntensity = getBassIntensity()
+
+    // Вычисляем один раз для всех снежинок
+    const normalized = Math.max(0, Math.min(1, (rawBassIntensity - 0.65) * 6.67)) // * 6.67 = / 0.15
+    const amplified = Math.sqrt(normalized) // sqrt быстрее чем Math.pow(x, 0.5)
+    const scale = 1 + amplified * (isMobileDevice ? 1.1 : 1.5)
+
+    // Применяем к каждой снежинке
+    const flakes = snowflakes.value
+    for (let i = 0; i < flakes.length; i++) {
+      flakes[i]!.scale = scale
+    }
+  }
 
   animationFrameId = requestAnimationFrame(updateSnowflakesGlow)
 }
