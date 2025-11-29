@@ -54,6 +54,13 @@ export function useBackgroundMusic(audioPath: string) {
     audio.value.volume = Math.max(0, Math.min(1, volume))
   }
 
+  const stop = () => {
+    if (!audio.value) return
+    audio.value.pause()
+    audio.value.currentTime = 0
+    isPlaying.value = false
+  }
+
   const toggle = async () => {
     if (!isInitialized.value) {
       initAudio()
@@ -117,6 +124,7 @@ export function useBackgroundMusic(audioPath: string) {
   return {
     isPlaying,
     toggle,
+    stop,
     getAudioIntensity
   }
 }

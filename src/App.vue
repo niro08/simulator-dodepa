@@ -1,26 +1,37 @@
 <template>
-  <Transition name="fade" mode="out-in">
-    <MainMenu
-      v-if="!isGameStarted"
-      :has-save="hasSave"
-      @start-game="handleStartGame"
-    />
-    <CasinoUI
-      v-else
-      :stats="casinoStore.stats"
-      :logs="casinoStore.logs"
-      @bet-placed="casinoStore.placeBet"
-      @spin-result="casinoStore.handleSlotResult"
-      @work-job="casinoStore.workJob"
-      @shady-deal="casinoStore.shadyDeal"
-      @borrow-money="casinoStore.borrowMoney"
-      @take-credit="casinoStore.takeCredit"
-      @help-friend="casinoStore.helpFriend"
-      @repay-debt="casinoStore.repayDebtAmount"
-      @reset-game="handleResetGame"
-      @update:bet="casinoStore.setBet"
-    />
-  </Transition>
+  <!-- Анимированный эмодзи для перехода -->
+  <div v-if="transitionState !== 'none'" class="transition-emoji-wrapper">
+    <div
+      class="transition-emoji"
+      :class="{
+        'grow': transitionState === 'growing',
+        'shrink': transitionState === 'shrinking'
+      }"
+    >
+      🎰
+    </div>
+  </div>
+
+  <MainMenu
+    v-if="!isGameStarted"
+    :has-save="hasSave"
+    @start-game="handleStartGame"
+  />
+  <CasinoUI
+    v-else
+    :stats="casinoStore.stats"
+    :logs="casinoStore.logs"
+    @bet-placed="casinoStore.placeBet"
+    @spin-result="casinoStore.handleSlotResult"
+    @work-job="casinoStore.workJob"
+    @shady-deal="casinoStore.shadyDeal"
+    @borrow-money="casinoStore.borrowMoney"
+    @take-credit="casinoStore.takeCredit"
+    @help-friend="casinoStore.helpFriend"
+    @repay-debt="casinoStore.repayDebtAmount"
+    @reset-game="handleResetGame"
+    @update:bet="casinoStore.setBet"
+  />
 </template>
 
 <script setup lang="ts">
@@ -31,6 +42,9 @@ import CasinoUI from '@/components/CasinoUI.vue'
 
 const casinoStore = useCasinoStore()
 const isGameStarted = ref(false)
+
+// Состояние анимации: 'none' | 'growing' | 'shrinking'
+const transitionState = ref<'none' | 'growing' | 'shrinking'>('none')
 
 // Проверяем наличие сохранения
 const hasSave = computed(() => {
@@ -47,13 +61,24 @@ const hasSave = computed(() => {
 })
 
 function handleStartGame(isNewGame: boolean) {
-  if (isNewGame) {
-    // Очищаем сохранение и сбрасываем игру
-    localStorage.removeItem('dodepaSave')
-    casinoStore.resetGame()
-  }
+  // Этап 1: Увеличение (1.5 сек)
+  transitionState.value = 'growing'
 
-  isGameStarted.value = true
+  setTimeout(() => {
+    // Переход на игровой экран
+    if (isNewGame) {
+      localStorage.removeItem('dodepaSave')
+      casinoStore.resetGame()
+    }
+    isGameStarted.value = true
+
+    // Этап 2: Сразу начинаем уменьшение (1 сек)
+    transitionState.value = 'shrinking'
+
+    setTimeout(() => {
+      transitionState.value = 'none'
+    }, 1000)
+  }, 1500)
 }
 
 function handleResetGame() {
@@ -63,20 +88,67 @@ function handleResetGame() {
 </script>
 
 <style>
-/* Анимация перехода fade */
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.5s ease;
+/* Wrapper для анимированного эмодзи */
+.transition-emoji-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  pointer-events: none;
 }
 
-.fade-enter-from {
-  opacity: 0;
-  transform: scale(1.1);
+/* Анимированный эмодзи */
+.transition-emoji {
+  position: fixed;
+  top: 50vh;
+  left: 50vw;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  will-change: transform, font-size;
+  opacity: 1;
 }
 
-.fade-leave-to {
-  opacity: 0;
-  transform: scale(0.9);
+/* Быстрая анимация вращения (0.3s на оборот - очень быстро) */
+@keyframes spinFast {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Этап 1: Увеличение с момента появления (1.5 сек) */
+.transition-emoji.grow {
+  animation: grow 1.5s ease-in forwards, spinFast 0.3s linear infinite;
+}
+
+@keyframes grow {
+  from {
+    font-size: 3rem;
+  }
+  to {
+    font-size: 120vw;
+  }
+}
+
+
+/* Этап 2: Уменьшение (1 сек) */
+.transition-emoji.shrink {
+  animation: shrink 1s ease-out forwards, spinFast 0.3s linear infinite;
+}
+
+@keyframes shrink {
+  from {
+    font-size: 120vw;
+    opacity: 1;
+  }
+  to {
+    font-size: 0;
+    opacity: 0;
+  }
 }
 </style>
 
