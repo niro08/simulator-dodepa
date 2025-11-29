@@ -1,7 +1,8 @@
 <template>
   <div class="main-menu">
+
     <!-- Снегопад -->
-    <div class="snowfall-container">
+    <div class="snowfall-container" :class="{ 'fade-out': isTransitioning }">
       <div
         v-for="flake in snowflakes"
         :key="flake.id"
@@ -21,11 +22,11 @@
     </div>
 
     <!-- Контент меню -->
-    <div class="menu-content">
+    <div class="menu-content" :class="{ 'fade-out': isTransitioning }">
       <h1 class="game-title">
-        <span class="title-icon">🎰</span>
-        Симулятор Додепа
-        <span class="title-icon">💎</span>
+        <span ref="emojiRef" class="title-icon">🎰</span>
+        <span :class="{ 'fade-out': isTransitioning }">Симулятор Додепа</span>
+        <span class="title-icon" :class="{ 'fade-out': isTransitioning }">💎</span>
       </h1>
 
       <div class="menu-buttons">
@@ -66,7 +67,7 @@ defineProps<{
 }>()
 
 // Подключаем музыку
-const { isPlaying: isMusicEnabled, toggle: toggleMusic, getAudioIntensity } = useBackgroundMusic('/audio/dep.mp3')
+const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getAudioIntensity } = useBackgroundMusic('/audio/dep.mp3')
 
 // Символы для снегопада
 const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣', '🤡']
@@ -89,6 +90,9 @@ const snowflakes = ref<Snowflake[]>([])
 const baseGlowValues = ref<number[]>([])
 const baseScaleValues = ref<number[]>([])
 let animationFrameId: number | null = null
+
+// Состояние анимации перехода
+const isTransitioning = ref(false)
 
 // Генерация снежинок
 function generateSnowflakes() {
@@ -142,18 +146,32 @@ function updateSnowflakesGlow() {
   animationFrameId = requestAnimationFrame(updateSnowflakesGlow)
 }
 
+function startTransition(isNewGame: boolean) {
+  isTransitioning.value = true
+
+  // Останавливаем основную музыку
+  stopMusic()
+
+  // Запускаем музыку перехода
+  const transitionAudio = new Audio('/audio/start_dep.mp3')
+  transitionAudio.volume = 0.5
+  transitionAudio.play().catch(err => console.warn('Не удалось воспроизвести музыку перехода:', err))
+
+  emit('startGame', isNewGame)
+}
+
 function continueGame() {
-  emit('startGame', false)
+  startTransition(false)
 }
 
 function newGame() {
   if (confirm('Начать новую игру? Текущий прогресс будет удалён.')) {
-    emit('startGame', true)
+    startTransition(true)
   }
 }
 
 function startGame() {
-  emit('startGame', false)
+  startTransition(false)
 }
 
 onMounted(() => {
@@ -184,6 +202,21 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+
+/* Fade out для снегопада и контента */
+.fade-out {
+  animation: fadeOut 0.8s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Снегопад */
 .snowfall-container {
   position: absolute;
@@ -193,6 +226,7 @@ onUnmounted(() => {
   height: 100%;
   pointer-events: none;
   z-index: 1;
+  transition: opacity 0.8s ease-out;
 }
 
 .snowflake {
@@ -230,6 +264,7 @@ onUnmounted(() => {
   padding: 2rem;
   max-width: 500px;
   width: 100%;
+  transition: opacity 0.8s ease-out;
 }
 
 .game-title {
@@ -238,7 +273,6 @@ onUnmounted(() => {
   margin-bottom: 3rem;
   background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
   animation: titlePulse 3s ease-in-out infinite;
@@ -249,6 +283,7 @@ onUnmounted(() => {
   display: inline-block;
   animation: iconSpin 4s linear infinite;
 }
+
 
 @keyframes titlePulse {
   0%, 100% {
