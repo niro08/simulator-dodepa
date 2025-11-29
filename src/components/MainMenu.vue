@@ -135,17 +135,21 @@ function updateSnowflakesGlow() {
   if (now - lastUpdateTime >= UPDATE_INTERVAL) {
     lastUpdateTime = now
 
-    const rawBassIntensity = getBassIntensity()
+    try {
+      const rawBassIntensity = getBassIntensity()
 
-    // Вычисляем один раз для всех снежинок
-    const normalized = Math.max(0, Math.min(1, (rawBassIntensity - 0.65) * 6.67)) // * 6.67 = / 0.15
-    const amplified = Math.sqrt(normalized) // sqrt быстрее чем Math.pow(x, 0.5)
-    const scale = 1 + amplified * (isMobileDevice ? 1.1 : 1.5)
+      // Вычисляем один раз для всех снежинок
+      const normalized = Math.max(0, Math.min(1, (rawBassIntensity - 0.65) * 6.67)) // * 6.67 = / 0.15
+      const amplified = Math.sqrt(normalized) // sqrt быстрее чем Math.pow(x, 0.5)
+      const scale = 0.7 + amplified * (isMobileDevice ? 1.1 : 1.2) // Диапазон 0.7-1.9 на десктопе, 0.7-1.5 на мобильных
 
-    // Применяем к каждой снежинке
-    const flakes = snowflakes.value
-    for (let i = 0; i < flakes.length; i++) {
-      flakes[i]!.scale = scale
+      // Применяем к каждой снежинке
+      const flakes = snowflakes.value
+      for (let i = 0; i < flakes.length; i++) {
+        flakes[i]!.scale = scale
+      }
+    } catch (error) {
+      // Safari может выбросить ошибку, игнорируем
     }
   }
 
