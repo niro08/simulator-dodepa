@@ -43,6 +43,10 @@
             🎮 Играть
           </button>
         </template>
+
+        <button class="menu-btn guide" @click="showGuide = true">
+          📖 Как играть
+        </button>
       </div>
 
       <!-- Кнопка музыки -->
@@ -51,12 +55,16 @@
         <span v-else>🔇</span>
       </button>
     </div>
+
+    <!-- Компонент гайда -->
+    <HowToPlay :isVisible="showGuide" @close="showGuide = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useBackgroundMusic } from '@/composables/useBackgroundMusic'
+import HowToPlay from './HowToPlay.vue'
 
 const emit = defineEmits<{
   startGame: [isNewGame: boolean]
@@ -68,6 +76,9 @@ defineProps<{
 
 // Подключаем музыку
 const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getBassIntensity } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
+
+// Состояние для гайда
+const showGuide = ref(false)
 
 // Символы для снегопада
 const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣', '🤡']
@@ -376,6 +387,18 @@ onUnmounted(() => {
 .menu-btn.secondary:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 35px rgba(30, 41, 59, 0.7);
+}
+
+.menu-btn.guide {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  color: white;
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.5);
+  margin-top: 1rem;
+}
+
+.menu-btn.guide:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 35px rgba(245, 158, 11, 0.7);
 }
 
 /* Кнопка музыки */
