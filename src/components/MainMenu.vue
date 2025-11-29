@@ -67,7 +67,7 @@ defineProps<{
 }>()
 
 // Подключаем музыку
-const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getAudioIntensity } = useBackgroundMusic('/audio/dep.mp3')
+const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getAudioIntensity } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
 
 // Символы для снегопада
 const casinoSymbols = ['🎰', '🎲', '🃏', '💰', '💎', '⭐', '🍒', '🍋', '💸', '🎁', '🔔', '7️⃣', '🤡']
@@ -153,7 +153,7 @@ function startTransition(isNewGame: boolean) {
   stopMusic()
 
   // Запускаем музыку перехода
-  const transitionAudio = new Audio('/audio/start_dep.mp3')
+  const transitionAudio = new Audio(`${import.meta.env.BASE_URL}audio/start_dep.mp3`)
   transitionAudio.volume = 0.5
   transitionAudio.play().catch(err => console.warn('Не удалось воспроизвести музыку перехода:', err))
 

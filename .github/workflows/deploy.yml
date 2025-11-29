@@ -3,24 +3,19 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # Или master, если у тебя такая ветка
-
-  # Позволяет запускать вручную из вкладки Actions
+      - main
   workflow_dispatch:
 
-# Разрешения для деплоя на GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Разрешить только один одновременный деплой
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Сборка проекта
   build:
     runs-on: ubuntu-latest
     steps:
@@ -39,15 +34,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: ./dist
 
-  # Деплой на GitHub Pages
   deploy:
     environment:
       name: github-pages
