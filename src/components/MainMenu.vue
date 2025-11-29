@@ -92,6 +92,9 @@ let animationFrameId: number | null = null
 // Состояние анимации перехода
 const isTransitioning = ref(false)
 
+// Определяем Safari
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+
 // Генерация снежинок
 function generateSnowflakes() {
   const flakes: Snowflake[] = []
@@ -129,6 +132,10 @@ const isMobileDevice = window.innerWidth <= 768
 const UPDATE_INTERVAL = isMobileDevice ? 50 : 25 // 100мс на мобильных (~10fps), 50мс на десктопе (~20fps)
 
 function updateSnowflakesGlow() {
+  if (isSafari) {
+    return
+  }
+
   const now = Date.now()
 
   // Throttling - обновляем только когда прошло достаточно времени

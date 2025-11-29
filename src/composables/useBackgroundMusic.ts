@@ -81,11 +81,14 @@ export function useBackgroundMusic(audioPath: string) {
         }
         await play()
       } else {
-        // Выключаем звук (но музыка продолжает играть для эквалайзера)
-        setVolume(0)
-        // В Safari всё равно продолжаем play для эквалайзера
-        if (audio.value?.paused) {
-          await play()
+        // Полностью останавливаем музыку (для Safari)
+        if (audio.value) {
+          audio.value.pause()
+          audio.value.currentTime = 0
+        }
+        // Suspend контекста для экономии ресурсов
+        if (audioContext.value?.state === 'running') {
+          await audioContext.value.suspend()
         }
       }
     } catch (error) {
@@ -115,11 +118,9 @@ export function useBackgroundMusic(audioPath: string) {
 
   // Получить интенсивность низких частот (басов) (0-1) - для размера
   const getBassIntensity = (): number => {
-    if (!analyser.value || !dataArray.value || !audio.value) return 0.7
-
-    // Safari: проверяем что AudioContext активен
-    if (audioContext.value?.state === 'suspended') {
-      return 0.7
+    // Если analyser не готов - возвращаем 0 (эквалайзер не работает)
+    if (!analyser.value || !dataArray.value) {
+      return 0
     }
 
     try {
@@ -133,8 +134,8 @@ export function useBackgroundMusic(audioPath: string) {
       // Нормализуем к диапазону 0-1
       return avgBass / 255
     } catch (error) {
-      // Safari может выбросить ошибку, возвращаем среднее значение
-      return 0.7
+      // Если ошибка - возвращаем 0
+      return 0
     }
   }
 
