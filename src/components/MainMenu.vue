@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useBackgroundMusic } from '@/composables/useBackgroundMusic'
 import HowToPlay from './HowToPlay.vue'
 
@@ -75,7 +75,7 @@ defineProps<{
 }>()
 
 // Подключаем музыку
-const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic, getBassIntensity } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
+const { isPlaying: isMusicEnabled, toggle: toggleMusic, stop: stopMusic } = useBackgroundMusic(`${import.meta.env.BASE_URL}audio/dep.mp3`)
 
 // Состояние для гайда
 const showGuide = ref(false)
@@ -98,13 +98,9 @@ interface Snowflake {
 }
 
 const snowflakes = ref<Snowflake[]>([])
-let animationFrameId: number | null = null
 
 // Состояние анимации перехода
 const isTransitioning = ref(false)
-
-// Определяем Safari
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 
 // Генерация снежинок
 function generateSnowflakes() {
@@ -137,42 +133,6 @@ function generateSnowflakes() {
   snowflakes.value = flakes
 }
 
-// Обновление свечения и размера снежинок по музыке
-let lastUpdateTime = 0
-const isMobileDevice = window.innerWidth <= 768
-const UPDATE_INTERVAL = isMobileDevice ? 50 : 25 // 100мс на мобильных (~10fps), 50мс на десктопе (~20fps)
-
-function updateSnowflakesGlow() {
-  if (isSafari) {
-    return
-  }
-
-  const now = Date.now()
-
-  // Throttling - обновляем только когда прошло достаточно времени
-  if (now - lastUpdateTime >= UPDATE_INTERVAL) {
-    lastUpdateTime = now
-
-    try {
-      const rawBassIntensity = getBassIntensity()
-
-      // Вычисляем один раз для всех снежинок
-      const normalized = Math.max(0, Math.min(1, (rawBassIntensity - 0.65) * 6.67)) // * 6.67 = / 0.15
-      const amplified = Math.sqrt(normalized) // sqrt быстрее чем Math.pow(x, 0.5)
-      const scale = 0.7 + amplified * (isMobileDevice ? 1.1 : 1.2) // Диапазон 0.7-1.9 на десктопе, 0.7-1.5 на мобильных
-
-      // Применяем к каждой снежинке
-      const flakes = snowflakes.value
-      for (let i = 0; i < flakes.length; i++) {
-        flakes[i]!.scale = scale
-      }
-    } catch (error) {
-      // Safari может выбросить ошибку, игнорируем
-    }
-  }
-
-  animationFrameId = requestAnimationFrame(updateSnowflakesGlow)
-}
 
 function startTransition(isNewGame: boolean) {
   isTransitioning.value = true
@@ -204,15 +164,6 @@ function startGame() {
 
 onMounted(() => {
   generateSnowflakes()
-  // Запускаем эквалайзер
-  updateSnowflakesGlow()
-})
-
-onUnmounted(() => {
-  // Останавливаем анимацию при размонтировании
-  if (animationFrameId !== null) {
-    cancelAnimationFrame(animationFrameId)
-  }
 })
 </script>
 

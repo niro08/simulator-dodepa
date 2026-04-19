@@ -4,8 +4,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 export function useBackgroundMusic(audioPath: string) {
   const audio = ref<HTMLAudioElement | null>(null)
   const audioContext = ref<AudioContext | null>(null)
-  const analyser = ref<AnalyserNode | null>(null)
-  const dataArray = ref<Uint8Array | null>(null)
   const isInitialized = ref(false)
 
   // Музыка всегда выключена по умолчанию
@@ -19,17 +17,10 @@ export function useBackgroundMusic(audioPath: string) {
     audio.value.loop = true
     audio.value.volume = isPlaying.value ? 0.5 : 0
 
-    // Создаём аудио контекст для анализа
     audioContext.value = new AudioContext()
-    analyser.value = audioContext.value.createAnalyser()
-    analyser.value.fftSize = 256
 
     const source = audioContext.value.createMediaElementSource(audio.value)
-    source.connect(analyser.value)
-    analyser.value.connect(audioContext.value.destination)
-
-    const bufferLength = analyser.value.frequencyBinCount
-    dataArray.value = new Uint8Array(bufferLength)
+    source.connect(audioContext.value.destination)
 
     isInitialized.value = true
   }
@@ -96,49 +87,6 @@ export function useBackgroundMusic(audioPath: string) {
     }
   }
 
-  // Получить текущую интенсивность звука (0-1) - для свечения
-  const getAudioIntensity = (): number => {
-    if (!analyser.value || !dataArray.value) return 0
-
-    // @ts-ignore - Web Audio API типизация
-    analyser.value.getByteFrequencyData(dataArray.value)
-
-    // Берём средние и высокие частоты для лучшего эффекта
-    const bass = dataArray.value.slice(0, 10)
-    const mid = dataArray.value.slice(10, 30)
-    const high = dataArray.value.slice(30, 50)
-
-    const avgBass = bass.reduce((a, b) => a + b, 0) / bass.length
-    const avgMid = mid.reduce((a, b) => a + b, 0) / mid.length
-    const avgHigh = high.reduce((a, b) => a + b, 0) / high.length
-
-    // Взвешенное среднее (больше веса басам и серединке)
-    return (avgBass * 1.5 + avgMid * 0.6 + avgHigh * 0.2) / 255
-  }
-
-  // Получить интенсивность низких частот (басов) (0-1) - для размера
-  const getBassIntensity = (): number => {
-    // Если analyser не готов - возвращаем 0 (эквалайзер не работает)
-    if (!analyser.value || !dataArray.value) {
-      return 0
-    }
-
-    try {
-      // @ts-ignore - Web Audio API типизация
-      analyser.value.getByteFrequencyData(dataArray.value)
-
-      // Берём только низкие частоты (басы) - первые 15 бинов
-      const bass = dataArray.value.slice(0, 15)
-      const avgBass = bass.reduce((a, b) => a + b, 0) / bass.length
-
-      // Нормализуем к диапазону 0-1
-      return avgBass / 255
-    } catch (error) {
-      // Если ошибка - возвращаем 0
-      return 0
-    }
-  }
-
   onMounted(() => {
     // Инициализируем при первом взаимодействии пользователя
     const handleFirstInteraction = () => {
@@ -164,9 +112,7 @@ export function useBackgroundMusic(audioPath: string) {
   return {
     isPlaying,
     toggle,
-    stop,
-    getAudioIntensity,
-    getBassIntensity
+    stop
   }
 }
 
