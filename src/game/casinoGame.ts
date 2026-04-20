@@ -23,6 +23,22 @@ const REPAY_MIN_AMOUNT = 1000
 const REPAY_REPUTATION_INTERVAL = 1000
 export const LOG_LIMIT = 20
 
+export const SLOT_WIN_CHANCE = 0.1
+export const SLOT_BASE_MIN_MULTIPLIER = 1.5
+export const SLOT_BASE_MAX_MULTIPLIER = 4.5
+export const SLOT_JACKPOT_SYMBOL = '7️⃣'
+export const SLOT_JACKPOT_MULTIPLIER = 7
+export const SLOT_JACKPOT_CHANCE_ON_WIN = 0.1
+
+export function calculateSlotWinAmount(bet: number, isJackpot = false): number {
+  if (isJackpot) {
+    return Math.floor(bet * SLOT_JACKPOT_MULTIPLIER)
+  }
+
+  const spread = SLOT_BASE_MAX_MULTIPLIER - SLOT_BASE_MIN_MULTIPLIER
+  return Math.floor(bet * (SLOT_BASE_MIN_MULTIPLIER + Math.random() * spread))
+}
+
 // Гибридная система расчета вознаграждения
 // Итог = Гарантировано(70%) + Рандом(30%) + Бонус за высокую репутацию
 //
@@ -86,11 +102,17 @@ export const playCasino: GameAction = (state) => {
   }
 
   state.money -= state.bet
-  const winChance = Math.random()
+  const isWin = Math.random() < SLOT_WIN_CHANCE
 
-  if (winChance < 0.5) {
-    const win = Math.floor(state.bet * (1.5 + Math.random() * 3))
+  if (isWin) {
+    const isJackpot = Math.random() < SLOT_JACKPOT_CHANCE_ON_WIN
+    const win = calculateSlotWinAmount(state.bet, isJackpot)
     state.money += win
+
+    if (isJackpot) {
+      return `ДЖЕКПОТ ${SLOT_JACKPOT_SYMBOL}${SLOT_JACKPOT_SYMBOL}${SLOT_JACKPOT_SYMBOL}! +${win}₽`
+    }
+
     return `Ты вытащил ${win}₽!`
   }
 
