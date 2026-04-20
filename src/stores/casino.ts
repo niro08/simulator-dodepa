@@ -121,10 +121,15 @@ export const useCasinoStore = defineStore('casino', () => {
     }
   }
 
-  function handleSlotResult(result: { isWin: boolean; amount: number }) {
+  function handleSlotResult(result: { isWin: boolean; amount: number; isJackpot?: boolean }) {
     if (result.isWin) {
       money.value += result.amount
-      appendLog(`🎰 Слот-машина: Ты выиграл ${result.amount}₽!`)
+
+      if (result.isJackpot) {
+        appendLog(`🎰 ДЖЕКПОТ 777! Выигрыш: ${result.amount}₽`)
+      } else {
+        appendLog(`🎰 Слот-машина: Ты выиграл ${result.amount}₽!`)
+      }
     } else {
       energy.value += 5
       appendLog('🎰 Слот-машина: Проигрыш... но азарт даёт +5⚡')

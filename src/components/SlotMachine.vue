@@ -75,6 +75,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import {
+  SLOT_WIN_CHANCE,
+  SLOT_JACKPOT_CHANCE_ON_WIN,
+  SLOT_JACKPOT_SYMBOL,
+  calculateSlotWinAmount
+} from '@/game/casinoGame'
 
 const props = defineProps<{
   isVisible: boolean
@@ -86,7 +92,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   'bet-placed': []
-  'spin-result': [result: { isWin: boolean; amount: number }]
+  'spin-result': [result: { isWin: boolean; amount: number; isJackpot?: boolean }]
   'update:bet': [value: number]
 }>()
 
@@ -97,6 +103,7 @@ function onBetInput(event: Event) {
 }
 
 const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '💎', '7️⃣', '🤡']
+const nonJackpotSymbols = symbols.filter((symbol) => symbol !== SLOT_JACKPOT_SYMBOL)
 
 // Определяем высоту символа в зависимости от размера экрана
 const getSymbolHeight = (): number => {
@@ -110,8 +117,8 @@ const isSpinning = ref(false)
 const resultMessage = ref('')
 const resultClass = ref('')
 
-function getRandomSymbol(): string {
-  return symbols[Math.floor(Math.random() * symbols.length)] || '🍒'
+function getRandomSymbol(pool: string[] = symbols): string {
+  return pool[Math.floor(Math.random() * pool.length)] || '🍒'
 }
 
 function getReelSymbols(reelIndex: number): string[] {
@@ -165,12 +172,12 @@ async function spin() {
     return
   }
 
-  // Определяем результат (10% шанс на выигрыш)
-  const isWin = Math.random() < 0.1
+  const isWin = Math.random() < SLOT_WIN_CHANCE
+  const isJackpot = isWin && Math.random() < SLOT_JACKPOT_CHANCE_ON_WIN
 
   // Устанавливаем финальный результат ДО начала анимации
   if (isWin) {
-    const winSymbol = getRandomSymbol()
+    const winSymbol = isJackpot ? SLOT_JACKPOT_SYMBOL : getRandomSymbol(nonJackpotSymbols)
     reels.value = [winSymbol, winSymbol, winSymbol]
   } else {
     const sym1 = getRandomSymbol()
@@ -232,14 +239,22 @@ async function spin() {
 
   // Показываем результат
   if (isWin) {
-    const winAmount = Math.floor(props.bet * (1.5 + Math.random() * 3))
+    const winAmount = calculateSlotWinAmount(props.bet, isJackpot)
+
+    if (isJackpot) {
+      resultMessage.value = `💥 ДЖЕКПОТ 777! +${winAmount}₽`
+      resultClass.value = 'jackpot'
+      emit('spin-result', { isWin: true, amount: winAmount, isJackpot: true })
+      return
+    }
+
     resultMessage.value = `🎉 ВЫИГРЫШ! +${winAmount}₽`
     resultClass.value = 'win'
-    emit('spin-result', { isWin: true, amount: winAmount })
+    emit('spin-result', { isWin: true, amount: winAmount, isJackpot: false })
   } else {
     resultMessage.value = `😔 Не повезло... +5⚡`
     resultClass.value = 'lose'
-    emit('spin-result', { isWin: false, amount: 0 })
+    emit('spin-result', { isWin: false, amount: 0, isJackpot: false })
   }
 
 
@@ -445,6 +460,13 @@ async function spin() {
   background: rgba(16, 185, 129, 0.2);
   border: 2px solid #10b981;
   text-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+}
+
+.result-message .jackpot {
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.2);
+  border: 2px solid #ffd700;
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.9);
 }
 
 .result-message .lose {
