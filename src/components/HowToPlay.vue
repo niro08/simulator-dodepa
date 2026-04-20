@@ -26,23 +26,24 @@
             <h3>🎰 Казино</h3>
             <p><strong>Слот-машина:</strong></p>
             <ul>
-              <li>Минимальная ставка: 50₽</li>
-              <li>При выигрыше: получаешь х1.5-х4.5 от ставки</li>
-              <li>При проигрыше: +5⚡ энергии</li>
+              <li>Минимальная ставка: {{ MIN_BET }}₽</li>
+              <li>При выигрыше: получаешь х{{ SLOT_BASE_MIN_MULTIPLIER }}-х{{ SLOT_BASE_MAX_MULTIPLIER }} от ставки</li>
+              <li>Джекпот 777: редкий выигрыш х{{ SLOT_JACKPOT_MULTIPLIER }}</li>
+              <li>При проигрыше: +{{ SLOT_LOSS_ENERGY_GAIN }}⚡ только при ставке от {{ SLOT_ENERGY_GAIN_MIN_BET }}₽</li>
             </ul>
           </div>
 
           <div class="guide-section">
             <h3>💼 Способы заработка</h3>
-            <p><strong>Подработка (-10⚡, +1❤️):</strong></p>
+            <p><strong>Подработка (-{{ JOB_COST }}⚡, +{{ JOB_REPUTATION_GAIN }}❤️):</strong></p>
             <ul>
-              <li>Честный заработок ~300-600₽</li>
+              <li>Честный заработок ~{{ WORK_REWARD_MIN }}-{{ WORK_REWARD_MAX }}₽</li>
               <li>Повышает репутацию</li>
             </ul>
 
-            <p><strong>Замутить темку (-10⚡, -3❤️):</strong></p>
+            <p><strong>Замутить темку (-{{ SHADY_DEAL_COST }}⚡, -{{ SHADY_DEAL_REPUTATION_LOSS }}❤️):</strong></p>
             <ul>
-              <li>Нечестный заработок ~1400-2800₽</li>
+              <li>Нечестный заработок ~{{ SHADY_DEAL_REWARD_MIN }}-{{ SHADY_DEAL_REWARD_MAX }}₽</li>
               <li>Снижает репутацию</li>
             </ul>
           </div>
@@ -51,25 +52,25 @@
             <h3>👥 Друзья</h3>
             <p><em>"Друзья не банк - занял и можно не отдавать"</em></p>
             <ul>
-              <li><strong>Занять у друга (-5⚡, -1❤️):</strong> ~300-700₽</li>
-              <li><strong>Помочь другу (-5⚡, +1❤️):</strong> повышает репутацию</li>
-              <li>Требуется репутация > 0</li>
+              <li><strong>Занять у друга (-{{ BORROW_COST }}⚡, -{{ BORROW_REPUTATION_LOSS }}❤️):</strong> ~{{ BORROW_REWARD_MIN }}-{{ BORROW_REWARD_MAX }}₽</li>
+              <li><strong>Помочь другу (-{{ HELP_COST }}⚡, +{{ HELP_REPUTATION_GAIN }}❤️):</strong> повышает репутацию</li>
+              <li>Требуется репутация минимум {{ BORROW_MIN_REPUTATION }}❤️</li>
             </ul>
           </div>
 
           <div class="guide-section">
             <h3>🏦 Банк</h3>
-            <p><strong>Взять кредит (-15⚡, -2❤️):</strong></p>
+            <p><strong>Взять кредит (-{{ CREDIT_COST }}⚡, -{{ CREDIT_REPUTATION_LOSS }}❤️):</strong></p>
             <ul>
-              <li>Получаешь ~1000-2200₽</li>
-              <li>Долг увеличивается на 120-130% от суммы</li>
-              <li>Банк откажет если репутация слишком низкая</li>
+              <li>Получаешь ~{{ CREDIT_REWARD_MIN }}-{{ CREDIT_REWARD_MAX }}₽</li>
+              <li>Долг увеличивается на {{ CREDIT_DEBT_PERCENT_MIN }}-{{ CREDIT_DEBT_PERCENT_MAX }}% от суммы</li>
+              <li>Банк откажет при долге выше {{ CREDIT_MAX_DEBT_FOR_NEW_LOAN }}₽</li>
             </ul>
 
             <p><strong>Погасить долг:</strong></p>
             <ul>
-              <li>Минимум 1000₽ за раз</li>
-              <li>За каждые 1000₽ получаешь +1❤️</li>
+              <li>Минимум {{ REPAY_MIN_AMOUNT }}₽ за раз</li>
+              <li>+1❤️ за каждые {{ REPAY_REPUTATION_INTERVAL }}₽ погашения</li>
             </ul>
           </div>
 
@@ -89,6 +90,39 @@
 </template>
 
 <script setup lang="ts">
+import {
+  MIN_BET,
+  JOB_COST,
+  JOB_REPUTATION_GAIN,
+  SHADY_DEAL_COST,
+  SHADY_DEAL_REPUTATION_LOSS,
+  BORROW_COST,
+  BORROW_REPUTATION_LOSS,
+  BORROW_MIN_REPUTATION,
+  CREDIT_COST,
+  CREDIT_REPUTATION_LOSS,
+  CREDIT_MAX_DEBT_FOR_NEW_LOAN,
+  HELP_COST,
+  HELP_REPUTATION_GAIN,
+  REPAY_MIN_AMOUNT,
+  REPAY_REPUTATION_INTERVAL,
+  SLOT_BASE_MIN_MULTIPLIER,
+  SLOT_BASE_MAX_MULTIPLIER,
+  SLOT_LOSS_ENERGY_GAIN,
+  SLOT_ENERGY_GAIN_MIN_BET,
+  SLOT_JACKPOT_MULTIPLIER,
+  WORK_REWARD_MIN,
+  WORK_REWARD_MAX,
+  SHADY_DEAL_REWARD_MIN,
+  SHADY_DEAL_REWARD_MAX,
+  BORROW_REWARD_MIN,
+  BORROW_REWARD_MAX,
+  CREDIT_REWARD_MIN,
+  CREDIT_REWARD_MAX,
+  CREDIT_DEBT_PERCENT_MIN,
+  CREDIT_DEBT_PERCENT_MAX
+} from '@/game/casinoGame'
+
 defineProps<{
   isVisible: boolean
 }>()
