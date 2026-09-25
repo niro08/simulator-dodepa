@@ -110,7 +110,8 @@ body {
 }
 
 /* Buttons */
-button {
+/* Легаси-стили кнопок не трогают компоненты src/components/ui (у них data-ui). Удалить с CD-16. */
+button:not([data-ui]) {
   padding: 0.875rem 1.25rem;
   border-radius: 0.75rem;
   border: none;
@@ -123,40 +124,40 @@ button {
   box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
-button:hover:not(:disabled) {
+button:not([data-ui]):hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
   filter: brightness(1.1);
 }
 
-button:active:not(:disabled) {
+button:not([data-ui]):active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
 }
 
-button:disabled {
+button:not([data-ui]):disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-button.danger {
+button:not([data-ui]).danger {
   background: var(--color-danger);
   box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
 }
 
-button.danger:hover:not(:disabled) {
+button:not([data-ui]).danger:hover:not(:disabled) {
   box-shadow: 0 6px 20px rgba(229, 62, 62, 0.5);
 }
 
-button.success {
+button:not([data-ui]).success {
   background: var(--color-success);
 }
 
-button.warning {
+button:not([data-ui]).warning {
   background: var(--color-warning);
 }
 
-button.info {
+button:not([data-ui]).info {
   background: var(--color-info);
 }
 

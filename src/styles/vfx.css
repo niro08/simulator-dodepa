@@ -1,0 +1,510 @@
+/* ============================================================
+   VFX-пакет на CSS (CD-18, art-bible §5)
+   Правила:
+   - в циклах анимируем только transform / opacity (box-shadow, filter, width — нет);
+   - любое мигание ≤ 2 Гц, полноэкранных вспышек нет (§5.1);
+   - всё движение гаснет в html.calm / [data-calm] и при prefers-reduced-motion,
+     смысл (сумма, штамп, результат) остаётся видимым;
+   - в Изнанке анимации внутри .vitrina ставятся на паузу (tokens.css).
+   Бюджет: ≤ 12 постоянных свечений на экране, ≤ 2 бесконечных «дышащих» свечения
+   на крупных элементах, ≤ 30 частиц на эффект.
+
+   Классы:
+   .fx-glow[--cyan|--gold|--win]   неоновая трубка-обводка + «дыхание» ::after (3 с)
+   .fx-text-neon / .fx-text-gold   неоновый / золотой тиснёный текст
+   .fx-pulse                        пульс CTA 1.2 с (scale 1→1.04 + свечение ::after)
+   .fx-shimmer                      блик-полоса раз в 4.5 с (::after, translateX)
+   .fx-sway                         покачивание ±3° (бейдж HOT)
+   .fx-spin-slow                    вращение 12 с/оборот (звезда NEW!)
+   .fx-rays                         лучи conic-gradient, 30 с/оборот
+   .fx-float                        парение ±6px за 4 с
+   .fx-lamp (+ .fx-lamps--idle|spin|win|off)  лампочки рамки, --i = индекс
+   .fx-reel-window / .fx-reel-blur  стекло барабана / блюр полосы на время спина
+   .fx-pop                          поп символа 2 × 400 мс
+   .fx-near-miss                    золотая рамка-пульс 2 раза, 1.5 Гц
+   .fx-payline                      прорисовка SVG-линии выплат 300 мс
+   .fx-shake                        шейк корпуса 400 мс (джекпот)
+   .fx-jitter                       дрожание ±1px 2 раза (danger hover / проигрыш)
+   .fx-flash                        одна золотая вспышка 250 мс внутри контейнера
+   .fx-stamp-in                     «шлёп» штампа 180 мс
+   .fx-print                        печать строки выписки (--i = номер строки, 60 мс/строка)
+   .fx-toast-in / .fx-modal-in / .fx-sheet-in / .fx-paper-in   появления
+   .fx-conic-border                 вращающаяся conic-рамка модалки (8 с)
+   .fx-live-dot                     точка LIVE, 1 Гц
+   .fx-hourglass                    бесконечно вращающиеся ⏳ (шутка «вывод на рассмотрении»)
+   .fx-vignette                     тильт-виньетка ≥ 70, пульс 0.5 Гц
+   .fx-particles > .fx-particle     частицы (монеты/конфетти), см. ParticleBurst.vue
+   ============================================================ */
+
+/* ---------- 1. Неоновое свечение ---------- */
+.fx-glow {
+  position: relative;
+  border: var(--border-w) solid var(--c-line-neon);
+  box-shadow: var(--glow-1);
+  --fx-glow: var(--glow-1);
+}
+.fx-glow--cyan { border-color: var(--c-accent-2); box-shadow: var(--glow-2); --fx-glow: var(--glow-2); }
+.fx-glow--gold { border-color: var(--c-gold); box-shadow: var(--glow-gold); --fx-glow: var(--glow-gold); }
+.fx-glow--win { border-color: var(--c-win); box-shadow: var(--glow-win); --fx-glow: var(--glow-win); }
+/* «Дыхание»: анимируем opacity псевдоэлемента со свечением, не box-shadow */
+.fx-glow--breathe::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--border-w) * -1);
+  border-radius: inherit;
+  box-shadow: var(--fx-glow);
+  pointer-events: none;
+  animation: fx-breathe 3s ease-in-out infinite;
+}
+@keyframes fx-breathe {
+  0%, 100% { opacity: .8; }
+  50% { opacity: 0; }
+}
+
+.fx-text-neon {
+  color: var(--c-text);
+  text-shadow: var(--tshadow-neon);
+}
+.fx-text-gold {
+  background: var(--gold-emboss);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(122, 74, 0, .9));
+}
+[data-theme="monday"] .fx-text-gold,
+[data-layer="iznanka"] .fx-text-gold { filter: none; }
+
+/* ---------- 2. Пульс CTA (0.83 Гц) ---------- */
+.fx-pulse {
+  position: relative;
+  animation: var(--pulse-name, fx-cta-pulse) var(--t-pulse) ease-in-out infinite;
+}
+.fx-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--glow-gold);
+  opacity: 0;
+  pointer-events: none;
+  animation: fx-cta-pulse-glow var(--t-pulse) ease-in-out infinite;
+}
+@keyframes fx-cta-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes fx-cta-pulse-glow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: .6; }
+}
+[data-theme="monday"] .fx-pulse,
+[data-theme="monday"] .fx-pulse::after { animation: none; }
+
+/* ---------- 21. Блик (hot-CTA, ribbon ×200%) ---------- */
+.fx-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.fx-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, .45) 50%, transparent 100%);
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+  animation: fx-shimmer 4.5s ease-in-out infinite;
+  animation-delay: var(--fx-delay, 0s);
+}
+@keyframes fx-shimmer {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  13%, 100% { transform: translateX(350%) skewX(-20deg); }   /* 600 мс из 4.5 с */
+}
+[data-theme="monday"] .fx-shimmer::after { display: none; }
+
+/* ---------- Мелкие циклы бейджей и декора ---------- */
+.fx-sway { animation: fx-sway 1.6s ease-in-out infinite; }
+@keyframes fx-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+.fx-spin-slow { animation: fx-spin 12s linear infinite; }
+.fx-hourglass { display: inline-block; animation: fx-spin 2s linear infinite; }
+@keyframes fx-spin { to { transform: rotate(360deg); } }
+
+.fx-float { animation: fx-float 4s ease-in-out infinite; }
+@keyframes fx-float {
+  0%, 100% { transform: translateY(-6px); }
+  50% { transform: translateY(6px); }
+}
+
+.fx-rays {
+  position: absolute;
+  inset: -50%;
+  background: repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(255, 196, 61, .08) 0deg 15deg, transparent 15deg 30deg);   /* 12 лучей */
+  animation: fx-spin 30s linear infinite;
+  pointer-events: none;
+}
+
+.fx-live-dot {
+  display: inline-block;
+  width: .6em; height: .6em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: fx-live 1s steps(1, end) infinite;   /* 1 Гц, opacity 1 → .4 */
+}
+@keyframes fx-live {
+  0% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+/* ---------- 3. Лампочки рамки слота ---------- */
+.fx-lamp {
+  --i: 0;
+  position: relative;
+  display: block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--lamp-off);
+  flex: none;
+}
+.fx-lamp::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff 0 18%, var(--lamp-on) 45%);
+  box-shadow: 0 0 6px var(--lamp-on);
+  opacity: 1;
+}
+.fx-lamp:nth-child(3n)::after {
+  background: radial-gradient(circle at 35% 35%, #fff 0 18%, var(--lamp-on-2) 45%);
+  box-shadow: 0 0 6px var(--lamp-on-2);
+}
+/* idle — медленная волна 3 с */
+.fx-lamps--idle .fx-lamp::after {
+  animation: fx-lamp-wave 3s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 90ms);
+}
+/* spin — бег по кругу: период каждой лампы 1 с (1 Гц), шаг 90 мс */
+.fx-lamps--spin .fx-lamp::after {
+  animation: fx-lamp-run 1s linear infinite;
+  animation-delay: calc(var(--i) * -90ms);
+}
+/* win — все горят + 2 синхронных мигания по 600 мс (1.67 Гц) */
+.fx-lamps--win .fx-lamp::after {
+  animation: fx-lamp-win 600ms ease-in-out 2;
+}
+.fx-lamps--off .fx-lamp::after { opacity: 0; }
+@keyframes fx-lamp-wave {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
+}
+@keyframes fx-lamp-run {
+  0%, 40% { opacity: 1; }
+  50%, 90% { opacity: .15; }
+  100% { opacity: 1; }
+}
+@keyframes fx-lamp-win {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .2; }
+}
+
+/* ---------- 7. Барабаны ---------- */
+.fx-reel-window {
+  background: var(--reel-bg);
+  box-shadow: var(--shadow-inset-reel);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 25%, #000 75%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 25%, #000 75%, transparent 100%);
+}
+/* Включается/выключается классом на 10%…85% длительности спина (не анимируется) */
+.fx-reel-blur { filter: blur(2px); }
+
+/* 9. Поп символов на линии */
+.fx-pop { animation: fx-pop 400ms var(--ease-out) 2; }
+@keyframes fx-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* 12. Near-miss: 2 пульса золотой рамки, 1.5 Гц */
+.fx-near-miss { position: relative; }
+.fx-near-miss::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--c-gold);
+  border-radius: inherit;
+  box-shadow: var(--glow-gold);
+  pointer-events: none;
+  opacity: 1;
+  animation: fx-near-miss 667ms ease-in-out 2;
+}
+@keyframes fx-near-miss {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .2; }
+}
+
+/* 8. Линия выплат (SVG path/line с pathLength="1") */
+.fx-payline {
+  stroke: var(--c-win);
+  stroke-width: 4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: fx-payline 300ms var(--ease-out) both;
+}
+@keyframes fx-payline { from { stroke-dashoffset: 1; } }
+
+/* ---------- 13. Джекпот: шейк + одна вспышка внутри корпуса ---------- */
+.fx-shake { animation: fx-shake 400ms linear 1; }
+@keyframes fx-shake {
+  0%, 100% { transform: translateX(0); }
+  16% { transform: translateX(-6px); }
+  33% { transform: translateX(6px); }
+  50% { transform: translateX(-5px); }
+  66% { transform: translateX(4px); }
+  83% { transform: translateX(-2px); }
+}
+.fx-jitter { animation: fx-jitter 240ms linear 1; }
+@keyframes fx-jitter {
+  0%, 50%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+/* Контейнер должен быть position: relative; вспышка не выходит за его границы */
+.fx-flash { position: relative; isolation: isolate; }
+.fx-flash::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 232, 154, 1), rgba(255, 196, 61, .6) 60%, transparent 100%);
+  opacity: 0;
+  pointer-events: none;
+  animation: fx-flash 250ms ease-out 1;
+}
+@keyframes fx-flash {
+  0%, 100% { opacity: 0; }
+  30% { opacity: .35; }   /* max .35 по §5 */
+}
+
+/* ---------- 14. Штамп «шлёп» ---------- */
+.fx-stamp-in { animation: fx-stamp 180ms var(--ease-stamp) 1 both; }
+@keyframes fx-stamp {
+  from { transform: rotate(var(--stamp-rot, -8deg)) scale(1.6); opacity: 0; }
+  to { transform: rotate(var(--stamp-rot, -8deg)) scale(1); opacity: .9; }
+}
+
+/* 15. Печать выписки */
+.fx-print {
+  animation: fx-print 120ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes fx-print {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+/* ---------- Появления ---------- */
+.fx-toast-in { animation: fx-toast-in var(--t-base) var(--ease-out) both; }
+@keyframes fx-toast-in { from { opacity: 0; transform: translateX(24px); } }
+.fx-modal-in { animation: fx-modal-in var(--t-base) var(--ease-out) both; }
+@keyframes fx-modal-in { from { opacity: 0; transform: scale(.92); } }
+.fx-sheet-in { animation: fx-sheet-in var(--t-base) var(--ease-out) both; }
+@keyframes fx-sheet-in { from { opacity: 0; transform: translateY(24px); } }
+.fx-paper-in { animation: fx-paper-in var(--t-base) var(--ease-out) both; }
+@keyframes fx-paper-in { from { opacity: 0; transform: translateY(12px); } }
+.fx-fade-in { animation: honest-in var(--t-base) linear both; }
+
+/* 20. Рамка неоновой модалки: conic-кольцо вращается 8 с.
+   Кольцо рисуется псевдоэлементом внутри скруглённой маски (padding-box фон сверху). */
+.fx-conic-border {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.fx-conic-border::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: 50%; top: 50%;
+  width: 200vmax; height: 200vmax;
+  margin: -100vmax 0 0 -100vmax;
+  background: conic-gradient(var(--neon-magenta), var(--neon-cyan), var(--gold), var(--neon-magenta));
+  animation: fx-spin 8s linear infinite;
+}
+.fx-conic-border::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 2px;
+  border-radius: calc(var(--r-lg) - 2px);
+  background: var(--c-panel);
+}
+[data-theme="monday"] .fx-conic-border::before,
+[data-theme="stream"] .fx-conic-border::before { background: var(--c-line-neon); animation: none; }
+[data-theme="mirror47"] .fx-conic-border::before { background: var(--c-line); animation: none; }
+
+/* 17. Тильт-виньетка (fixed, не мигает: 0.5 Гц, max .25) */
+.fx-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-vfx);
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, var(--tilt-vignette) 100%);
+  animation: fx-vignette 2s ease-in-out infinite;
+}
+@keyframes fx-vignette {
+  0%, 100% { opacity: .6; }
+  50% { opacity: 1; }
+}
+
+/* ---------- 10/19. Частицы: монеты, конфетти, семечки ---------- */
+.fx-particles {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-vfx);
+  pointer-events: none;
+  overflow: visible;
+  contain: layout style;
+}
+.fx-particle {
+  --dx: 0px;          /* горизонтальный разлёт */
+  --dy: -120px;       /* высота дуги (отрицательная — вверх) */
+  --fall: 160px;      /* падение под «гравитацией» */
+  --rot: 360deg;
+  --delay: 0ms;
+  --dur: 900ms;
+  position: absolute;
+  left: var(--x0, 50%);
+  top: var(--y0, 50%);
+  font-family: var(--font-emoji);
+  font-size: var(--size, 22px);
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: fx-particle var(--dur) cubic-bezier(.25, .6, .45, 1) var(--delay) 1 both;
+}
+.fx-particle--confetti {
+  width: 8px; height: 12px;
+  border-radius: 2px;
+  background: var(--color, var(--c-accent-1));
+}
+@keyframes fx-particle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4) rotate(0); }
+  10%  { opacity: 1; }
+  45%  { transform: translate(calc(-50% + var(--dx) * .6), calc(-50% + var(--dy))) scale(1) rotate(calc(var(--rot) * .5)); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + var(--fall))) scale(.9) rotate(var(--rot)); }
+}
+
+/* ============================================================
+   СПОКОЙНЫЙ РЕЖИМ: гасим движение явно, чтобы конечное состояние было осмысленным
+   (универсальное правило в tokens.css лишь укорачивает анимации до 1 мс).
+   Смысл остаётся: штамп стоит, линия выплат нарисована, лампы горят ровно.
+   ============================================================ */
+.calm .fx-pulse,
+.calm .fx-pulse::after,
+.calm .fx-glow--breathe::after,
+.calm .fx-shimmer::after,
+.calm .fx-sway,
+.calm .fx-spin-slow,
+.calm .fx-hourglass,
+.calm .fx-float,
+.calm .fx-rays,
+.calm .fx-live-dot,
+.calm .fx-shake,
+.calm .fx-jitter,
+.calm .fx-pop,
+.calm .fx-conic-border::before,
+.calm .fx-vignette,
+.calm .fx-toast-in,
+.calm .fx-modal-in,
+.calm .fx-sheet-in,
+.calm .fx-paper-in,
+.calm .fx-print,
+.calm .fx-payline {
+  animation: none !important;
+}
+.calm .fx-shimmer::after,
+.calm .fx-flash::before,
+.calm .fx-particles { display: none; }
+.calm .fx-lamp::after { animation: none !important; opacity: .7; }   /* лампы горят ровно на 70% */
+.calm .fx-lamps--off .fx-lamp::after { opacity: 0; }
+.calm .fx-near-miss::after { animation: none !important; opacity: 1; }  /* статичная рамка */
+.calm .fx-stamp-in { animation: none !important; transform: rotate(var(--stamp-rot, -8deg)); opacity: .9; }
+.calm .fx-reel-blur { filter: none; }
+.calm .fx-vignette { opacity: .6; }
+
+[data-calm] .fx-pulse,
+[data-calm] .fx-pulse::after,
+[data-calm] .fx-glow--breathe::after,
+[data-calm] .fx-shimmer::after,
+[data-calm] .fx-sway,
+[data-calm] .fx-spin-slow,
+[data-calm] .fx-hourglass,
+[data-calm] .fx-float,
+[data-calm] .fx-rays,
+[data-calm] .fx-live-dot,
+[data-calm] .fx-shake,
+[data-calm] .fx-jitter,
+[data-calm] .fx-pop,
+[data-calm] .fx-conic-border::before,
+[data-calm] .fx-vignette,
+[data-calm] .fx-toast-in,
+[data-calm] .fx-modal-in,
+[data-calm] .fx-sheet-in,
+[data-calm] .fx-paper-in,
+[data-calm] .fx-print,
+[data-calm] .fx-payline {
+  animation: none !important;
+}
+[data-calm] .fx-shimmer::after,
+[data-calm] .fx-flash::before,
+[data-calm] .fx-particles { display: none; }
+[data-calm] .fx-lamp::after { animation: none !important; opacity: .7; }   /* лампы горят ровно на 70% */
+[data-calm] .fx-lamps--off .fx-lamp::after { opacity: 0; }
+[data-calm] .fx-near-miss::after { animation: none !important; opacity: 1; }  /* статичная рамка */
+[data-calm] .fx-stamp-in { animation: none !important; transform: rotate(var(--stamp-rot, -8deg)); opacity: .9; }
+[data-calm] .fx-reel-blur { filter: none; }
+[data-calm] .fx-vignette { opacity: .6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-pulse,
+  .fx-pulse::after,
+  .fx-glow--breathe::after,
+  .fx-shimmer::after,
+  .fx-sway,
+  .fx-spin-slow,
+  .fx-hourglass,
+  .fx-float,
+  .fx-rays,
+  .fx-live-dot,
+  .fx-shake,
+  .fx-jitter,
+  .fx-pop,
+  .fx-conic-border::before,
+  .fx-vignette,
+  .fx-toast-in,
+  .fx-modal-in,
+  .fx-sheet-in,
+  .fx-paper-in,
+  .fx-print,
+  .fx-payline {
+    animation: none !important;
+  }
+  .fx-shimmer::after,
+  .fx-flash::before,
+  .fx-particles { display: none; }
+  .fx-lamp::after { animation: none !important; opacity: .7; }   /* лампы горят ровно на 70% */
+  .fx-lamps--off .fx-lamp::after { opacity: 0; }
+  .fx-near-miss::after { animation: none !important; opacity: 1; }  /* статичная рамка */
+  .fx-stamp-in { animation: none !important; transform: rotate(var(--stamp-rot, -8deg)); opacity: .9; }
+  .fx-reel-blur { filter: none; }
+  .fx-vignette { opacity: .6; }
+}
