@@ -10,11 +10,11 @@
           <div class="slot-stats">
             <div class="stat-item">
               <span class="stat-label">Баланс:</span>
-              <span class="stat-value">{{ money }} ₽</span>
+              <span class="stat-value">{{ game.view.money }} ₽</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Энергия:</span>
-              <span class="stat-value">⚡ {{ energy }}</span>
+              <span class="stat-value">⚡ {{ game.view.energy }}</span>
             </div>
           </div>
 
@@ -23,23 +23,20 @@
             <input
               id="bet-amount"
               type="number"
-              :value="bet"
-              min="50"
-              step="50"
+              :value="betDraft"
+              :min="minBet"
+              :step="minBet"
               @input="onBetInput"
+              @change="commitBet"
               :disabled="isSpinning"
             />
           </div>
 
           <div class="slot-display">
-            <div class="slot-reel" v-for="(_, index) in reels" :key="index">
-              <div
-                class="reel-symbols"
-                :class="{ spinning: isSpinning }"
-                :style="{ transform: `translateY(${reelPositions[index]}px)` }"
-              >
-                <div v-for="(symbol, idx) in getReelSymbols(index)" :key="idx" class="symbol">
-                  {{ symbol }}
+            <div class="slot-reel" v-for="(strip, index) in strips" :key="index" ref="reelEls">
+              <div class="reel-symbols" :style="reelStyles[index]">
+                <div v-for="(symbol, idx) in strip" :key="idx" class="symbol">
+                  {{ SYMBOL_EMOJI[symbol] }}
                 </div>
               </div>
             </div>
@@ -57,15 +54,14 @@
 
           <button
             class="spin-button"
-            :disabled="isSpinning || money < bet || bet < 50"
+            :disabled="isSpinning || !!spinBlock"
             @click="spin"
           >
             <span v-if="isSpinning">Крутим...</span>
             <span v-else>🎲 КРУТИТЬ</span>
           </button>
 
-          <p v-if="bet < 50 && bet > 0" class="warning-text">⚠️ Минимальная ставка — 50₽</p>
-          <p v-else-if="money < bet" class="warning-text">❌ Недостаточно денег для ставки</p>
+          <p v-if="spinBlock && !isSpinning" class="warning-text">{{ rejectionText(spinBlock) }}</p>
           <p v-else class="warning-text-placeholder">&nbsp;</p>
         </div>
       </div>
@@ -74,72 +70,111 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import {
-  SLOT_WIN_CHANCE,
-  SLOT_JACKPOT_CHANCE_ON_WIN,
-  SLOT_JACKPOT_SYMBOL,
-  calculateSlotWinAmount
-} from '@/game/casinoGame'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { canExecute, type Rejection, type SymbolId } from '@/game'
+import { useGameStore } from '@/stores/game'
+import { eventTone, formatRejection, formatSpinBanner } from '@/i18n'
+import { SYMBOL_EMOJI } from '@/skins/classic'
 
-const props = defineProps<{
+defineProps<{
   isVisible: boolean
-  bet: number
-  money: number
-  energy: number
 }>()
 
 const emit = defineEmits<{
   close: []
-  'bet-placed': []
-  'spin-result': [result: { isWin: boolean; amount: number; isJackpot?: boolean }]
-  'update:bet': [value: number]
 }>()
 
+const game = useGameStore()
+const { symbols } = game.config.slot
+const { reelBaseMs, reelStaggerMs, revealDelayMs } = game.config.slot.timing
+const minBet = game.config.balance.limits.minBet
+// Сколько символов пролетает между стартовым и итоговым (визуал, на исход не влияет)
+const FILLER_SYMBOLS = 20
+
+// ─── Ставка: черновик ввода, в стор — на change/blur (TD-09) ───
+const betDraft = ref<number>(game.view.bet)
+watch(() => game.view.bet, (value) => (betDraft.value = value))
+
 function onBetInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const value = Number(target.value)
-  emit('update:bet', value)
+  betDraft.value = Number((event.target as HTMLInputElement).value)
 }
 
-const symbols = ['🍒', '🍋', '🍊', '🍉', '⭐', '💎', '7️⃣', '🤡']
-const nonJackpotSymbols = symbols.filter((symbol) => symbol !== SLOT_JACKPOT_SYMBOL)
-
-// Определяем высоту символа в зависимости от размера экрана
-const getSymbolHeight = (): number => {
-  return window.innerWidth <= 640 ? 70 : 80
+function commitBet() {
+  if (betDraft.value !== game.view.bet) game.setBet(betDraft.value)
+  betDraft.value = game.view.bet
 }
 
-const reels = ref<string[]>(['🍒', '🍋', '🍊'])
-// Начальная позиция - показываем первый символ (индекс 0) по центру барабана
-const reelPositions = ref<number[]>([0, 0, 0])
+// Доступность спина — предикат ядра на состоянии с черновой ставкой
+const spinBlock = computed<Rejection | null>(() => {
+  if (!game.run) return null
+  const bet = Number.isFinite(betDraft.value) ? Math.floor(betDraft.value) : 0
+  return canExecute({ ...game.run, bet }, { type: 'slot/spin' }, game.config)
+})
+
+function rejectionText(rejection: Rejection): string {
+  const icon = rejection.reason === 'betTooLow' ? '⚠️' : '❌'
+  return `${icon} ${formatRejection('slot/spin', rejection)}`
+}
+
+// ─── Барабаны: лента считается один раз на спин, анимация — CSS transition (TD-14) ───
+const strips = ref<SymbolId[][]>([['cherry'], ['lemon'], ['orange']])
+const offsets = ref<number[]>([0, 0, 0])
+const durations = ref<number[]>([0, 0, 0])
+const reelEls = ref<HTMLElement[]>([])
+
+const reelStyles = computed(() =>
+  offsets.value.map((y, i) => ({
+    transform: `translateY(${y}px)`,
+    transition: durations.value[i] ? `transform ${durations.value[i]}ms cubic-bezier(0.33, 1, 0.68, 1)` : 'none'
+  }))
+)
+
 const isSpinning = ref(false)
 const resultMessage = ref('')
 const resultClass = ref('')
 
-function getRandomSymbol(pool: string[] = symbols): string {
-  return pool[Math.floor(Math.random() * pool.length)] || '🍒'
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
-function getReelSymbols(reelIndex: number): string[] {
-  const finalSymbol = reels.value[reelIndex] || '🍒'
+// Высота символа — из вёрстки (токен --reel-size), а не из ширины окна
+function symbolHeight(): number {
+  return reelEls.value[0]?.querySelector('.symbol')?.getBoundingClientRect().height || 80
+}
 
-  // Создаём массив для прокрутки
-  const result: string[] = []
+// Лента начинается с символа, видимого до спина: итог не спойлерится (B-10)
+function buildStrip(from: SymbolId, to: SymbolId, reelIndex: number): SymbolId[] {
+  const filler = Array.from({ length: FILLER_SYMBOLS }, (_, i) => symbols[(i + reelIndex) % symbols.length] ?? to)
+  return [from, ...filler, to]
+}
 
-  // Начинаем с финального символа (он будет виден до кручения)
-  result.push(finalSymbol)
-
-  // Добавляем несколько циклов всех символов для эффекта прокрутки
-  for (let i = 0; i < 20; i++) {
-    const symbol = symbols[i % symbols.length]
-    if (symbol) result.push(symbol)
+async function animateReels(target: readonly SymbolId[]): Promise<boolean> {
+  const current = strips.value.map((strip) => strip[strip.length - 1] ?? 'cherry')
+  if (game.settings.skipSpinAnimation || game.settings.reducedMotion || prefersReducedMotion()) {
+    strips.value = target.map((symbol) => [symbol])
+    return false
   }
 
-  // В конце снова добавляем финальный символ - на нём остановится барабан
-  result.push(finalSymbol)
+  strips.value = target.map((to, i) => buildStrip(current[i] ?? to, to, i))
+  durations.value = [0, 0, 0]
+  offsets.value = [0, 0, 0]
+  await nextTick()
+  await nextFrame()
 
-  return result
+  const height = symbolHeight()
+  const times = target.map((_, i) => reelBaseMs + i * reelStaggerMs)
+  durations.value = times
+  offsets.value = strips.value.map((strip) => -(strip.length - 1) * height)
+  await delay(Math.max(...times))
+
+  // Схлопываем ленту до итогового символа
+  durations.value = [0, 0, 0]
+  offsets.value = [0, 0, 0]
+  strips.value = target.map((symbol) => [symbol])
+  return true
 }
 
 function close() {
@@ -154,112 +189,34 @@ function handleOverlayClick() {
 
 async function spin() {
   if (isSpinning.value) return
+  commitBet()
 
   resultMessage.value = ''
   resultClass.value = ''
 
-  // Валидация минимальной ставки
-  if (props.bet < 50) {
-    resultMessage.value = '⚠️ Минимальная ставка — 50₽'
-    resultClass.value = 'warning'
+  // Исход считает ядро; стор уже применил и сохранил его (ADR-001)
+  const outcome = game.spin()
+  if (!outcome) return
+  if (!outcome.spin) {
+    resultMessage.value = rejectionText(outcome.rejection)
+    resultClass.value = outcome.rejection.reason === 'betTooLow' ? 'warning' : 'error'
     return
   }
 
-  // Проверка баланса
-  if (props.money < props.bet) {
-    resultMessage.value = '❌ Недостаточно денег для ставки'
-    resultClass.value = 'error'
-    return
-  }
-
-  const isWin = Math.random() < SLOT_WIN_CHANCE
-  const isJackpot = isWin && Math.random() < SLOT_JACKPOT_CHANCE_ON_WIN
-
-  // Устанавливаем финальный результат ДО начала анимации
-  if (isWin) {
-    const winSymbol = isJackpot ? SLOT_JACKPOT_SYMBOL : getRandomSymbol(nonJackpotSymbols)
-    reels.value = [winSymbol, winSymbol, winSymbol]
-  } else {
-    const sym1 = getRandomSymbol()
-    let sym2 = getRandomSymbol()
-    let sym3 = getRandomSymbol()
-
-    while (sym1 === sym2 && sym2 === sym3) {
-      sym3 = getRandomSymbol()
-    }
-
-    reels.value = [sym1, sym2, sym3]
-  }
-
-  // Снимаем ставку перед началом анимации
-  emit('bet-placed')
-
-  // Теперь начинаем анимацию
   isSpinning.value = true
-
-  // Анимация вращения каждого барабана
-  const spinPromises = reels.value.map((finalSymbol, reelIndex) => {
-    return new Promise<void>((resolve) => {
-      const spinTime = 2000 + reelIndex * 300
-      const startTime = Date.now()
-      const SYMBOL_HEIGHT = getSymbolHeight()
-
-      // Начальная позиция - 0 (первый символ - финальный)
-      // Финальная позиция - последний символ в массиве (индекс 21, так как добавили символ в начало и конец)
-      const startPosition = 0
-      const finalPosition = -SYMBOL_HEIGHT * 21
-
-      const animate = () => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / spinTime, 1)
-
-        if (progress < 1) {
-          // Плавная прокрутка с замедлением в конце
-          const easeOut = 1 - Math.pow(1 - progress, 3)
-          reelPositions.value[reelIndex] = startPosition + (finalPosition - startPosition) * easeOut
-          requestAnimationFrame(animate)
-        } else {
-          // Устанавливаем финальную позицию
-          reelPositions.value[reelIndex] = finalPosition
-          resolve()
-        }
-      }
-
-      // Сбрасываем позицию в начало перед анимацией
-      reelPositions.value[reelIndex] = startPosition
-      animate()
-    })
-  })
-
-  await Promise.all(spinPromises)
+  const animated = await animateReels(outcome.spin.reels)
   isSpinning.value = false
 
   // Задержка перед показом результата
-  await new Promise(resolve => setTimeout(resolve, 300))
+  if (animated) await delay(revealDelayMs)
 
-  // Показываем результат
-  if (isWin) {
-    const winAmount = calculateSlotWinAmount(props.bet, isJackpot)
-
-    if (isJackpot) {
-      resultMessage.value = `💥 ДЖЕКПОТ 777! +${winAmount}₽`
-      resultClass.value = 'jackpot'
-      emit('spin-result', { isWin: true, amount: winAmount, isJackpot: true })
-      return
-    }
-
-    resultMessage.value = `🎉 ВЫИГРЫШ! +${winAmount}₽`
-    resultClass.value = 'win'
-    emit('spin-result', { isWin: true, amount: winAmount, isJackpot: false })
-  } else {
-    resultMessage.value = `😔 Не повезло... +5⚡`
-    resultClass.value = 'lose'
-    emit('spin-result', { isWin: false, amount: 0, isJackpot: false })
-  }
-
-
-
+  resultMessage.value = formatSpinBanner(outcome.spin)
+  resultClass.value = eventTone(outcome.spin)
+  game.revealPending()
 }
+
+// Если компонент исчез посреди спина — результат всё равно показываем
+onBeforeUnmount(() => game.revealPending())
 </script>
 
 <style scoped>
@@ -407,8 +364,8 @@ async function spin() {
 
 .slot-reel {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: var(--reel-size);
+  height: var(--reel-size);
   background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
   border-radius: 0.75rem;
   overflow: hidden;
@@ -425,8 +382,8 @@ async function spin() {
 }
 
 .symbol {
-  width: 80px;
-  height: 80px;
+  width: var(--reel-size);
+  height: var(--reel-size);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -596,16 +553,9 @@ async function spin() {
     gap: 0.5rem;
   }
 
-  .slot-reel {
-    width: 70px;
-    height: 70px;
-  }
-
   .symbol {
-    width: 70px;
-    height: 70px;
     font-size: 2.5rem;
-    line-height: 70px;
+    line-height: var(--reel-size);
   }
 
   .slot-title {

@@ -4,33 +4,37 @@
       <h2>Друзья</h2>
       <p class="muted">Друзья не банк - занял и можно не отдавать</p>
     </header>
-    <p>⚡ Энергия: {{ energy }} | ❤️ Репутация: {{ reputation }}</p>
+    <p>⚡ Энергия: {{ game.view.energy }} | ❤️ Репутация: {{ game.view.reputation }}</p>
     <div class="button-with-warning">
-      <button @click="$emit('borrow-money')" :disabled="reputation <= 0 || energy < BORROW_COST">
-        🤝 Занять у друга (-{{ BORROW_COST }}⚡, -1❤️)
+      <button @click="game.execute({ type: 'friends/borrow' })" :disabled="!!borrowBlock">
+        🤝 Занять у друга (-{{ borrow.energyCost }}⚡, {{ signed(borrow.reputationDelta) }}❤️)
       </button>
       <div class="warnings-container">
-        <p v-if="reputation <= 0" class="warning-text">⚠️ Тебе больше никто не доверяет</p>
-        <p v-if="energy < BORROW_COST" class="warning-text">⚠️ Нет сил выпросить деньги</p>
-        <p v-if="reputation > 0 && energy >= BORROW_COST" class="warning-text-placeholder">&nbsp;</p>
+        <p v-if="borrowBlock" class="warning-text">⚠️ {{ formatRejection('friends/borrow', borrowBlock) }}</p>
+        <p v-else class="warning-text-placeholder">&nbsp;</p>
       </div>
     </div>
 
     <div class="button-with-warning">
-      <button @click="$emit('help-friend')" :disabled="energy < HELP_COST">
-        ✨ Помочь другу (-{{ HELP_COST }}⚡, +1❤️)
+      <button @click="game.execute({ type: 'friends/help' })" :disabled="!!helpBlock">
+        ✨ Помочь другу (-{{ help.energyCost }}⚡, {{ signed(help.reputationDelta) }}❤️)
       </button>
-      <p v-if="energy < HELP_COST" class="warning-text">⚠️ Нет энергии, чтобы помогать</p>
+      <p v-if="helpBlock" class="warning-text">⚠️ {{ formatRejection('friends/help', helpBlock) }}</p>
       <p v-else class="warning-text-placeholder">&nbsp;</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-defineProps<{ energy: number; reputation: number }>()
+import { computed } from 'vue'
+import { useGameStore } from '@/stores/game'
+import { formatRejection, signed } from '@/i18n'
 
-const BORROW_COST = 5
-const HELP_COST = 5
+const game = useGameStore()
+const { borrow, help } = game.config.balance.friends
+
+const borrowBlock = computed(() => game.canExecute({ type: 'friends/borrow' }))
+const helpBlock = computed(() => game.canExecute({ type: 'friends/help' }))
 </script>
 
 <style scoped>

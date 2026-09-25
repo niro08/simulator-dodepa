@@ -135,6 +135,8 @@ function generateSnowflakes() {
 
 
 function startTransition(isNewGame: boolean) {
+  // Повторный клик во время перехода игнорируем (B-12)
+  if (isTransitioning.value) return
   isTransitioning.value = true
 
   // Останавливаем основную музыку

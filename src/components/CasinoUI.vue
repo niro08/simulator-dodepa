@@ -7,19 +7,19 @@
     <section class="casino-stats">
       <div class="stat-card">
         <p class="label">Деньги</p>
-        <p class="value">{{ stats.money }} ₽</p>
+        <p class="value">{{ game.view.money }} ₽</p>
       </div>
       <div class="stat-card">
         <p class="label">Энергия</p>
-        <p class="value">⚡ {{ stats.energy }}</p>
+        <p class="value">⚡ {{ game.view.energy }}</p>
       </div>
       <div class="stat-card">
         <p class="label">Репутация</p>
-        <p class="value">❤️ {{ stats.reputation }}</p>
+        <p class="value">❤️ {{ game.view.reputation }}</p>
       </div>
       <div class="stat-card">
         <p class="label">Долг</p>
-        <p class="value">💳 {{ stats.debt }} ₽</p>
+        <p class="value">💳 {{ game.view.debt }} ₽</p>
       </div>
     </section>
 
@@ -27,77 +27,37 @@
       <button @click="openSlotMachine" class="btn-play">🎰 Слот-машина</button>
     </div>
 
-    <SlotMachine
-      :is-visible="isSlotVisible"
-      :bet="stats.bet"
-      :money="stats.money"
-      :energy="stats.energy"
-      @close="closeSlotMachine"
-      @bet-placed="$emit('bet-placed')"
-      @spin-result="$emit('spin-result', $event)"
-      @update:bet="$emit('update:bet', $event)"
-    />
+    <SlotMachine :is-visible="isSlotVisible" @close="closeSlotMachine" />
 
     <div class="panels-grid">
-      <WorkPanel
-        :energy="stats.energy"
-        :reputation="stats.reputation"
-        @work-job="$emit('work-job')"
-        @shady-deal="$emit('shady-deal')"
-      />
-      <BankPanel
-        :money="stats.money"
-        :debt="stats.debt"
-        :energy="stats.energy"
-        :reputation="stats.reputation"
-        @take-credit="$emit('take-credit')"
-        @repay-debt="$emit('repay-debt', $event)"
-      />
-      <FriendPanel
-        :energy="stats.energy"
-        :reputation="stats.reputation"
-        @borrow-money="$emit('borrow-money')"
-        @help-friend="$emit('help-friend')"
-      />
+      <WorkPanel />
+      <BankPanel />
+      <FriendPanel />
     </div>
 
     <div class="actions-secondary">
-      <button @click="$emit('reset-game')" class="danger">🏠 Выйти в меню</button>
+      <button @click="emit('exit-to-menu')" class="danger">🏠 Выйти в меню</button>
     </div>
 
-    <LogsList :logs="logs" />
+    <LogsList />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useGameStore } from '@/stores/game'
 import WorkPanel from './WorkPanel.vue'
 import BankPanel from './BankPanel.vue'
 import FriendPanel from './FriendPanel.vue'
 import LogsList from './LogsList.vue'
 import SlotMachine from './SlotMachine.vue'
 
-export interface Stats {
-  money: number
-  energy: number
-  reputation: number
-  debt: number
-  bet: number
-}
+// Данные и действия — напрямую из стора, без prop-drilling (TD-06)
+const game = useGameStore()
 
-defineProps<{ stats: Stats; logs: string[] }>()
-const emit = defineEmits([
-  'work-job',
-  'shady-deal',
-  'borrow-money',
-  'take-credit',
-  'help-friend',
-  'repay-debt',
-  'reset-game',
-  'update:bet',
-  'bet-placed',
-  'spin-result'
-])
+const emit = defineEmits<{
+  'exit-to-menu': []
+}>()
 
 const isSlotVisible = ref(false)
 

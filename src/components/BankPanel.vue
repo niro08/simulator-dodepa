@@ -5,30 +5,30 @@
       <p class="muted">Управляй кредитами и долгами</p>
     </header>
     <div class="info">
-      <p>💼 На руках: <strong>{{ money }} ₽</strong></p>
-      <p>💳 Долг: <strong>{{ debt }} ₽</strong></p>
+      <p>💼 На руках: <strong>{{ game.view.money }} ₽</strong></p>
+      <p>💳 Долг: <strong>{{ game.view.debt }} ₽</strong></p>
     </div>
     <div class="buttons">
-      <button @click="$emit('take-credit')" :disabled="energy < CREDIT_COST || reputation - CREDIT_REPUTATION_LOSS < 0">
-        🏦 Взять кредит (-{{ CREDIT_COST }}⚡, -{{ CREDIT_REPUTATION_LOSS }}❤️)
+      <button @click="game.execute({ type: 'bank/credit' })" :disabled="!!creditBlock">
+        🏦 Взять кредит (-{{ credit.energyCost }}⚡, {{ signed(credit.reputationDelta) }}❤️)
       </button>
     </div>
-    <p v-if="reputation - CREDIT_REPUTATION_LOSS < 0" class="warning-text">⚠️ Банк отказал в кредите из-за низкой репутации</p>
-    <p v-else-if="energy < CREDIT_COST" class="warning-text">⚠️ Нет сил на оформление кредита</p>
+    <p v-if="creditBlock" class="warning-text">⚠️ {{ formatRejection('bank/credit', creditBlock) }}</p>
     <p v-else class="warning-text-placeholder">&nbsp;</p>
-    <div v-if="debt > 0" class="repay-section">
+    <div v-if="game.view.debt > 0" class="repay-section">
       <label for="repay-amount">Сумма погашения:</label>
       <input
         id="repay-amount"
         type="number"
-        :value="repayAmount"
-        :min="REPAY_MIN_AMOUNT"
-        :max="Math.min(debt, money)"
-        :step="REPAY_MIN_AMOUNT"
+        :value="repayDraft"
+        :min="repayMin"
+        :max="Math.max(repayMin, Math.min(game.view.debt, game.view.money))"
+        :step="repay.minAmount"
         @input="onRepayInput"
+        @change="normalizeRepayDraft"
       />
-      <button @click="$emit('repay-debt', repayAmount)" :disabled="money < repayAmount || repayAmount < REPAY_MIN_AMOUNT">
-        💸 Погасить {{ repayAmount }}₽ (+{{ Math.floor(repayAmount / REPAY_REPUTATION_INTERVAL) }}❤️)
+      <button @click="repayDebt" :disabled="isRejection(repayPlan)">
+        💸 Погасить {{ repayLabel.amount }}₽ (+{{ repayLabel.reputationGain }}❤️)
       </button>
     </div>
     <div v-else class="repay-section-placeholder"></div>
@@ -36,27 +36,55 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { isRejection, minRepayAmount, planRepay, type RepayPlan, type Rejection } from '@/game'
+import { useGameStore } from '@/stores/game'
+import { formatRejection, signed } from '@/i18n'
 
-const props = defineProps<{ money: number; debt: number; energy: number; reputation: number }>()
+const game = useGameStore()
+const { credit, repay } = game.config.balance.bank
 
-const CREDIT_COST = 15
-const CREDIT_REPUTATION_LOSS = 2
-const REPAY_MIN_AMOUNT = 1000
-const REPAY_REPUTATION_INTERVAL = 1000
+const creditBlock = computed(() => game.canExecute({ type: 'bank/credit' }))
 
-const repayAmount = ref(REPAY_MIN_AMOUNT)
+// Черновик суммы: пока вводят — любое число, на change нормализуем (TD-09)
+const repayDraft = ref<number>(repay.minAmount)
+const repayMin = computed(() => minRepayAmount(game.view.debt, game.config))
 
-// Автоматически подстраиваем сумму если долг меньше
-watch(() => props.debt, (newDebt) => {
-  if (newDebt > 0 && repayAmount.value > newDebt) {
-    repayAmount.value = Math.min(newDebt, REPAY_MIN_AMOUNT)
-  }
+const repayPlan = computed<RepayPlan | Rejection>(() =>
+  game.run ? planRepay(game.run, repayDraft.value, game.config) : { reason: 'noDebt' }
+)
+
+// Подпись кнопки: нормализованная ядром сумма, иначе то, что ввели
+const repayLabel = computed<RepayPlan>(() => {
+  const plan = repayPlan.value
+  if (!isRejection(plan)) return plan
+  const amount = Number.isFinite(repayDraft.value) ? Math.max(0, Math.floor(repayDraft.value)) : 0
+  return { amount, reputationGain: Math.floor(amount / repay.reputationPerAmount) }
 })
+
+// Долг изменился — подстраиваем сумму (остаток < минимума гасится целиком, B-08)
+watch(
+  () => game.view.debt,
+  (debt) => {
+    if (debt > 0 && (repayDraft.value > debt || repayDraft.value < repayMin.value)) {
+      repayDraft.value = repayMin.value
+    }
+  },
+  { immediate: true }
+)
 
 function onRepayInput(event: Event) {
   const target = event.target as HTMLInputElement
-  repayAmount.value = Number(target.value)
+  repayDraft.value = Number(target.value)
+}
+
+function normalizeRepayDraft() {
+  const plan = repayPlan.value
+  repayDraft.value = isRejection(plan) ? repayMin.value : plan.amount
+}
+
+function repayDebt() {
+  game.execute({ type: 'bank/repay', amount: repayDraft.value })
 }
 </script>
 

@@ -26,50 +26,53 @@
             <h3>🎰 Казино</h3>
             <p><strong>Слот-машина:</strong></p>
             <ul>
-              <li>Минимальная ставка: 50₽</li>
-              <li>При выигрыше: получаешь х1.5-х4.5 от ставки</li>
-              <li>При проигрыше: +5⚡ энергии</li>
+              <li>Минимальная ставка: {{ limits.minBet }}₽</li>
+              <li>Шанс выигрыша: {{ pct(winChance) }} — получаешь х{{ triple.min }}-х{{ triple.max }} от ставки</li>
+              <li>Джекпот 7️⃣7️⃣7️⃣: {{ pct(jackpotChance) }} — х{{ jackpot.min }} от ставки</li>
+              <li>При проигрыше: {{ signed(loseEnergy) }}⚡ энергии</li>
+              <li>В среднем автомат возвращает {{ pct(rtp) }} ставок. Остальное забирает казино</li>
             </ul>
           </div>
 
           <div class="guide-section">
             <h3>💼 Способы заработка</h3>
-            <p><strong>Подработка (-10⚡, +1❤️):</strong></p>
+            <p><strong>Подработка (-{{ work.job.energyCost }}⚡, {{ signed(work.job.reputationDelta) }}❤️):</strong></p>
             <ul>
-              <li>Честный заработок ~300-600₽</li>
+              <li>Честный заработок ~{{ range(work.job.baseReward) }}₽</li>
               <li>Повышает репутацию</li>
             </ul>
 
-            <p><strong>Замутить темку (-10⚡, -3❤️):</strong></p>
+            <p><strong>Замутить темку (-{{ work.shady.energyCost }}⚡, {{ signed(work.shady.reputationDelta) }}❤️):</strong></p>
             <ul>
-              <li>Нечестный заработок ~1400-2800₽</li>
+              <li>Нечестный заработок ~{{ range(work.shady.baseReward) }}₽</li>
               <li>Снижает репутацию</li>
             </ul>
+            <p class="guide-note">Суммы указаны для {{ start.reputation }}❤️ — чем выше репутация, тем больше платят.</p>
           </div>
 
           <div class="guide-section">
             <h3>👥 Друзья</h3>
             <p><em>"Друзья не банк - занял и можно не отдавать"</em></p>
             <ul>
-              <li><strong>Занять у друга (-5⚡, -1❤️):</strong> ~300-700₽</li>
-              <li><strong>Помочь другу (-5⚡, +1❤️):</strong> повышает репутацию</li>
-              <li>Требуется репутация > 0</li>
+              <li><strong>Занять у друга (-{{ friends.borrow.energyCost }}⚡, {{ signed(friends.borrow.reputationDelta) }}❤️):</strong> ~{{ range(friends.borrow.baseReward) }}₽</li>
+              <li><strong>Помочь другу (-{{ friends.help.energyCost }}⚡, {{ signed(friends.help.reputationDelta) }}❤️):</strong> повышает репутацию</li>
+              <li>Занять можно при репутации от {{ friends.borrow.minReputation }}❤️</li>
             </ul>
           </div>
 
           <div class="guide-section">
             <h3>🏦 Банк</h3>
-            <p><strong>Взять кредит (-15⚡, -2❤️):</strong></p>
+            <p><strong>Взять кредит (-{{ bank.credit.energyCost }}⚡, {{ signed(bank.credit.reputationDelta) }}❤️):</strong></p>
             <ul>
-              <li>Получаешь ~1000-2200₽</li>
-              <li>Долг увеличивается на 120-130% от суммы</li>
-              <li>Банк откажет если репутация слишком низкая</li>
+              <li>Получаешь ~{{ range(bank.credit.baseReward) }}₽</li>
+              <li>Долг увеличивается на {{ pct(1 + bank.credit.interestMin) }}-{{ pct(1 + bank.credit.interestMax) }} от суммы</li>
+              <li>Банк откажет, если репутация после кредита станет ниже {{ bank.credit.minReputationAfter }}❤️</li>
             </ul>
 
             <p><strong>Погасить долг:</strong></p>
             <ul>
-              <li>Минимум 1000₽ за раз</li>
-              <li>За каждые 1000₽ получаешь +1❤️</li>
+              <li>Минимум {{ bank.repay.minAmount }}₽ за раз (остаток меньше — целиком)</li>
+              <li>За каждые {{ bank.repay.reputationPerAmount }}₽ получаешь +1❤️</li>
             </ul>
           </div>
 
@@ -89,6 +92,31 @@
 </template>
 
 <script setup lang="ts">
+import { expectedRtp, outcomeProbability, rewardRange, winProbability } from '@/game'
+import { signed } from '@/i18n'
+import { useGameStore } from '@/stores/game'
+
+// Все числа гайда — из конфига и функций ядра, гайд не может соврать (TD-04, B-13)
+const { config } = useGameStore()
+const { start, limits, reward, work, friends, bank } = config.balance
+const slot = config.slot
+const noMultiplier = { min: 0, max: 0 }
+const triple = slot.outcomes.find((o) => o.id === 'triple')?.multiplier ?? noMultiplier
+const jackpot = slot.outcomes.find((o) => o.id === 'jackpot')?.multiplier ?? noMultiplier
+const loseEnergy = slot.outcomes.find((o) => o.id === 'lose')?.energyDelta ?? 0
+const winChance = winProbability(slot)
+const jackpotChance = outcomeProbability(slot, 'jackpot')
+const rtp = expectedRtp(slot)
+
+function pct(value: number): string {
+  return `${Math.round(value * 1000) / 10}%`
+}
+
+function range(baseReward: number): string {
+  const [min, max] = rewardRange(baseReward, start.reputation, reward)
+  return `${min}-${max}`
+}
+
 defineProps<{
   isVisible: boolean
 }>()
@@ -216,6 +244,11 @@ function handleOverlayClick() {
   font-size: 1.2rem;
   position: absolute;
   left: -1.2rem;
+}
+
+.guide-note {
+  font-size: 0.875rem;
+  font-style: italic;
 }
 
 .guide-section strong {

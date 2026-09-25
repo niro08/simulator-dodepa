@@ -12,62 +12,44 @@
     </div>
   </div>
 
+  <p v-if="game.readOnly" class="save-warning">
+    ⚠️ Сейв создан более новой версией игры — прогресс не сохраняется.
+  </p>
+
   <MainMenu
     v-if="!isGameStarted"
-    :has-save="hasSave"
+    :has-save="game.hasSave"
     @start-game="handleStartGame"
   />
   <CasinoUI
     v-else
-    :stats="casinoStore.stats"
-    :logs="casinoStore.logs"
-    @bet-placed="casinoStore.placeBet"
-    @spin-result="casinoStore.handleSlotResult"
-    @work-job="casinoStore.workJob"
-    @shady-deal="casinoStore.shadyDeal"
-    @borrow-money="casinoStore.borrowMoney"
-    @take-credit="casinoStore.takeCredit"
-    @help-friend="casinoStore.helpFriend"
-    @repay-debt="casinoStore.repayDebtAmount"
-    @reset-game="handleResetGame"
-    @update:bet="casinoStore.setBet"
+    @exit-to-menu="handleExitToMenu"
   />
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useCasinoStore } from '@/stores/casino'
+import { ref } from 'vue'
+import { useGameStore } from '@/stores/game'
 import MainMenu from '@/components/MainMenu.vue'
 import CasinoUI from '@/components/CasinoUI.vue'
 
-const casinoStore = useCasinoStore()
+const game = useGameStore()
 const isGameStarted = ref(false)
 
 // Состояние анимации: 'none' | 'growing' | 'shrinking'
 const transitionState = ref<'none' | 'growing' | 'shrinking'>('none')
 
-// Проверяем наличие сохранения
-const hasSave = computed(() => {
-  const saved = localStorage.getItem('dodepaSave')
-  if (!saved) return false
-
-  try {
-    JSON.parse(saved) // Проверяем что это валидный JSON
-    return true
-  } catch {
-    return false
-  }
-})
-
 function handleStartGame(isNewGame: boolean) {
+  // Защита от двойного старта (B-12)
+  if (transitionState.value !== 'none') return
+
   // Этап 1: Увеличение (1.5 сек)
   transitionState.value = 'growing'
 
   setTimeout(() => {
-    // Переход на игровой экран
-    if (isNewGame) {
-      localStorage.removeItem('dodepaSave')
-      casinoStore.resetGame()
+    // Новая игра — явный сброс забега; «Играть» без сейва тоже создаёт забег
+    if (isNewGame || !game.hasSave) {
+      game.newGame()
     }
     isGameStarted.value = true
 
@@ -80,13 +62,26 @@ function handleStartGame(isNewGame: boolean) {
   }, 1500)
 }
 
-function handleResetGame() {
-  casinoStore.resetGame()
+// Выход в меню только меняет экран: прогресс и сейв не трогаем (B-01)
+function handleExitToMenu() {
   isGameStarted.value = false
 }
 </script>
 
 <style>
+.save-warning {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-weight: 600;
+  background: var(--color-warning);
+  color: var(--color-bg-primary);
+}
+
 /* Wrapper для анимированного эмодзи */
 .transition-emoji-wrapper {
   position: fixed;

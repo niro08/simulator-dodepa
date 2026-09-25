@@ -14,6 +14,23 @@
 
 ---
 
+## Статус выполнения (lead-programmer, 2026-09-25)
+
+| Задача | Статус | Примечание |
+|---|---|---|
+| TD-01 | ✅ | `counter.ts`, `BetPanel.vue`, `stores/casino.ts`, `game/casinoGame.ts` удалены |
+| TD-02 | ✅ частично | Vitest 5 + `test`/`test:watch`/`coverage` (порог 90 % строк на `src/game/**`), `tsconfig.vitest.json`, тесты `*.test.ts` рядом с модулем, `.github/workflows/ci.yml`. `deploy.yml` по указанию оркестратора **не тронут** — шаг `npm test` перед деплоем добавить отдельно |
+| TD-03 | ✅ | `src/game/rng.ts` (mulberry32); `randomSeed()` — в `src/platform/random.ts`; состояние RNG в `run.rngState` (рекомендация ADR-003) |
+| TD-04 | ✅ | `src/game/config/{balance,slot,index}.ts`; панели и HowToPlay берут числа из конфига, доступность — из `canExecute` |
+| TD-05 | ✅ | `slot/spin` в ядре, `store.spin()` + `revealPending()`, задержка показа в `stores/ui.ts` |
+| TD-06 | ✅ | `types.ts`, `commands/*`, `reducer.ts` (`dispatch`/`executeCommand`/`canExecute`), `stores/game.ts` с `execute(cmd)`, `onEvents`/`onPresent` |
+| TD-07 | ✅ | `src/game/save/*`, `src/platform/storage.ts`, ключи `dodepa.save`/`.bak`, миграция `dodepaSave` → v1, `__APP_VERSION__`. Debounce записи не нужен — пишем синхронно после каждой команды |
+| TD-08 | ✅ | «Выйти в меню» только меняет экран; защита от двойного старта в `MainMenu` и `App` |
+| TD-09 | ✅ | `planRepay` (floor + clamp), остаток < 1000 гасится целиком, инпуты нормализуются на `change` |
+| TD-10 | ✅ частично | Хроника уже хранит события (`LogEntry { id, t, event }`), тексты — `src/i18n/ru.ts`, `:key="entry.id"`, legacyText. Лимит оставлен 20 (текущее поведение) |
+| TD-14 | ✅ частично | Нет спойлера, CSS transition без rAF-реактивности, `--reel-size`, reduced motion/`skipSpinAnimation`, символы по `SymbolId`. Скины через систему тем — после TD-13; замер fps — TD-26 |
+| TD-15 | ⏳ частично | Закрыто: B-05 снизу (кламп `guaranteedMin`, rep ≥ −10 всегда), B-07, инварианты после каждой команды и при загрузке. **Не закрыто: B-06** (цикл «проигрыш → энергия → темка») и верхние лимиты — ждут чисел economy-designer (`energyMax`, `reputationMax`, `guaranteedMax` в `config/balance.ts` уже есть) |
+
 ## Порядок P0 (критический путь)
 
 ```

@@ -13,6 +13,14 @@
   --color-warning: #f59e0b;
   --color-danger: #e53e3e;
   --color-info: #3b82f6;
+  /* Геометрия барабана слота: CSS и JS (SlotMachine) читают её отсюда */
+  --reel-size: 80px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --reel-size: 70px;
+  }
 }
 
 * {

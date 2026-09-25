@@ -4,33 +4,37 @@
       <h2>Подработка</h2>
       <p class="muted">Заработай честным трудом</p>
     </header>
-    <p>⚡ Энергия: {{ energy }} | ❤️ Репутация: {{ reputation }}</p>
+    <p>⚡ Энергия: {{ game.view.energy }} | ❤️ Репутация: {{ game.view.reputation }}</p>
 
     <div class="button-with-warning">
-      <button @click="$emit('work-job')" :disabled="energy < JOB_COST">
-        💼 Подработать (-{{ JOB_COST }}⚡, +{{ JOB_REPUTATION_GAIN }}❤️)
+      <button @click="game.execute({ type: 'work/job' })" :disabled="!!jobBlock">
+        💼 Подработать (-{{ job.energyCost }}⚡, {{ signed(job.reputationDelta) }}❤️)
       </button>
-      <p v-if="energy < JOB_COST" class="warning-text">⚠️ Слишком устал для подработки</p>
+      <p v-if="jobBlock" class="warning-text">⚠️ {{ formatRejection('work/job', jobBlock) }}</p>
       <p v-else class="warning-text-placeholder">&nbsp;</p>
     </div>
 
     <div class="button-with-warning">
-      <button @click="$emit('shady-deal')" :disabled="energy < SHADY_DEAL_COST" class="shady-button">
-        😈 Замутить темку (-{{ SHADY_DEAL_COST }}⚡, -{{ SHADY_DEAL_REPUTATION_LOSS }}❤️)
+      <button @click="game.execute({ type: 'work/shady' })" :disabled="!!shadyBlock" class="shady-button">
+        😈 Замутить темку (-{{ shady.energyCost }}⚡, {{ signed(shady.reputationDelta) }}❤️)
       </button>
-      <p v-if="energy < SHADY_DEAL_COST" class="warning-text">⚠️ Слишком устал для темных дел</p>
+      <p v-if="shadyBlock" class="warning-text">⚠️ {{ formatRejection('work/shady', shadyBlock) }}</p>
       <p v-else class="warning-text-placeholder">&nbsp;</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-defineProps<{ energy: number; reputation: number }>()
+import { computed } from 'vue'
+import { useGameStore } from '@/stores/game'
+import { formatRejection, signed } from '@/i18n'
 
-const JOB_COST = 10
-const JOB_REPUTATION_GAIN = 1
-const SHADY_DEAL_COST = 10
-const SHADY_DEAL_REPUTATION_LOSS = 3
+const game = useGameStore()
+// Числа — из конфига баланса, доступность — из ядра (TD-04)
+const { job, shady } = game.config.balance.work
+
+const jobBlock = computed(() => game.canExecute({ type: 'work/job' }))
+const shadyBlock = computed(() => game.canExecute({ type: 'work/shady' }))
 </script>
 
 <style scoped>
