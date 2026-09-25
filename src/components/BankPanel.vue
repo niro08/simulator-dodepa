@@ -1,35 +1,48 @@
 <template>
   <section class="panel bank">
     <header>
-      <h2>Банк</h2>
-      <p class="muted">Управляй кредитами и долгами</p>
+      <h2>Деньги</h2>
+      <p class="muted">Счета, банк, МФО</p>
     </header>
+
     <div class="info">
-      <p>💼 На руках: <strong>{{ game.view.money }} ₽</strong></p>
-      <p>💳 Долг: <strong>{{ game.view.debt }} ₽</strong></p>
+      <p>💼 Кошелёк: <strong>{{ money(hud?.wallet ?? 0) }} ₽</strong></p>
+      <p>💳 Долг: <strong>{{ money(hud?.debt ?? 0) }} ₽</strong></p>
+      <p v-if="hud?.debt">Проценты за ночь: <strong>≈{{ money(hud.interestTonight) }} ₽</strong></p>
     </div>
+
+    <div v-if="hud?.bill" class="button-with-warning">
+      <button @click="game.execute({ type: 'bills/pay' })" :disabled="!!game.actions.payBill">
+        🧾 Оплатить счёт {{ money(hud.bill.total) }}₽
+      </button>
+      <p v-if="game.actions.payBill" class="warning-text">⚠️ {{ formatRejection('bills/pay', game.actions.payBill) }}</p>
+    </div>
+
     <div class="buttons">
-      <button @click="game.execute({ type: 'bank/credit' })" :disabled="!!creditBlock">
-        🏦 Взять кредит (-{{ credit.energyCost }}⚡, {{ signed(credit.reputationDelta) }}❤️)
+      <button @click="game.execute({ type: 'bank/loan' })" :disabled="!!game.actions.bankLoan">
+        🏦 Кредит {{ money(B.BANK_LOAN) }}₽
+      </button>
+      <button @click="game.execute({ type: 'mfo/loan' })" :disabled="!!game.actions.mfoLoan">
+        ⚡ МФО {{ money(B.MFO_LOAN) }}₽
       </button>
     </div>
-    <p v-if="creditBlock" class="warning-text">⚠️ {{ formatRejection('bank/credit', creditBlock) }}</p>
+    <p v-if="game.actions.bankLoan" class="warning-text">⚠️ {{ formatRejection('bank/loan', game.actions.bankLoan) }}</p>
     <p v-else class="warning-text-placeholder">&nbsp;</p>
-    <div v-if="game.view.debt > 0" class="repay-section">
+
+    <div v-if="(hud?.debt ?? 0) > 0" class="repay-section">
       <label for="repay-amount">Сумма погашения:</label>
       <input
         id="repay-amount"
         type="number"
         :value="repayDraft"
         :min="repayMin"
-        :max="Math.max(repayMin, Math.min(game.view.debt, game.view.money))"
-        :step="repay.minAmount"
+        :max="Math.max(repayMin, Math.min(hud?.debt ?? 0, hud?.wallet ?? 0))"
+        :step="B.REPAY_MIN"
         @input="onRepayInput"
         @change="normalizeRepayDraft"
       />
-      <button @click="repayDebt" :disabled="isRejection(repayPlan)">
-        💸 Погасить {{ repayLabel.amount }}₽ (+{{ repayLabel.reputationGain }}❤️)
-      </button>
+      <button @click="repayDebt" :disabled="isRejection(repayPlan)">💸 Погасить {{ money(repayLabel) }}₽</button>
+      <p v-if="isRejection(repayPlan)" class="warning-text">⚠️ {{ formatRejection('debt/repay', repayPlan) }}</p>
     </div>
     <div v-else class="repay-section-placeholder"></div>
   </section>
@@ -37,34 +50,31 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { isRejection, minRepayAmount, planRepay, type RepayPlan, type Rejection } from '@/game'
+import { debtOf, isRejection, minRepayAmount, planRepay, type RepayPlan, type Rejection } from '@/game'
 import { useGameStore } from '@/stores/game'
-import { formatRejection, signed } from '@/i18n'
+import { formatRejection, money } from '@/i18n'
 
 const game = useGameStore()
-const { credit, repay } = game.config.balance.bank
-
-const creditBlock = computed(() => game.canExecute({ type: 'bank/credit' }))
+const B = game.config.balance
+const hud = computed(() => game.hud)
 
 // Черновик суммы: пока вводят — любое число, на change нормализуем (TD-09)
-const repayDraft = ref<number>(repay.minAmount)
-const repayMin = computed(() => minRepayAmount(game.view.debt, game.config))
-
+const repayDraft = ref<number>(B.REPAY_MIN)
+const repayMin = computed(() => minRepayAmount(hud.value?.debt ?? 0, game.config))
 const repayPlan = computed<RepayPlan | Rejection>(() =>
-  game.run ? planRepay(game.run, repayDraft.value, game.config) : { reason: 'noDebt' }
+  game.run ? planRepay(game.run, repayDraft.value, game.config) : { reason: 'no_debt' }
 )
 
 // Подпись кнопки: нормализованная ядром сумма, иначе то, что ввели
-const repayLabel = computed<RepayPlan>(() => {
+const repayLabel = computed<number>(() => {
   const plan = repayPlan.value
-  if (!isRejection(plan)) return plan
-  const amount = Number.isFinite(repayDraft.value) ? Math.max(0, Math.floor(repayDraft.value)) : 0
-  return { amount, reputationGain: Math.floor(amount / repay.reputationPerAmount) }
+  if (!isRejection(plan)) return plan.amount
+  return Number.isFinite(repayDraft.value) ? Math.max(0, Math.floor(repayDraft.value)) : 0
 })
 
 // Долг изменился — подстраиваем сумму (остаток < минимума гасится целиком, B-08)
 watch(
-  () => game.view.debt,
+  () => (game.run ? debtOf(game.run) : 0),
   (debt) => {
     if (debt > 0 && (repayDraft.value > debt || repayDraft.value < repayMin.value)) {
       repayDraft.value = repayMin.value
@@ -84,7 +94,7 @@ function normalizeRepayDraft() {
 }
 
 function repayDebt() {
-  game.execute({ type: 'bank/repay', amount: repayDraft.value })
+  game.execute({ type: 'debt/repay', amount: repayDraft.value })
 }
 </script>
 
@@ -152,6 +162,12 @@ function repayDebt() {
 
 .repay-section button {
   width: 100%;
+}
+
+.button-with-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .warning-text {

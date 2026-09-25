@@ -30,10 +30,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useGameStore } from '@/stores/game'
+import { usePlayTime } from '@/composables/usePlayTime'
 import MainMenu from '@/components/MainMenu.vue'
 import CasinoUI from '@/components/CasinoUI.vue'
 
 const game = useGameStore()
+// Активное время игры для статистики и Выписки (systems-spec §3.6)
+usePlayTime()
 const isGameStarted = ref(false)
 
 // Состояние анимации: 'none' | 'growing' | 'shrinking'

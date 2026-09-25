@@ -6,7 +6,7 @@
     <p v-if="!game.log.length" class="muted empty-state">Тут появятся последние события...</p>
     <ul v-else>
       <li v-for="entry in game.log" :key="entry.id" :class="`log-${eventTone(entry.event)}`">
-        {{ formatEvent(entry.event) }}
+        {{ formatEvent(entry.event, entry.id) }}
       </li>
     </ul>
   </section>
@@ -21,6 +21,10 @@ const game = useGameStore()
 </script>
 
 <style scoped>
+.log-warn {
+  color: var(--color-warning);
+}
+
 .log-rejected {
   color: var(--color-warning);
   opacity: 0.85;

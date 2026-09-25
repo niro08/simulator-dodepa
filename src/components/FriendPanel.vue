@@ -1,40 +1,49 @@
 <template>
   <section class="panel friend">
     <header>
-      <h2>Друзья</h2>
-      <p class="muted">Друзья не банк - занял и можно не отдавать</p>
+      <h2>Друзья и ломбард</h2>
+      <p class="muted">Друзья не банк. Ломбард — тоже, но у него процент</p>
     </header>
-    <p>⚡ Энергия: {{ game.view.energy }} | ❤️ Репутация: {{ game.view.reputation }}</p>
+
     <div class="button-with-warning">
-      <button @click="game.execute({ type: 'friends/borrow' })" :disabled="!!borrowBlock">
-        🤝 Занять у друга (-{{ borrow.energyCost }}⚡, {{ signed(borrow.reputationDelta) }}❤️)
+      <button @click="game.execute({ type: 'friends/borrow' })" :disabled="!!game.actions.borrow">
+        🤝 Занять у друга {{ hud?.friendAmount ? `${money(hud.friendAmount)}₽` : '' }} (−{{ B.FRIEND_ENERGY }}⚡, {{ signed(B.FRIEND_REP) }}❤️)
       </button>
       <div class="warnings-container">
-        <p v-if="borrowBlock" class="warning-text">⚠️ {{ formatRejection('friends/borrow', borrowBlock) }}</p>
+        <p v-if="game.actions.borrow" class="warning-text">⚠️ {{ formatRejection('friends/borrow', game.actions.borrow) }}</p>
         <p v-else class="warning-text-placeholder">&nbsp;</p>
       </div>
     </div>
 
-    <div class="button-with-warning">
-      <button @click="game.execute({ type: 'friends/help' })" :disabled="!!helpBlock">
-        ✨ Помочь другу (-{{ help.energyCost }}⚡, {{ signed(help.reputationDelta) }}❤️)
+    <div v-for="item in ITEM_IDS" :key="item" class="button-with-warning">
+      <button
+        v-if="hud?.items[item] === 'owned'"
+        @click="game.execute({ type: 'pawn/pawn', item })"
+        :disabled="!!game.canExecute({ type: 'pawn/pawn', item })"
+      >
+        🏷 Заложить {{ ITEM_NAMES[item] }} +{{ money(B.PAWN_VALUE[item]) }}₽
       </button>
-      <p v-if="helpBlock" class="warning-text">⚠️ {{ formatRejection('friends/help', helpBlock) }}</p>
-      <p v-else class="warning-text-placeholder">&nbsp;</p>
+      <button
+        v-else-if="hud?.items[item] === 'pawned'"
+        @click="game.execute({ type: 'pawn/redeem', item })"
+        :disabled="!!game.canExecute({ type: 'pawn/redeem', item })"
+      >
+        ↩️ Выкупить {{ ITEM_NAMES[item] }} за {{ money(redeemCost(item, B)) }}₽
+      </button>
+      <p v-else class="muted">{{ ITEM_NAMES[item] }} — продан навсегда</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ITEM_IDS, redeemCost } from '@/game'
 import { useGameStore } from '@/stores/game'
-import { formatRejection, signed } from '@/i18n'
+import { formatRejection, ITEM_NAMES, money, signed } from '@/i18n'
 
 const game = useGameStore()
-const { borrow, help } = game.config.balance.friends
-
-const borrowBlock = computed(() => game.canExecute({ type: 'friends/borrow' }))
-const helpBlock = computed(() => game.canExecute({ type: 'friends/help' }))
+const B = game.config.balance
+const hud = computed(() => game.hud)
 </script>
 
 <style scoped>

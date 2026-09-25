@@ -9,13 +9,38 @@
 
           <div class="slot-stats">
             <div class="stat-item">
-              <span class="stat-label">Баланс:</span>
-              <span class="stat-value">{{ game.view.money }} ₽</span>
+              <span class="stat-label">Баланс казино:</span>
+              <span class="stat-value">{{ money(game.hud?.casino ?? 0) }} ₽</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Энергия:</span>
-              <span class="stat-value">⚡ {{ game.view.energy }}</span>
+              <span class="stat-value">⚡ {{ game.hud?.energy }} · спин {{ game.hud?.spinEnergyCost }}⚡ · 🔥 {{ game.hud?.tilt }}</span>
             </div>
+            <div v-if="game.hud?.bonus.state === 'active'" class="stat-item">
+              <span class="stat-label">Отыгрыш:</span>
+              <span class="stat-value">{{ money(game.hud.bonus.wagered) }} / {{ money(game.hud.bonus.wagerReq) }} ₽</span>
+            </div>
+          </div>
+
+          <div class="bet-input-section">
+            <label v-if="game.hud?.bonus.state === 'available'">
+              <input v-model="takeBonus" type="checkbox" /> ЗАБРАТЬ БОНУС 200%*
+            </label>
+            <div class="quick-buttons">
+              <button
+                v-for="amount in depositAmounts"
+                :key="amount"
+                :disabled="isSpinning || !!game.canExecute({ type: 'casino/deposit', amount })"
+                @click="deposit(amount)"
+              >
+                ДЕПОЗИТ {{ money(amount) }}₽
+              </button>
+              <button :disabled="isSpinning || !!withdrawBlock" @click="withdrawAll">ВЫВЕСТИ ВСЁ</button>
+            </div>
+            <p v-if="withdrawBlock && (game.hud?.casino ?? 0) > 0" class="hint">{{ formatRejection('casino/withdraw', withdrawBlock) }}</p>
+            <p v-for="w in game.hud?.withdrawals ?? []" :key="`${w.arriveDay}-${w.amount}`" class="hint">
+              Вывод {{ money(w.amount) }}₽ на рассмотрении · придёт утром дня {{ w.arriveDay }} ({{ money(w.net) }}₽)
+            </p>
           </div>
 
           <div class="bet-input-section">
@@ -30,6 +55,12 @@
               @change="commitBet"
               :disabled="isSpinning"
             />
+            <div class="quick-buttons">
+              <button :disabled="isSpinning" @click="game.adjustBet('half')">½</button>
+              <button :disabled="isSpinning" @click="game.adjustBet('double')">×2</button>
+              <button :disabled="isSpinning" @click="game.adjustBet('min')">MIN</button>
+              <button :disabled="isSpinning || (game.hud?.casino ?? 0) < minBet" @click="game.adjustBet('all')">ДОДЕП ВСЁ</button>
+            </div>
           </div>
 
           <div class="slot-display">
@@ -73,7 +104,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { canExecute, type Rejection, type SymbolId } from '@/game'
 import { useGameStore } from '@/stores/game'
-import { eventTone, formatRejection, formatSpinBanner } from '@/i18n'
+import { eventTone, formatRejection, formatSpinBanner, money } from '@/i18n'
 import { SYMBOL_EMOJI } from '@/skins/classic'
 
 defineProps<{
@@ -87,21 +118,22 @@ const emit = defineEmits<{
 const game = useGameStore()
 const { symbols } = game.config.slot
 const { reelBaseMs, reelStaggerMs, revealDelayMs } = game.config.slot.timing
-const minBet = game.config.balance.limits.minBet
+const B = game.config.balance
+const minBet = B.MIN_BET
 // Сколько символов пролетает между стартовым и итоговым (визуал, на исход не влияет)
 const FILLER_SYMBOLS = 20
 
 // ─── Ставка: черновик ввода, в стор — на change/blur (TD-09) ───
-const betDraft = ref<number>(game.view.bet)
-watch(() => game.view.bet, (value) => (betDraft.value = value))
+const betDraft = ref<number>(game.hud?.bet ?? B.START_BET)
+watch(() => game.hud?.bet, (value) => (betDraft.value = value ?? B.START_BET))
 
 function onBetInput(event: Event) {
   betDraft.value = Number((event.target as HTMLInputElement).value)
 }
 
 function commitBet() {
-  if (betDraft.value !== game.view.bet) game.setBet(betDraft.value)
-  betDraft.value = game.view.bet
+  if (betDraft.value !== game.hud?.bet) game.setBet(betDraft.value)
+  betDraft.value = game.hud?.bet ?? B.START_BET
 }
 
 // Доступность спина — предикат ядра на состоянии с черновой ставкой
@@ -112,8 +144,25 @@ const spinBlock = computed<Rejection | null>(() => {
 })
 
 function rejectionText(rejection: Rejection): string {
-  const icon = rejection.reason === 'betTooLow' ? '⚠️' : '❌'
+  const icon = rejection.reason === 'bet_below_min' ? '⚠️' : '❌'
   return `${icon} ${formatRejection('slot/spin', rejection)}`
+}
+
+// ─── Депозит / вывод (CD-06): суммы быстрых кнопок, галочка бонуса включена по умолчанию (пародия) ───
+const takeBonus = ref(true)
+const depositAmounts = computed(() => {
+  const wallet = game.hud?.wallet ?? 0
+  return [500, 1000, wallet].filter((a, i, all) => a >= B.DEPOSIT_MIN && all.indexOf(a) === i)
+})
+
+function deposit(amount: number) {
+  game.execute({ type: 'casino/deposit', amount, bonus: takeBonus.value })
+}
+
+const withdrawBlock = computed(() => game.canExecute({ type: 'casino/withdraw', amount: game.hud?.casino ?? 0 }))
+
+function withdrawAll() {
+  game.execute({ type: 'casino/withdraw', amount: game.hud?.casino ?? 0 })
 }
 
 // ─── Барабаны: лента считается один раз на спин, анимация — CSS transition (TD-14) ───
@@ -199,7 +248,7 @@ async function spin() {
   if (!outcome) return
   if (!outcome.spin) {
     resultMessage.value = rejectionText(outcome.rejection)
-    resultClass.value = outcome.rejection.reason === 'betTooLow' ? 'warning' : 'error'
+    resultClass.value = outcome.rejection.reason === 'bet_below_min' ? 'warning' : 'error'
     return
   }
 
@@ -313,6 +362,13 @@ onBeforeUnmount(() => game.revealPending())
   font-size: 1.25rem;
   font-weight: 700;
   color: #fff;
+}
+
+.quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
 .bet-input-section {

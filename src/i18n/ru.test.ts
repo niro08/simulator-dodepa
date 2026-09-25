@@ -1,58 +1,181 @@
 import { describe, expect, it } from 'vitest'
-import type { CommandType, GameEvent, RejectReason } from '@/game'
-import { eventTone, formatEvent, formatRejection, formatSpinBanner } from './ru'
+import {
+  defaultConfig,
+  ENDING_IDS,
+  ITEM_IDS,
+  type CommandType,
+  type EventOf,
+  type GameEvent,
+  type GameEventType,
+  type RejectReason
+} from '@/game'
+import { LIFE_EVENTS } from '@/game/content/events'
+import {
+  ENDINGS,
+  endingTitle,
+  eventTone,
+  formatEvent,
+  formatEventHonest,
+  formatRejection,
+  formatSpinBanner,
+  howToPlay,
+  ITEM_NAMES,
+  money,
+  SLEEP_EVENT_TEXTS
+} from './ru'
 
-const EVENTS: GameEvent[] = [
-  { type: 'runStarted' },
-  { type: 'spin', bet: 100, outcomeId: 'jackpot', multiplier: 7, payout: 700, reels: ['seven', 'seven', 'seven'], delta: { money: 600 } },
-  { type: 'spin', bet: 100, outcomeId: 'triple', multiplier: 2, payout: 200, reels: ['star', 'star', 'star'], delta: { money: 100 } },
-  { type: 'spin', bet: 100, outcomeId: 'lose', multiplier: 0, payout: 0, reels: ['star', 'seven', 'clown'], delta: { money: -100, energy: 5 } },
-  { type: 'spin', bet: 100, outcomeId: 'lose', multiplier: 0, payout: 0, reels: ['star', 'seven', 'clown'], delta: { money: -100 } },
-  { type: 'job', delta: { money: 300, energy: -10, reputation: 1 } },
-  { type: 'shady', delta: { money: 1500, energy: -10, reputation: -3 } },
-  { type: 'borrow', delta: { money: 400, energy: -5, reputation: -1 } },
-  { type: 'help', delta: { energy: -5, reputation: 1 } },
-  { type: 'credit', interest: 0.25, delta: { money: 1000, debt: 1250, energy: -15, reputation: -2 } },
-  { type: 'repay', delta: { money: -1000, debt: -1000, reputation: 1 } },
-  { type: 'betChanged', from: 100, to: 200 },
-  { type: 'rejected', command: 'slot/spin', reason: 'betTooLow', min: 50 },
-  { type: 'legacyText', text: 'старая запись' }
+const spin = (patch: Partial<EventOf<'spin'>>): EventOf<'spin'> => ({
+  type: 'spin', bet: 100, outcomeId: 'lose', multiplier: 0, payout: 0, reels: ['star', 'clown', 'melon'], ldw: false, nearMiss: false,
+  allIn: false, energyCost: 2, tiltBefore: 0, casinoBefore: 1000, casinoAfter: 900, bonusLocked: false, loseStreak: 1, ...patch
+})
+
+/** По одному событию каждого типа (satisfies требует покрыть все). */
+const EVENTS = {
+  runStarted: { type: 'runStarted', runId: 'r', seed: 1 },
+  dayStarted: { type: 'dayStarted', day: 3, week: 1 },
+  slept: { type: 'slept', day: 3, casinoNight: false, tilt70: false, cleanWeek: false, noSpins: true },
+  spin: spin({}),
+  casinoEntered: { type: 'casinoEntered' },
+  casinoLeft: { type: 'casinoLeft' },
+  deposit: { type: 'deposit', amount: 1000 },
+  bonusGranted: { type: 'bonusGranted', deposit: 1000, bonus: 2000, wagerRequired: 80_000 },
+  bonusDeclined: { type: 'bonusDeclined' },
+  bonusCleared: { type: 'bonusCleared', released: 500 },
+  bonusBusted: { type: 'bonusBusted', balanceLeft: 10, wagerLeft: 5000 },
+  withdrawRequested: { type: 'withdrawRequested', gross: 1000, fee: 50, net: 950, arriveDay: 4 },
+  withdrawPaid: { type: 'withdrawPaid', net: 950 },
+  shiftWorked: { type: 'shiftWorked', pay: 900, promoted: false, repPenalty: false },
+  schemeResolved: { type: 'schemeResolved', success: true, amount: 2300, fine: 0, jailed: false },
+  friendBorrowed: { type: 'friendBorrowed', amount: 350, diminished: false },
+  friendsBlocked: { type: 'friendsBlocked' },
+  familyHelped: { type: 'familyHelped' },
+  loanTaken: { type: 'loanTaken', lender: 'mfo', amount: 3000 },
+  interestAccrued: { type: 'interestAccrued', bank: 0, mfo: 30, total: 30, debt: 3030 },
+  debtRepaid: { type: 'debtRepaid', amount: 500, repGain: 0, debtLeft: 2530, viaBill: false },
+  forcedMfo: { type: 'forcedMfo', amount: 100, reason: 'living' },
+  itemPawned: { type: 'itemPawned', itemId: 'phone', amount: 3000, ownedLeft: 4 },
+  itemRedeemed: { type: 'itemRedeemed', itemId: 'phone', cost: 3900, pawnAmount: 3000 },
+  livingCostPaid: { type: 'livingCostPaid', amount: 300 },
+  billsOpened: { type: 'billsOpened', week: 1, total: 3500, forced: false },
+  billPaid: { type: 'billPaid', week: 1, amount: 3500, late: false, debtPart: 0 },
+  billDeferred: { type: 'billDeferred', week: 1, penalty: 1750, fixed: 5250, dueDay: 8 },
+  billCreated: { type: 'billCreated', week: 5, dueDay: 35, fixed: 13_500 },
+  forkOpened: { type: 'forkOpened', week: 4, debt: 0, forced: false },
+  weekChoice: { type: 'weekChoice', choice: 'one_more_week', week: 4 },
+  tiltChanged: { type: 'tiltChanged', value: 44, delta: 4, source: 'spin_loss' },
+  tiltStageChanged: { type: 'tiltStageChanged', from: 'calm', to: 'heated' },
+  casinoNight: { type: 'casinoNight', n: 1, lost: 200 },
+  sleepEventShown: { type: 'sleepEventShown', eventId: 'life_fridge' },
+  sleepEventResolved: { type: 'sleepEventResolved', eventId: 'life_fridge', choice: 0 },
+  runEnded: { type: 'runEnded', endingId: 'quit', grade: 'A', day: 28, weeksSurvived: 3, forfeitedCasino: 0, forfeitedWithdrawals: 0, itemsLost: [] },
+  betChanged: { type: 'betChanged', from: 100, to: 200 },
+  rejected: { type: 'rejected', command: 'slot/spin', reason: 'bet_below_min', min: 50 },
+  timeTracked: { type: 'timeTracked', playSec: 10, underbellySec: 0 }
+} satisfies { [K in GameEventType]: Extract<GameEvent, { type: K }> }
+
+const SPINS: EventOf<'spin'>[] = [
+  spin({ outcomeId: 'jackpot', multiplier: 100, payout: 10_000, reels: ['seven', 'seven', 'seven'] }),
+  spin({ outcomeId: 'diamonds', multiplier: 25, payout: 2500 }),
+  spin({ outcomeId: 'premium_mix', multiplier: 2, payout: 200 }),
+  spin({ outcomeId: 'fruit_mix', multiplier: 1, payout: 100 }),
+  spin({ outcomeId: 'one_cherry', multiplier: 0.5, payout: 50, ldw: true }),
+  spin({ nearMiss: true, reels: ['seven', 'seven', 'lemon'] }),
+  spin({ allIn: true }),
+  spin({})
 ]
 
 describe('i18n/ru', () => {
-  it('каждое событие форматируется без undefined/NaN', () => {
-    for (const event of EVENTS) {
-      const text = formatEvent(event)
-      expect(text.length).toBeGreaterThan(0)
-      expect(text).not.toMatch(/undefined|NaN|null/)
+  it('каждое событие (и варианты) форматируется без undefined/NaN', () => {
+    for (const event of [...Object.values(EVENTS), ...SPINS] as GameEvent[]) {
+      for (let variant = 0; variant < 4; variant++) {
+        const text = formatEvent(event, variant)
+        if (event.type !== 'timeTracked') expect(text.length, event.type).toBeGreaterThan(0)
+        expect(text).not.toMatch(/undefined|NaN|null|\[object/)
+      }
     }
   })
 
-  it('тексты совпадают с прежними (eb138e2)', () => {
-    expect(formatEvent(EVENTS[5]!)).toBe('Подработка принесла +300₽, забрала 10⚡ и дала +1❤️')
-    expect(formatEvent(EVENTS[6]!)).toBe('Замутил темку на +1500₽ (-10⚡, -3❤️)')
-    expect(formatEvent(EVENTS[3]!)).toBe('🎰 Слот-машина: Проигрыш... но азарт даёт +5⚡')
-    expect(formatEvent(EVENTS[1]!)).toBe('🎰 ДЖЕКПОТ 777! Выигрыш: 700₽')
+  it('варианты событий: смена, темка-провал, «Сел», повышение, погашение с ❤️, стадии тильта, концовки', () => {
+    const extra: GameEvent[] = [
+      { ...EVENTS.shiftWorked, promoted: true },
+      { ...EVENTS.shiftWorked, repPenalty: true },
+      { ...EVENTS.schemeResolved, success: false, fine: 2000 },
+      { ...EVENTS.schemeResolved, success: false, jailed: true },
+      { ...EVENTS.friendBorrowed, diminished: true },
+      { ...EVENTS.loanTaken, lender: 'bank', amount: 5000 },
+      { ...EVENTS.debtRepaid, repGain: 1 },
+      { ...EVENTS.debtRepaid, viaBill: true },
+      { ...EVENTS.forkOpened, debt: 500 },
+      { ...EVENTS.weekChoice, choice: 'quit' },
+      { ...EVENTS.tiltStageChanged, from: 'tilt', to: 'heated' },
+      { ...EVENTS.tiltStageChanged, to: 'tilt' },
+      { ...EVENTS.tiltStageChanged, to: 'night' },
+      { ...EVENTS.tiltStageChanged, from: 'heated', to: 'calm' },
+      { ...EVENTS.runEnded, endingId: 'abandoned', grade: null },
+      { ...EVENTS.runEnded, endingId: 'jail', grade: null },
+      { ...EVENTS.sleepEventResolved, eventId: 'unknown' }
+    ]
+    for (const event of extra) expect(formatEvent(event)).not.toMatch(/undefined|NaN/)
+    expect(formatEvent(EVENTS.itemPawned)).toContain('📱 Телефон')
+    expect(formatEvent(EVENTS.forcedMfo)).toBe('Недостачу оформили на тебя в МФО: 100₽.')
+  })
+
+  it('честные дубли Изнанки для казино-событий', () => {
+    expect(formatEventHonest(SPINS[4]!)).toBe('Возврат 50₽ из 100₽. Итог -50₽. Фанфары — бесплатно.')
+    expect(formatEventHonest(SPINS[5]!)).toContain('Исход был решён до вращения')
+    for (const event of [...SPINS, EVENTS.deposit, EVENTS.bonusGranted, EVENTS.bonusCleared, EVENTS.bonusBusted, EVENTS.withdrawRequested, EVENTS.casinoNight]) {
+      expect(formatEventHonest(event as GameEvent)).toMatch(/\S/)
+    }
+    expect(formatEventHonest(EVENTS.shiftWorked)).toBeNull()
   })
 
   it('все отказы всех команд имеют текст', () => {
-    const commands: CommandType[] = ['slot/spin', 'bet/set', 'work/job', 'work/shady', 'friends/borrow', 'friends/help', 'bank/credit', 'bank/repay']
-    const reasons: RejectReason[] = ['noEnergy', 'noMoney', 'betTooLow', 'noTrust', 'lowReputation', 'noDebt', 'repayTooLow', 'invalidAmount']
+    const commands: CommandType[] = [
+      'day/wake', 'day/sleep', 'day/resume', 'event/choose', 'bills/pay', 'bills/defer', 'bills/refuse', 'run/quit', 'run/extend',
+      'casino/enter', 'casino/leave', 'casino/deposit', 'casino/withdraw', 'bet/set', 'slot/spin', 'work/shift', 'work/shady',
+      'family/help', 'friends/borrow', 'bank/loan', 'mfo/loan', 'debt/repay', 'pawn/pawn', 'pawn/redeem'
+    ]
+    const reasons: RejectReason[] = [
+      'wrong_phase', 'in_casino', 'not_in_casino', 'no_energy', 'no_money', 'bet_below_min', 'amount_below_min', 'invalid_amount',
+      'bonus_locked', 'daily_limit', 'friends_blocked', 'no_phone', 'friends_broke', 'rep_too_low', 'debt_limit', 'no_debt',
+      'item_not_owned', 'item_not_pawned', 'no_bill', 'not_due', 'grace_used', 'not_fork_day', 'bill_unpaid', 'has_debt', 'forced',
+      'feature_disabled', 'no_event', 'option_unaffordable'
+    ]
     for (const command of commands) {
       for (const reason of reasons) {
         expect(formatRejection(command, { reason, min: 10 })).not.toMatch(/undefined/)
+        expect(formatRejection(command, { reason })).not.toMatch(/undefined/)
       }
     }
-    expect(formatRejection('slot/spin', { reason: 'betTooLow', min: 50 })).toBe('Минимальная ставка — 50₽')
+    expect(formatRejection('slot/spin', { reason: 'bet_below_min', min: 50 })).toBe('Мин. ставка 50₽')
+    expect(formatRejection('casino/withdraw', { reason: 'amount_below_min', min: 1000 })).toBe('Мин. вывод 1 000₽')
+    expect(formatRejection('run/quit', { reason: 'has_debt', min: 12_345 })).toBe('Долг 12 345₽. Так не завязывают')
   })
 
-  it('баннер спина и тон', () => {
-    expect(formatSpinBanner(EVENTS[1] as Extract<GameEvent, { type: 'spin' }>)).toBe('💥 ДЖЕКПОТ 777! +700₽')
-    expect(formatSpinBanner(EVENTS[2] as Extract<GameEvent, { type: 'spin' }>)).toBe('🎉 ВЫИГРЫШ! +200₽')
-    expect(formatSpinBanner(EVENTS[3] as Extract<GameEvent, { type: 'spin' }>)).toBe('😔 Не повезло... +5⚡')
-    expect(EVENTS.map(eventTone)).toContain('rejected')
-    expect(eventTone(EVENTS[1]!)).toBe('jackpot')
-    expect(eventTone(EVENTS[3]!)).toBe('lose')
-    expect(eventTone(EVENTS[5]!)).toBe('info')
+  it('баннер спина празднует и LDW (Витрина); тон', () => {
+    expect(formatSpinBanner(SPINS[0]!)).toBe('💥 ДЖЕКПОТ 777! +10 000₽')
+    expect(formatSpinBanner(SPINS[4]!)).toBe('🎉 ВЫИГРЫШ! +50₽')
+    expect(formatSpinBanner(SPINS[5]!)).toContain('ПОЧТИ')
+    expect(formatSpinBanner(SPINS[7]!)).toBe('😔 Не повезло...')
+    expect(eventTone(SPINS[0]!)).toBe('jackpot')
+    expect(eventTone(SPINS[4]!)).toBe('win')
+    expect(eventTone(SPINS[7]!)).toBe('lose')
+    expect(eventTone(EVENTS.rejected)).toBe('rejected')
+    expect(eventTone(EVENTS.casinoNight)).toBe('warn')
+    expect(eventTone(EVENTS.shiftWorked)).toBe('info')
+  })
+
+  it('справочники покрывают все концовки, вещи и life-карточки; «Как играть» из конфига', () => {
+    for (const id of ENDING_IDS) expect(ENDINGS[id].title).toMatch(/\S/)
+    for (const id of ITEM_IDS) expect(ITEM_NAMES[id]).toMatch(/\S/)
+    for (const e of LIFE_EVENTS) expect(SLEEP_EVENT_TEXTS[e.id]?.options).toHaveLength(2)
+    expect(endingTitle('quit', 'C')).toBe('Завязал. Оценка C')
+    expect(endingTitle('collectors', null)).toBe('Добрый вечер, мы из банка')
+    const guide = howToPlay(defaultConfig)
+    expect(guide.lines).toHaveLength(10)
+    expect(guide.lines.join(' ')).toContain('RTP 90%')
+    expect(guide.lines.join(' ')).toContain('тильт −50')
+    expect(money(1234567)).toBe('1 234 567')
+    expect(money(-500)).toBe('−500')
   })
 })

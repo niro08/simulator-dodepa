@@ -2,4 +2,21 @@
  * Локализация. Пока только ru; en добавится в TD-20 с тем же набором функций.
  * Все строки хроники и отказов строятся здесь из событий ядра.
  */
-export { signed, formatEvent, formatRejection, formatSpinBanner, eventTone, type EventTone } from './ru'
+export {
+  signed,
+  money,
+  formatEvent,
+  formatEventHonest,
+  formatRejection,
+  formatSpinBanner,
+  eventTone,
+  endingTitle,
+  howToPlay,
+  ENDINGS,
+  QUIT_GRADES,
+  ITEM_NAMES,
+  SLEEP_EVENT_TEXTS,
+  TILT_STAGE_LABELS,
+  type EventTone,
+  type EndingText
+} from './ru'

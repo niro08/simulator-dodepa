@@ -1,24 +1,33 @@
 <template>
   <section class="panel work">
     <header>
-      <h2>Подработка</h2>
-      <p class="muted">Заработай честным трудом</p>
+      <h2>Жизнь</h2>
+      <p class="muted">Смена, темка, семья</p>
     </header>
-    <p>⚡ Энергия: {{ game.view.energy }} | ❤️ Репутация: {{ game.view.reputation }}</p>
+
+    <p>⚡ {{ hud?.energy }} | ❤️ {{ hud?.rep }} | 🔥 {{ hud?.tilt }}</p>
 
     <div class="button-with-warning">
-      <button @click="game.execute({ type: 'work/job' })" :disabled="!!jobBlock">
-        💼 Подработать (-{{ job.energyCost }}⚡, {{ signed(job.reputationDelta) }}❤️)
+      <button @click="game.execute({ type: 'work/shift' })" :disabled="!!game.actions.shift">
+        💼 Смена ≈{{ money(hud?.shiftPay ?? 0) }}₽ (−{{ B.SHIFT_ENERGY }}⚡)
       </button>
-      <p v-if="jobBlock" class="warning-text">⚠️ {{ formatRejection('work/job', jobBlock) }}</p>
+      <p v-if="game.actions.shift" class="warning-text">⚠️ {{ formatRejection('work/shift', game.actions.shift) }}</p>
       <p v-else class="warning-text-placeholder">&nbsp;</p>
     </div>
 
     <div class="button-with-warning">
-      <button @click="game.execute({ type: 'work/shady' })" :disabled="!!shadyBlock" class="shady-button">
-        😈 Замутить темку (-{{ shady.energyCost }}⚡, {{ signed(shady.reputationDelta) }}❤️)
+      <button @click="game.execute({ type: 'work/shady' })" :disabled="!!game.actions.shady" class="shady-button">
+        😈 Темка (−{{ B.SHADY_ENERGY }}⚡, {{ signed(B.SHADY_REP) }}❤️, {{ pct(B.SHADY_SUCCESS) }} успех)
       </button>
-      <p v-if="shadyBlock" class="warning-text">⚠️ {{ formatRejection('work/shady', shadyBlock) }}</p>
+      <p v-if="game.actions.shady" class="warning-text">⚠️ {{ formatRejection('work/shady', game.actions.shady) }}</p>
+      <p v-else class="warning-text-placeholder">&nbsp;</p>
+    </div>
+
+    <div class="button-with-warning">
+      <button @click="game.execute({ type: 'family/help' })" :disabled="!!game.actions.family">
+        🏡 Помочь семье (−{{ B.FAMILY_ENERGY }}⚡, {{ signed(B.FAMILY_REP) }}❤️, 🔥 −{{ B.TILT_FAMILY }})
+      </button>
+      <p v-if="game.actions.family" class="warning-text">⚠️ {{ formatRejection('family/help', game.actions.family) }}</p>
       <p v-else class="warning-text-placeholder">&nbsp;</p>
     </div>
   </section>
@@ -27,14 +36,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useGameStore } from '@/stores/game'
-import { formatRejection, signed } from '@/i18n'
+import { formatRejection, money, signed } from '@/i18n'
 
 const game = useGameStore()
 // Числа — из конфига баланса, доступность — из ядра (TD-04)
-const { job, shady } = game.config.balance.work
-
-const jobBlock = computed(() => game.canExecute({ type: 'work/job' }))
-const shadyBlock = computed(() => game.canExecute({ type: 'work/shady' }))
+const B = game.config.balance
+const hud = computed(() => game.hud)
+const pct = (x: number) => `${Math.round(x * 100)}%`
 </script>
 
 <style scoped>

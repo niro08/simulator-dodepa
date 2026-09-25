@@ -1,5 +1,5 @@
 import type { SaveEnv } from './schema'
-import { CURRENT_SAVE_VERSION, createDefaultProfile, createDefaultSettings } from './schema'
+import { CURRENT_SAVE_VERSION, createDefaultSettings } from './schema'
 
 type Json = Record<string, unknown>
 /** Миграция с версии N на N+1. Может возвращать «сырые» значения — их чинит validate. */
@@ -7,38 +7,54 @@ type Migration = (data: Json, env: SaveEnv) => Json
 
 /**
  * v0 (legacy, ключ `dodepaSave`, eb138e2): плоский { money, energy, reputation, debt, bet, logs: string[] }.
- * → v1: забег в `run`, строки хроники как события legacyText, пустой профиль.
- * Статистика legacy-игрока начинается с нуля.
+ * → v1: забег в `run`, пустой профиль. (Дальше его всё равно заменит миграция v1 → v2.)
  */
 function migrateV0toV1(data: Json, env: SaveEnv): Json {
-  const logs = Array.isArray(data.logs) ? data.logs.filter((x) => typeof x === 'string' && x.trim() !== '') : []
   return {
     version: 1,
     savedAt: env.now,
     build: 'legacy',
     run: {
-      id: `run-legacy-${env.now.toString(36)}`,
-      startedAt: env.now,
       money: data.money,
       energy: data.energy,
       reputation: data.reputation,
       debt: data.debt,
-      bet: data.bet,
-      rngState: env.seed,
-      flags: {},
-      stats: {},
-      // Новые записи — в начале, поэтому id убывают к концу.
-      log: logs.map((text, i) => ({ id: logs.length - i, t: env.now, event: { type: 'legacyText', text } })),
-      nextLogId: logs.length + 1
+      bet: data.bet
     },
-    profile: createDefaultProfile(),
+    profile: {},
     settings: createDefaultSettings()
+  }
+}
+
+/**
+ * v1 → v2: ран 28 дней (GDD) — это другая игра: кошелёк/казино, счета, дни, вещи.
+ * Решение: старый забег НЕ конвертируется, а сбрасывается (run = null → в меню «Новая игра»).
+ * Причины: у старого забега нет ни дня, ни счетов, ни разделения денег; перенос денег дал бы
+ * старт с преимуществом (пиллар 5 «никаких бонусов между ранами»). Статистика v1 не велась (пустая).
+ * Сохраняются настройки; профиль приводится к новой форме (мета-валюта и cosmetics.owned удалены,
+ * lifetime-статистика переносится как есть — ключи совпадают с systems-spec §3.1).
+ */
+function migrateV1toV2(data: Json): Json {
+  const profile = typeof data.profile === 'object' && data.profile !== null ? (data.profile as Json) : {}
+  const cosmetics = typeof profile.cosmetics === 'object' && profile.cosmetics !== null ? (profile.cosmetics as Json) : {}
+  return {
+    version: 2,
+    savedAt: data.savedAt,
+    build: data.build,
+    run: null,
+    profile: {
+      stats: profile.stats,
+      achievements: profile.achievements,
+      equipped: cosmetics.equipped
+    },
+    settings: data.settings
   }
 }
 
 /** Ключ — версия, С которой мигрируем. */
 export const MIGRATIONS: Record<number, Migration> = {
-  0: migrateV0toV1
+  0: migrateV0toV1,
+  1: migrateV1toV2
 }
 
 /** Версия сырого сейва: нет поля version → legacy v0. */

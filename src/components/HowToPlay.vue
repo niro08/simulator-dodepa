@@ -5,85 +5,13 @@
         <button class="close-btn" @click="close">✕</button>
 
         <div class="guide">
-          <h2 class="guide-title">📖 Как играть</h2>
+          <h2 class="guide-title">{{ guide.title }}</h2>
 
           <div class="guide-section">
-            <h3>🎯 Цель игры</h3>
-            <p>Играй в казино, зарабатывай энергию додепа и продолжай депать! Главное — не проиграть всё.</p>
-          </div>
-
-          <div class="guide-section">
-            <h3>💰 Основные ресурсы</h3>
             <ul>
-              <li><strong>Деньги (₽)</strong> — нужны для ставок в казино</li>
-              <li><strong>Энергия (⚡)</strong> — валюта додепа, получаешь при проигрышах</li>
-              <li><strong>Репутация (❤️)</strong> — влияет на суммы займов и кредитов</li>
-              <li><strong>Долг (💳)</strong> — кредиты, которые нужно возвращать</li>
+              <li v-for="line in guide.lines" :key="line">{{ line }}</li>
             </ul>
-          </div>
-
-          <div class="guide-section">
-            <h3>🎰 Казино</h3>
-            <p><strong>Слот-машина:</strong></p>
-            <ul>
-              <li>Минимальная ставка: {{ limits.minBet }}₽</li>
-              <li>Шанс выигрыша: {{ pct(winChance) }} — получаешь х{{ triple.min }}-х{{ triple.max }} от ставки</li>
-              <li>Джекпот 7️⃣7️⃣7️⃣: {{ pct(jackpotChance) }} — х{{ jackpot.min }} от ставки</li>
-              <li>При проигрыше: {{ signed(loseEnergy) }}⚡ энергии</li>
-              <li>В среднем автомат возвращает {{ pct(rtp) }} ставок. Остальное забирает казино</li>
-            </ul>
-          </div>
-
-          <div class="guide-section">
-            <h3>💼 Способы заработка</h3>
-            <p><strong>Подработка (-{{ work.job.energyCost }}⚡, {{ signed(work.job.reputationDelta) }}❤️):</strong></p>
-            <ul>
-              <li>Честный заработок ~{{ range(work.job.baseReward) }}₽</li>
-              <li>Повышает репутацию</li>
-            </ul>
-
-            <p><strong>Замутить темку (-{{ work.shady.energyCost }}⚡, {{ signed(work.shady.reputationDelta) }}❤️):</strong></p>
-            <ul>
-              <li>Нечестный заработок ~{{ range(work.shady.baseReward) }}₽</li>
-              <li>Снижает репутацию</li>
-            </ul>
-            <p class="guide-note">Суммы указаны для {{ start.reputation }}❤️ — чем выше репутация, тем больше платят.</p>
-          </div>
-
-          <div class="guide-section">
-            <h3>👥 Друзья</h3>
-            <p><em>"Друзья не банк - занял и можно не отдавать"</em></p>
-            <ul>
-              <li><strong>Занять у друга (-{{ friends.borrow.energyCost }}⚡, {{ signed(friends.borrow.reputationDelta) }}❤️):</strong> ~{{ range(friends.borrow.baseReward) }}₽</li>
-              <li><strong>Помочь другу (-{{ friends.help.energyCost }}⚡, {{ signed(friends.help.reputationDelta) }}❤️):</strong> повышает репутацию</li>
-              <li>Занять можно при репутации от {{ friends.borrow.minReputation }}❤️</li>
-            </ul>
-          </div>
-
-          <div class="guide-section">
-            <h3>🏦 Банк</h3>
-            <p><strong>Взять кредит (-{{ bank.credit.energyCost }}⚡, {{ signed(bank.credit.reputationDelta) }}❤️):</strong></p>
-            <ul>
-              <li>Получаешь ~{{ range(bank.credit.baseReward) }}₽</li>
-              <li>Долг увеличивается на {{ pct(1 + bank.credit.interestMin) }}-{{ pct(1 + bank.credit.interestMax) }} от суммы</li>
-              <li>Банк откажет, если репутация после кредита станет ниже {{ bank.credit.minReputationAfter }}❤️</li>
-            </ul>
-
-            <p><strong>Погасить долг:</strong></p>
-            <ul>
-              <li>Минимум {{ bank.repay.minAmount }}₽ за раз (остаток меньше — целиком)</li>
-              <li>За каждые {{ bank.repay.reputationPerAmount }}₽ получаешь +1❤️</li>
-            </ul>
-          </div>
-
-          <div class="guide-section">
-            <h3>⚠️ Советы</h3>
-            <ul>
-              <li>Следи за репутацией — от неё зависят суммы займов</li>
-              <li>Не бери много кредитов — долг растёт с процентами</li>
-              <li>Баланс между честным и нечестным заработком</li>
-              <li>Проигрыши дают энергию — это не всегда плохо!</li>
-            </ul>
+            <p class="guide-note">{{ guide.footer }}</p>
           </div>
         </div>
       </div>
@@ -92,30 +20,12 @@
 </template>
 
 <script setup lang="ts">
-import { expectedRtp, outcomeProbability, rewardRange, winProbability } from '@/game'
-import { signed } from '@/i18n'
+import { howToPlay } from '@/i18n'
 import { useGameStore } from '@/stores/game'
 
-// Все числа гайда — из конфига и функций ядра, гайд не может соврать (TD-04, B-13)
+// Все числа гайда — из конфига, гайд не может соврать (TD-04, B-13); тексты — content-pack §12.1
 const { config } = useGameStore()
-const { start, limits, reward, work, friends, bank } = config.balance
-const slot = config.slot
-const noMultiplier = { min: 0, max: 0 }
-const triple = slot.outcomes.find((o) => o.id === 'triple')?.multiplier ?? noMultiplier
-const jackpot = slot.outcomes.find((o) => o.id === 'jackpot')?.multiplier ?? noMultiplier
-const loseEnergy = slot.outcomes.find((o) => o.id === 'lose')?.energyDelta ?? 0
-const winChance = winProbability(slot)
-const jackpotChance = outcomeProbability(slot, 'jackpot')
-const rtp = expectedRtp(slot)
-
-function pct(value: number): string {
-  return `${Math.round(value * 1000) / 10}%`
-}
-
-function range(baseReward: number): string {
-  const [min, max] = rewardRange(baseReward, start.reputation, reward)
-  return `${min}-${max}`
-}
+const guide = howToPlay(config)
 
 defineProps<{
   isVisible: boolean
