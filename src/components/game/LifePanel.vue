@@ -466,7 +466,8 @@ defineExpose({ focusHeading })
   font-weight: 700;
 }
 .life__day:focus-visible {
-  outline: none;
+  outline: 2px solid var(--stamp-blue);
+  outline-offset: 2px;
   background: var(--highlighter);
   box-shadow: 0 0 0 2px var(--highlighter);
 }
@@ -635,14 +636,14 @@ defineExpose({ focusHeading })
 }
 .life__input {
   width: 8ch;
-  min-height: 36px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-2);
   border: 2px solid var(--ink);
   background: var(--paper-white);
   font-family: var(--font-mono);
 }
 .life__chip {
-  min-height: 36px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-2);
   font-size: var(--fs-xs);
 }

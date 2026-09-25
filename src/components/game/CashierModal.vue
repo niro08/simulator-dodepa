@@ -259,7 +259,7 @@ function toLife() {
   gap: var(--sp-2);
 }
 .cash__chip {
-  min-height: 40px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-3);
   border: 2px solid var(--c-accent-2);
   border-radius: var(--r-pill);

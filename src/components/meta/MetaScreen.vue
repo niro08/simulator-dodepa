@@ -1,5 +1,5 @@
 <template>
-  <div class="meta" :class="`meta--${width}`">
+  <main class="meta" :class="`meta--${width}`">
     <header class="meta__head">
       <button ref="backBtn" type="button" class="paper-btn meta__back" @click="shell.goBackFromMeta()">
         {{ shell.metaReturn.value === 'game' && game.run ? COMMON.backToRun : COMMON.back }}
@@ -11,7 +11,7 @@
       </div>
     </header>
     <slot />
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">

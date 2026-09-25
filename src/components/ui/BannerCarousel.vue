@@ -14,7 +14,7 @@
         class="ui-carousel__track"
         :style="motionReduced ? undefined : { transform: `translateX(${-index * 100}%)` }"
       >
-        <article
+        <div
           v-for="(slide, i) in slides"
           :key="slide.id"
           class="ui-carousel__slide"
@@ -31,7 +31,7 @@
 
           <div class="ui-carousel__copy">
             <p v-if="slide.kicker" class="ui-carousel__kicker">{{ slide.kicker }}</p>
-            <h3 class="ui-carousel__title">{{ slide.title }}</h3>
+            <h2 class="ui-carousel__title">{{ slide.title }}</h2>
             <p v-if="slide.hero" class="ui-carousel__hero">{{ slide.hero }}</p>
             <NeonButton
               v-if="slide.cta"
@@ -53,7 +53,7 @@
 
           <div class="honest ui-carousel__honest-stamp"><Stamp text="ПРИЁМ" :rotate="-8" overlay decorative /></div>
           <slot name="honest" :slide="slide" />
-        </article>
+        </div>
       </div>
     </div>
 
@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
 .ui-carousel__dots { display: flex; align-items: center; }
 .ui-carousel__dot {
   position: relative;
-  width: 20px;
+  width: 24px;
   height: 44px;
   border: 0;
   background: none;
@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
   .ui-carousel__timer { font-size: var(--fs-xs); padding: 2px var(--sp-2); top: var(--sp-2); left: var(--sp-4); right: auto; }
   .ui-carousel__fine { max-width: 100%; }
   .ui-carousel__nav { padding-bottom: 0; }
-  .ui-carousel__arrow { width: 36px; }
+  .ui-carousel__arrow { width: 44px; }
   .ui-carousel__rays { width: 600px; height: 600px; margin-top: -300px; right: -260px; }
 }
 

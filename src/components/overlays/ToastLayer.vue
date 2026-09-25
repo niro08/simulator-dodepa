@@ -1,6 +1,9 @@
 <template>
   <Teleport to="body">
     <div class="ui-toast-region toast-layer">
+      <!-- Постоянные live-регионы: текст тоста озвучивается один раз при показе (CD-21) -->
+      <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ politeText }}</p>
+      <p class="sr-only" role="alert" aria-atomic="true">{{ alertText }}</p>
       <Toast
         v-if="toasts.current.value"
         :key="toasts.current.value.id"
@@ -11,6 +14,7 @@
         :icon="toasts.current.value.icon"
         :reward="toasts.current.value.reward"
         :queued="toasts.waiting.value"
+        :live="false"
         :duration="toasts.current.value.kind === 'error' ? 3500 : toasts.current.value.kind === 'achievement' ? 5000 : 4500"
         @close="toasts.dismiss()"
       >
@@ -28,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 import type { GameEvent } from '@/game'
 import { achievementText, cosmeticRewardLine, formatRejection } from '@/i18n'
 import { TOASTS } from '@/i18n/ui'
@@ -46,6 +50,20 @@ import Toast from '@/components/ui/Toast.vue'
 const game = useGameStore()
 const shell = useShell()
 const toasts = useToasts()
+
+/** Текст для скринридера: заголовок, название, подзаголовок, награда. Чётный/нечётный id — чтобы повтор тоже озвучился. */
+const srText = computed(() => {
+  const t = toasts.current.value
+  if (!t) return ''
+  const head = t.title ?? (t.kind === 'achievement' ? TOASTS.srAchievement : '')
+  const text = [head, t.name, t.subtitle, t.reward]
+    .filter(Boolean)
+    .join('. ')
+    .replace(/([.!?…])\. /g, '$1 ')
+  return Number(t.id) % 2 ? `${text}\u00A0` : text
+})
+const politeText = computed(() => (toasts.current.value?.kind === 'error' ? '' : srText.value))
+const alertText = computed(() => (toasts.current.value?.kind === 'error' ? srText.value : ''))
 
 /** Кнопка на тосте ачивки: Гардероб откроется на вкладке новой вещи; «Назад» вернёт в ран. */
 function toWardrobe() {
@@ -118,7 +136,7 @@ onBeforeUnmount(off)
 .toast-layer__action {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
+  min-height: var(--tap-min);
   margin-top: var(--sp-2);
   padding: 0 var(--sp-3);
   border: 1px solid var(--c-gold);

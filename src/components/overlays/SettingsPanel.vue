@@ -165,7 +165,7 @@ function onTheme(event: Event) {
 }
 .set__switch {
   min-width: 72px;
-  min-height: 36px;
+  min-height: var(--tap-min);
   border: 2px solid var(--ink);
   border-radius: var(--r-pill);
   background: var(--paper-white);
@@ -180,10 +180,11 @@ function onTheme(event: Event) {
 }
 .set__range {
   width: min(180px, 50%);
+  min-height: var(--tap-min);
   accent-color: var(--ink);
 }
 .set__select {
-  min-height: 36px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-2);
   border: 2px solid var(--ink);
   border-radius: var(--r-xs);
@@ -195,6 +196,9 @@ function onTheme(event: Event) {
   font-size: var(--fs-xs);
 }
 .set__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
   margin-left: var(--sp-1);
   padding: 0;
   border: 0;

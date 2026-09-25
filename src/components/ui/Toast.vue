@@ -2,9 +2,9 @@
   <div
     class="ui-toast fx-toast-in"
     :class="`ui-toast--${kind}`"
-    :role="kind === 'error' ? 'alert' : 'status'"
-    :aria-live="kind === 'error' ? 'assertive' : 'polite'"
-    aria-atomic="true"
+    :role="live ? (kind === 'error' ? 'alert' : 'status') : undefined"
+    :aria-live="live ? (kind === 'error' ? 'assertive' : 'polite') : undefined"
+    :aria-atomic="live ? 'true' : undefined"
     @mouseenter="hold(true)"
     @mouseleave="hold(false)"
     @focusin="hold(true)"
@@ -73,6 +73,11 @@ const props = withDefaults(
     closable?: boolean
     /** Сколько ещё ждут в очереди (пометка «+2»). */
     queued?: number
+    /**
+     * Сам тост — live-регион. Контейнер с постоянным live-регионом (ToastLayer) ставит false:
+     * регион, вставленный в DOM вместе с текстом, скринридеры озвучивают ненадёжно (CD-21).
+     */
+    live?: boolean
   }>(),
   {
     kind: 'achievement',
@@ -83,7 +88,8 @@ const props = withDefaults(
     icon: undefined,
     duration: 4500,
     closable: true,
-    queued: 0
+    queued: 0,
+    live: true
   }
 )
 

@@ -30,6 +30,10 @@ body {
 [data-layer='iznanka'] body {
   background: #232323;
 }
+/* CD-21: светлая тема — тёмный текст Витрины на #232323 давал 1.07–2.18; серый вариант её же фона */
+[data-layer='iznanka'][data-theme='monday'] body {
+  background: #DBDBDB;
+}
 
 #app {
   min-height: 100vh;
@@ -76,8 +80,10 @@ a {
   outline-offset: 2px;
 }
 
+/* Бумага (Жизнь, Выписка, бумажные модалки): неоновое кольцо на бумаге ≈ 1.2:1 → синие чернила (CD-21) */
 .paper :focus-visible,
-.life :focus-visible {
+.life :focus-visible,
+.ui-modal--paper :focus-visible {
   outline-color: var(--stamp-blue);
 }
 

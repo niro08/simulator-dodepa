@@ -17,7 +17,7 @@
         tabindex="-1"
         @keydown="onKeydown"
       >
-        <header class="ui-modal__head">
+        <div class="ui-modal__head">
           <p v-if="formNo && variant === 'paper'" class="ui-modal__form-no">{{ formNo }}</p>
           <h2 :id="titleId" class="ui-modal__title"><slot name="title">{{ title }}</slot></h2>
           <button data-ui
@@ -29,13 +29,13 @@
           >
             <span aria-hidden="true">✕</span>
           </button>
-        </header>
+        </div>
         <div :id="bodyId" class="ui-modal__body">
           <slot />
         </div>
-        <footer v-if="$slots.footer" class="ui-modal__foot">
+        <div v-if="$slots.footer" class="ui-modal__foot">
           <slot name="footer" :close="close" />
-        </footer>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -49,8 +49,12 @@
  * фокус возвращается на элемент, открывший модалку. Первый фокус — [data-autofocus] или первый
  * фокусируемый элемент тела, иначе крестик. ✕ всегда контрастный, 44×44.
  * На мобильном (< 600px) — bottom-sheet.
+ * Модалки могут стоять стопкой (Пауза поверх События/Счетов, Настройки поверх Паузы):
+ * фокус держит только верхняя (modalStack), иначе обработчики focusin перетягивают фокус
+ * друг у друга до переполнения стека (CD-21).
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { isTopModal, popModal, pushModal } from './modalStack'
 
 const props = withDefaults(
   defineProps<{
@@ -112,6 +116,7 @@ function onBackdrop() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (!isTopModal(token)) return
   if (event.key === 'Escape') {
     if (props.closable) {
       event.stopPropagation()
@@ -141,6 +146,7 @@ function onKeydown(event: KeyboardEvent) {
 
 /* Фокус, уходящий из модалки (клик мимо, программный фокус) — возвращаем внутрь */
 function onFocusIn(event: FocusEvent) {
+  if (!isTopModal(token)) return
   const root = dialog.value
   if (root && event.target instanceof Node && !root.contains(event.target)) {
     const target = focusables()[0] ?? root
@@ -149,8 +155,10 @@ function onFocusIn(event: FocusEvent) {
 }
 
 let prevOverflow = ''
+const token = Symbol('modal')
 
 async function activate() {
+  pushModal(token)
   returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
   prevOverflow = document.body.style.overflow
   document.body.style.overflow = 'hidden'
@@ -167,6 +175,7 @@ async function activate() {
 }
 
 function deactivate() {
+  popModal(token)
   document.removeEventListener('focusin', onFocusIn)
   document.body.style.overflow = prevOverflow
   const target = returnFocus

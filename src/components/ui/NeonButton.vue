@@ -261,5 +261,6 @@ function onClick(event: MouseEvent) {
   text-transform: none;
   transform: none;
 }
-:root[data-layer="iznanka"] .ui-btn:focus-visible { outline: 2px dashed var(--ink); }
+/* CD-21: кольцо внутри бумажной кнопки — снаружи ink на тёмной серой Витрине давал 1.06:1 */
+:root[data-layer="iznanka"] .ui-btn:not(.ui-btn--ghost):focus-visible { outline: 2px dashed var(--ink); outline-offset: -6px; }
 </style>

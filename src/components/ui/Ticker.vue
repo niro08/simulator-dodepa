@@ -276,4 +276,5 @@ const trackStyle = computed(() => {
 .ui-ticker--neon .ui-ticker__toggle { background: var(--c-panel); color: var(--c-text-muted); }
 .ui-ticker--paper .ui-ticker__toggle { background: var(--paper-2); color: var(--ink); }
 .ui-ticker__toggle:focus-visible { outline: 3px solid var(--c-focus); outline-offset: -3px; }
+.ui-ticker--paper .ui-ticker__toggle:focus-visible { outline-color: var(--ink); } /* CD-21: неон на бумаге ≈ 1:1 */
 </style>

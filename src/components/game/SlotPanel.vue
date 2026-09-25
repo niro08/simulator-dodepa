@@ -139,7 +139,7 @@
 
           <div v-if="hud && hud.bonus.state === 'active'" class="slot__wager">
             <p>{{ SLOT.wager(hud.bonus.wagered, hud.bonus.wagerReq) }}*</p>
-            <div class="slot__wager-bar" role="progressbar" :aria-valuenow="hud.bonus.wagered" :aria-valuemin="0" :aria-valuemax="hud.bonus.wagerReq">
+            <div class="slot__wager-bar" role="progressbar" aria-label="Отыгрыш бонуса" :aria-valuenow="hud.bonus.wagered" :aria-valuemin="0" :aria-valuemax="hud.bonus.wagerReq">
               <span :style="{ width: `${Math.min(100, (hud.bonus.wagered / Math.max(1, hud.bonus.wagerReq)) * 100)}%` }" />
             </div>
             <p v-if="game.underbelly?.bonus" class="honest slot__honest-note">
@@ -505,7 +505,7 @@ defineExpose({ spin, focusSpin, adjust })
 }
 .slot__bet-input {
   width: 6ch;
-  min-height: 40px;
+  min-height: var(--tap-min);
   border: 0;
   background: transparent;
   font-family: var(--font-display);
@@ -522,7 +522,10 @@ defineExpose({ spin, focusSpin, adjust })
 .slot__bet-input:focus {
   outline: none;
 }
+/* Кольцо фокуса обязательно: в «Утре понедельника» и в Изнанке --glow-2 = none (CD-21) */
 .slot__bet-field:focus-within {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
   box-shadow: var(--glow-2);
 }
 .slot__chips {
@@ -531,7 +534,7 @@ defineExpose({ spin, focusSpin, adjust })
 }
 .slot__chip {
   min-width: 44px;
-  min-height: 40px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-2);
   border: 2px solid var(--c-accent-2);
   border-radius: var(--r-sm);
@@ -577,7 +580,7 @@ defineExpose({ spin, focusSpin, adjust })
   font-family: var(--font-mono);
   font-size: var(--fs-fine);
   font-weight: 400;
-  opacity: 0.7;
+  opacity: 0.85; /* CD-21: при .7 в «Утре понедельника» 4.06:1 */
 }
 
 .slot__wager {

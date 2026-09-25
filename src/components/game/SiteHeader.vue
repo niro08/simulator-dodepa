@@ -266,7 +266,6 @@ const calmHeader = computed(() => game.phase !== 'day')
     max-width: 110px;
   }
   .site__icon {
-    min-width: 40px;
     padding: 0 var(--sp-1);
   }
   .site__money {

@@ -1,7 +1,7 @@
 <template>
   <article class="card" :class="[`card--${variant}`, { 'card--off': !!reason }]" :aria-labelledby="titleId">
     <header class="card__head">
-      <h4 :id="titleId" class="card__title">{{ title }}</h4>
+      <h3 :id="titleId" class="card__title">{{ title }}</h3>
       <span v-if="cost" class="card__cost">{{ cost }}</span>
     </header>
     <p v-if="shout" class="card__shout">{{ shout }}</p>

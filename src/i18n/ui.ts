@@ -197,6 +197,8 @@ export const SITE = {
   withdrawPending: (net: number) => `+${money(net)}₽ утром ⏳`,
   skipToSlot: 'К слоту',
   skipToLife: 'К жизни',
+  /** Скрытый заголовок игрового экрана для скринридера (CD-21). */
+  screenTitle: (day: number) => `Симулятор Додепа. День ${day}`,
   footerResponsible: 'Ответственная игра',
   footerResponsibleHonest: 'Ты здесь',
   footerCopy: '© ДОДЕП КАЗИНО. Все права защищены. Все деньги — тоже.',
@@ -852,6 +854,8 @@ export const STATUS_LINE = {
 // ─── Тосты ─────────────────────────────────────────────────────────────────
 
 export const TOASTS = {
+  /** Префикс озвучки тоста ачивки для скринридера (CD-21). */
+  srAchievement: 'Достижение',
   rejectedTitle: 'Не вышло',
   withdrawPaid: (net: number) => `Вывод пришёл: +${money(net)}₽ в кошелёк`,
   withdrawPaidHonest: 'Минус комиссия и сутки ожидания.',

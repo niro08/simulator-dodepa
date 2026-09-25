@@ -1,9 +1,9 @@
 <template>
   <section class="proto paper" :aria-labelledby="titleId">
     <header class="proto__head">
-      <h3 :id="titleId" class="proto__title">
+      <h2 :id="titleId" class="proto__title">
         {{ PROTOCOL.title }} · <span class="proto__sub">{{ hud ? PROTOCOL.day(hud.day) : '' }}</span>
-      </h3>
+      </h2>
       <div class="proto__scope" role="radiogroup" aria-label="Период">
         <button type="button" role="radio" :aria-checked="scope === 'run'" @click="scope = 'run'">{{ PROTOCOL.scopeRun }}</button>
         <button type="button" role="radio" :aria-checked="scope === 'all'" @click="scope = 'all'">{{ PROTOCOL.scopeAll }}</button>
@@ -170,7 +170,7 @@ const clock = computed(() => `${String(now.value.getHours()).padStart(2, '0')}:$
   border: 2px solid var(--ink);
 }
 .proto__scope button {
-  min-height: 36px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-3);
   border: 0;
   background: var(--paper-white);

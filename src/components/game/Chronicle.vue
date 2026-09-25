@@ -165,7 +165,7 @@ const visible = computed(() => (expanded.value ? rows.value : rows.value.slice(0
 }
 .chron__more {
   justify-self: start;
-  min-height: 36px;
+  min-height: var(--tap-min);
   padding: 0 var(--sp-3);
   border: 1px solid var(--c-line);
   border-radius: var(--r-pill);

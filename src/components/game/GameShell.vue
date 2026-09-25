@@ -1,7 +1,10 @@
 <template>
   <div class="gs" :class="[`gs--tab-${shell.mobileTab.value}`, `gs--phase-${phase}`]">
-    <a class="skip-link" href="#slot-zone" @click.prevent="focusSlot">{{ SITE.skipToSlot }}</a>
-    <a class="skip-link" href="#life-zone" @click.prevent="focusLife">{{ SITE.skipToLife }}</a>
+    <h1 class="sr-only">{{ SITE.screenTitle(hud?.day ?? 1) }}</h1>
+    <template v-if="isGameLayout">
+      <a class="skip-link" href="#slot-zone" @click.prevent="focusSlot">{{ SITE.skipToSlot }}</a>
+      <a class="skip-link" href="#life-zone" @click.prevent="focusLife">{{ SITE.skipToLife }}</a>
+    </template>
 
     <div v-if="phase !== 'ended'" class="gs__top">
     <SiteHeader id="site-zone" tabindex="-1" :compact="isMobile" />
@@ -84,12 +87,13 @@
       </div>
     </main>
 
-    <DayReceipt v-else-if="phase === 'daySummary' && game.daySummary" :summary="game.daySummary" />
-    <ForkScreen v-else-if="phase === 'fork'" />
-    <MorningScreen v-else-if="phase === 'morning'" />
+    <!-- role="main": экраны фаз — основной контент страницы (CD-21, landmark для скринридера) -->
+    <DayReceipt v-else-if="phase === 'daySummary' && game.daySummary" role="main" :summary="game.daySummary" />
+    <ForkScreen v-else-if="phase === 'fork'" role="main" />
+    <MorningScreen v-else-if="phase === 'morning'" role="main" />
     <template v-else-if="phase === 'ended' && game.statement">
-      <StatementSheet v-if="shell.statementOpen.value" :statement="game.statement" @again="again" @menu="toMenu" />
-      <EndingScreen v-else :statement="game.statement" @statement="shell.statementOpen.value = true" />
+      <StatementSheet v-if="shell.statementOpen.value" role="main" :statement="game.statement" @again="again" @menu="toMenu" />
+      <EndingScreen v-else role="main" :statement="game.statement" @statement="shell.statementOpen.value = true" />
     </template>
 
     <footer v-if="phase !== 'ended'" class="gs__footer vitrina">
@@ -411,6 +415,13 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   document.documentElement.classList.add('in-run')
+  // Вход в ран из меню / «Продолжить»: кнопка меню исчезла, фокус не должен остаться на body (CD-21)
+  void nextTick(() => {
+    const active = document.activeElement
+    if (phase.value !== 'day' || (active && active !== document.body)) return
+    if (isMobile.value) document.getElementById('casino-zone')?.focus({ preventScroll: true })
+    else life.value?.focusHeading()
+  })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
@@ -584,6 +595,7 @@ onBeforeUnmount(() => {
   font-size: var(--fs-xs);
 }
 .gs__responsible {
+  position: relative;
   margin-left: var(--sp-2);
   padding: 0;
   border: 0;
@@ -591,6 +603,17 @@ onBeforeUnmount(() => {
   color: var(--c-text-fine);
   font-size: var(--fs-fine);
   text-decoration: underline;
+}
+/* В Изнанке фон страницы #232323: --c-text-fine неона даёт там 4.42 → берём muted (CD-21) */
+[data-layer='iznanka'] .gs__footer-fine,
+[data-layer='iznanka'] .gs__responsible {
+  color: var(--c-text-muted);
+}
+/* Ссылка-кнопка в мелком тексте: зона нажатия 44px без изменения строки (CD-21) */
+.gs__responsible::before {
+  content: '';
+  position: absolute;
+  inset: -14px -4px;
 }
 .gs__footer-help {
   font-size: var(--fs-sm);
@@ -608,7 +631,8 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     gap: var(--sp-2);
     width: 100%;
-    min-height: 36px;
+    min-height: var(--tap-min);
+    align-items: center;
     padding: var(--sp-1) var(--sp-3);
     border: 0;
     border-bottom: 1px solid var(--ink);

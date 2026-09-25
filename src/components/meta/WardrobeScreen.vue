@@ -26,13 +26,11 @@
 
         <p v-if="onlyDefaults" class="wr__empty">{{ WARDROBE.onlyDefault }}</p>
 
+        <div id="wr-panel" class="wr__panel" role="tabpanel" :aria-labelledby="`wr-tab-${kind}`">
         <ul
-          id="wr-panel"
           ref="gridEl"
           class="wr__grid"
           :class="`wr__grid--${kind}`"
-          role="tabpanel"
-          :aria-labelledby="`wr-tab-${kind}`"
           @keydown="onGridKey"
         >
           <li v-for="item in items" :key="item.id">
@@ -66,6 +64,7 @@
             </button>
           </li>
         </ul>
+        </div>
       </div>
 
       <aside v-if="selected" class="wr__preview paper" aria-live="polite" :aria-label="WARDROBE.preview">
@@ -281,6 +280,9 @@ onMounted(markTabSeen)
   gap: var(--sp-3);
   min-width: 0;
 }
+.wr__panel {
+  min-width: 0;
+}
 .wr__tabs {
   display: flex;
   gap: var(--sp-2);
@@ -375,7 +377,7 @@ onMounted(markTabSeen)
   outline-offset: 2px;
 }
 .wr-card:focus-visible {
-  outline: 3px solid var(--stamp-blue);
+  outline: 3px solid var(--c-focus); /* CD-21: кольцо лежит на фоне страницы, синие чернила там 1.96:1 */
   outline-offset: 2px;
 }
 .wr-card__look {
@@ -536,7 +538,8 @@ onMounted(markTabSeen)
     padding: var(--sp-2) var(--sp-3);
     box-shadow: var(--shadow-paper);
   }
-  .wr__grid {
+  .wr__grid,
+  .wr__panel {
     order: 3;
   }
   .wr__foot {
