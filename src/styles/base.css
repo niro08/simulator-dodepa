@@ -1,0 +1,188 @@
+/* ============================================================
+   Базовые стили оболочки (CD-16). Заменяет старый casino.css:
+   только сброс, фон страницы, фокус и утилиты. Всё остальное — в компонентах
+   на семантических токенах tokens.css.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--c-page-fx), var(--c-page);
+  background-attachment: fixed;
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  overflow-x: hidden;
+}
+
+[data-layer='iznanka'] body {
+  background: #232323;
+}
+/* CD-21: светлая тема — тёмный текст Витрины на #232323 давал 1.07–2.18; серый вариант её же фона */
+[data-layer='iznanka'][data-theme='monday'] body {
+  background: #DBDBDB;
+}
+
+#app {
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+/* Фокус всегда видим: кольцо 2px, контраст ≥ 3:1 (ux-flows §5) */
+:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* Бумага (Жизнь, Выписка, бумажные модалки): неоновое кольцо на бумаге ≈ 1.2:1 → синие чернила (CD-21) */
+.paper :focus-visible,
+.life :focus-visible,
+.ui-modal--paper :focus-visible {
+  outline-color: var(--stamp-blue);
+}
+
+/* Ссылки-прыжки: видны только при фокусе */
+.skip-link {
+  position: absolute;
+  left: var(--sp-2);
+  top: -100px;
+  z-index: calc(var(--z-header) + 1);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  border-radius: var(--r-xs);
+}
+.skip-link:focus {
+  top: var(--sp-2);
+}
+
+/* Моно-кнопка «бумажного» голоса (меню, Жизнь, Выписка) */
+.paper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tap-min);
+  padding: var(--sp-2) var(--sp-4);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-xs);
+  background: var(--paper-white);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.paper-btn:hover:not([aria-disabled='true']) {
+  background: var(--highlighter);
+}
+.paper-btn:active:not([aria-disabled='true']) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.paper-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.paper-btn--primary {
+  background: var(--ink);
+  color: var(--paper-white);
+}
+.paper-btn--primary:hover:not([aria-disabled='true']) {
+  background: #333;
+}
+
+.paper-reason {
+  display: block;
+  margin-top: var(--sp-1);
+  color: var(--stamp-red);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+/* Строка «подпись … выносные точки … сумма» (бумага) */
+.dots {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+}
+.dots > :first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.dots::after {
+  content: '';
+  order: 1;
+  flex: 1 1 12px;
+  border-bottom: 1px dotted currentColor;
+  opacity: 0.45;
+  transform: translateY(-4px);
+}
+.dots > :last-child {
+  order: 2;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.plus {
+  color: var(--stamp-green);
+}
+.minus {
+  color: var(--stamp-red);
+}
+
+/* Элементы только для Витрины: в Изнанке их заменяют честные двойники (.honest) */
+[data-layer='iznanka'] .vitrina-only {
+  display: none !important;
+}

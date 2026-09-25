@@ -34,3 +34,6 @@ coverage
 
 # Vitest
 __screenshots__/
+
+# QA screenshots (local evidence, not versioned)
+production/qa/evidence/
