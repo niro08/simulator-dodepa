@@ -9,6 +9,7 @@ export const pawnHandler: CommandHandler<CommandOf<'pawn/pawn'>> = {
   apply(draft, cmd, ctx) {
     const amount = ctx.config.balance.PAWN_VALUE[cmd.item]
     draft.items[cmd.item] = 'pawned'
+    draft.eventState.pawnedOn[cmd.item] = draft.day
     draft.wallet += amount
     return [{ type: 'itemPawned', itemId: cmd.item, amount, ownedLeft: ownedItems(draft).length }]
   }
@@ -28,6 +29,7 @@ export const redeemHandler: CommandHandler<CommandOf<'pawn/redeem'>> = {
     const cost = redeemCost(cmd.item, B)
     draft.wallet -= cost
     draft.items[cmd.item] = 'owned'
+    delete draft.eventState.pawnedOn[cmd.item]
     return [{ type: 'itemRedeemed', itemId: cmd.item, cost, pawnAmount: B.PAWN_VALUE[cmd.item] }]
   }
 }

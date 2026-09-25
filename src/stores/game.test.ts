@@ -1,5 +1,6 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CURRENT_SAVE_VERSION } from '@/game/save'
 import { BACKUP_KEY, LEGACY_KEY, SAVE_KEY } from '@/platform/storage'
 import { useGameStore } from './game'
 import { useUiStore } from './ui'
@@ -32,12 +33,12 @@ afterEach(() => {
 })
 
 describe('game store', () => {
-  it('legacy dodepaSave мигрирует в v2 (старый забег сброшен), старый ключ удаляется после записи', async () => {
+  it('legacy dodepaSave мигрирует в текущую версию (старый забег сброшен), старый ключ удаляется после записи', async () => {
     const game = setup({ [LEGACY_KEY]: JSON.stringify({ money: 4321, energy: 7, reputation: 3, debt: 0, bet: 100, logs: ['x'] }) })
     await game.load()
     expect(game.hasSave).toBe(false)
     expect(ls.data.has(LEGACY_KEY)).toBe(false)
-    expect(saved().version).toBe(2)
+    expect(saved().version).toBe(CURRENT_SAVE_VERSION)
   })
 
   it('без сейва — нет рана; newGame создаёт ран, утро дня 1 уже наступило, сейв записан', async () => {
@@ -193,5 +194,84 @@ describe('game store', () => {
     game.execute({ type: 'work/shift' })
     game.updateSettings({ musicVolume: 0.1 })
     expect(ls.data.get(SAVE_KEY)).toBe(future)
+  })
+
+  it('мета CD-13/CD-19: ачивка за депозит → тост в onPresent, косметика во владении, equip, геттеры', async () => {
+    const game = setup()
+    await game.load()
+    expect(game.achievements).toHaveLength(31)
+    expect(game.achievements.find((a) => a.id === 'ENDING_REFERRAL')).toMatchObject({ secret: true, progress: null })
+    expect(game.achievements.find((a) => a.id === 'VETERAN_500')?.progress).toEqual({ current: 0, target: 500, scope: 'lifetime' })
+    expect(game.endingsCollection.map((e) => e.id)).toHaveLength(7)
+    expect(game.cosmetics.equipped).toEqual({ skin: 'skin:fruit', theme: 'theme:neon', sound: 'sound:classic', title: 'title:client' })
+
+    game.newGame()
+    const presented: string[] = []
+    game.onPresent((events) => events.forEach((e) => e.type === 'achievementUnlocked' && presented.push(e.id)))
+    game.execute({ type: 'casino/enter' })
+    game.execute({ type: 'casino/deposit', amount: 500, bonus: false })
+    expect(presented).toEqual(['FIRST_DEPOSIT'])
+    expect(game.profile.achievements.FIRST_DEPOSIT).toMatchObject({ runId: game.run?.id })
+    expect(game.log[0]?.event).toMatchObject({ type: 'achievementUnlocked', id: 'FIRST_DEPOSIT', rewards: ['title:newbie'] })
+    expect(game.cosmetics.owned).toContain('title:newbie')
+    expect(game.cosmetics.unseen).toEqual(['title:newbie'])
+    expect(saved().profile.achievements.FIRST_DEPOSIT).toBeDefined()
+
+    expect(game.equip('skin:clown')).toBe('not_owned')
+    expect(game.equip('skin:nope')).toBe('unknown_cosmetic')
+    expect(game.equip('title:newbie')).toBeNull()
+    expect(game.cosmetics.equipped.title).toBe('title:newbie')
+    expect(game.cosmetics.unseen).toEqual([])
+    expect(saved().profile.equipped.title).toBe('title:newbie')
+
+    game.reportFakeTimerExpired()
+    expect(presented).toContain('TIMER_LIES')
+    expect(game.profileStats).toMatchObject({ runsStarted: 1, achievementsUnlocked: 2, achievementsTotal: 31, endingsTotal: 7 })
+  })
+
+  it('ачивка за спин показывается только после анимации (revealPending)', async () => {
+    const game = setup()
+    await game.load()
+    game.newGame()
+    game.execute({ type: 'casino/enter' })
+    game.execute({ type: 'casino/deposit', amount: 500, bonus: false })
+    // Досыпаем lifetime-статистику почти до ачивки, чтобы следующий спин её открыл
+    game.profile = { ...game.profile, stats: { ...game.profile.stats, spins: 499 } }
+    const presented: string[] = []
+    game.onPresent((events) => events.forEach((e) => e.type === 'achievementUnlocked' && presented.push(e.id)))
+    game.spin()
+    expect(game.profile.achievements.VETERAN_500).toBeDefined()
+    expect(presented).toEqual([])
+    const veteranInLog = () => game.log.some((e) => e.event.type === 'achievementUnlocked' && e.event.id === 'VETERAN_500')
+    expect(veteranInLog()).toBe(false)
+    game.revealPending()
+    expect(presented).toContain('VETERAN_500')
+    expect(veteranInLog()).toBe(true)
+  })
+
+  it('касса не зависит от location: enter → spin → reveal → leave → «Жизнь» → enter (как делает UI)', async () => {
+    const game = setup()
+    await game.load()
+    game.newGame()
+    game.execute({ type: 'casino/enter' })
+    game.execute({ type: 'casino/deposit', amount: 1000, bonus: true })
+    game.setBet(100)
+    const before = { casino: game.run!.casino, bonus: { ...game.run!.bonus }, bet: game.run!.bet }
+    game.execute({ type: 'casino/leave' })
+    game.execute({ type: 'family/help' })
+    game.execute({ type: 'casino/enter' })
+    expect(game.run).toMatchObject({ casino: before.casino, bonus: before.bonus, bet: before.bet })
+    const out = game.spin()
+    expect(out?.spin).toBeDefined()
+    game.revealPending()
+    const afterSpin = { casino: game.run!.casino, bonus: { ...game.run!.bonus }, bet: game.run!.bet }
+    game.execute({ type: 'casino/leave' })
+    expect(game.actions.shift).toBeNull()
+    game.execute({ type: 'work/shift' })
+    game.execute({ type: 'casino/enter' })
+    expect(game.run).toMatchObject(afterSpin)
+    // Счёт: долговая часть и сумма после отсрочки — из ядра
+    game.execute({ type: 'mfo/loan' })
+    expect(game.hud?.bill).toMatchObject({ debtPart: 300, total: 3500 + 300, deferredFixed: 5250 })
   })
 })

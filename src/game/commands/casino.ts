@@ -1,10 +1,14 @@
-import { addTilt, needPhase, normalizeAmount } from '../rules'
+import { addTilt, casinoBlocked, needPhase, normalizeAmount } from '../rules'
+import { lockBonus } from '../spin'
 import type { CommandOf, GameEvent } from '../types'
 import type { CommandHandler } from './types'
 
 /** casino/enter — открыть сайт казино (спины только здесь). */
 export const enterHandler: CommandHandler<CommandOf<'casino/enter'>> = {
-  check: (state) => needPhase(state, 'day') ?? (state.location === 'casino' ? { reason: 'in_casino' } : null),
+  check: (state) =>
+    needPhase(state, 'day') ??
+    (state.location === 'casino' ? { reason: 'in_casino' } : null) ??
+    (casinoBlocked(state) ? { reason: 'blocked_by_mama' } : null),
   apply(draft) {
     draft.location = 'casino'
     return [{ type: 'casinoEntered' }]
@@ -23,12 +27,14 @@ export const leaveHandler: CommandHandler<CommandOf<'casino/leave'>> = {
 /**
  * casino/deposit — кошелёк → баланс казино, мгновенно (GDD §3.5.2–3.5.3).
  * Первый депозит рана предлагает бонус 200%: принят — весь баланс заблокирован до оборота ×40 от бонуса.
+ * Следующий депозит после карточки anzhelika_bonus («Активировать») получает её бонус.
  */
 export const depositHandler: CommandHandler<CommandOf<'casino/deposit'>> = {
   check(state, cmd, config) {
     const B = config.balance
     const phase = needPhase(state, 'day')
     if (phase) return phase
+    if (casinoBlocked(state)) return { reason: 'blocked_by_mama' }
     const amount = normalizeAmount(cmd.amount)
     if (amount === null) return { reason: 'invalid_amount' }
     if (amount < B.DEPOSIT_MIN) return { reason: 'amount_below_min', min: B.DEPOSIT_MIN }
@@ -52,7 +58,17 @@ export const depositHandler: CommandHandler<CommandOf<'casino/deposit'>> = {
         draft.bonus = { state: 'active', wagerReq: B.BONUS_WAGER_MULT * bonus, wagered: 0 }
         events.push({ type: 'bonusGranted', deposit: amount, bonus, wagerRequired: draft.bonus.wagerReq })
       }
+    } else if (draft.flags.anzhelika_boost) {
+      // Бонус «персонального менеджера» (anzhelika_bonus): +100% до 3000₽, блокировка вейджером ×35
+      const E = ctx.config.events.balance
+      const bonus = Math.floor(Math.min(amount * E.EVT_ANZH_BONUS_PCT, E.EVT_ANZH_BONUS_CAP))
+      const wagerRequired = E.EVT_ANZH_BONUS_WAGER * bonus
+      draft.flags.anzhelika_boost = false
+      draft.casino += bonus
+      lockBonus(draft, wagerRequired)
+      events.push({ type: 'bonusGranted', deposit: amount, bonus, wagerRequired })
     }
+    draft.flags.deposited = true
     draft.peakCasino = Math.max(draft.peakCasino, draft.casino)
     return events
   }

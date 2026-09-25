@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { expectedBonusLeft } from './bonus'
-import { defaultConfig } from './config'
+import { noEventsConfig } from './config'
 import { abandonRun, applyProgress } from './progress'
 import { createDefaultProfile } from './save/schema'
 import { buildStatement, casinoNetFinal, equivalents, luckReport, rtpActual } from './statement'
@@ -9,7 +9,7 @@ import { casinoSession, playRun, STRATEGIES } from './strategies'
 import { exec, newSession, tryExec } from './testing'
 import { buildHud, buildPendingEvent, buildUnderbelly } from './view'
 
-const config = defaultConfig
+const config = noEventsConfig
 const B = config.balance
 
 describe('честная статистика (CD-10, systems-spec §3.1)', () => {
@@ -37,7 +37,7 @@ describe('честная статистика (CD-10, systems-spec §3.1)', () =
   })
 
   it('счётчики спинов: витрина vs на самом деле, LDW, серия, пик потерь; run и lifetime одной формой', () => {
-    const s = newSession(9)
+    const s = newSession(9, config)
     casinoSession(s, { bet: 100, budget: 1000, maxSpins: 20 })
     const st = s.run.stats
     const spins = s.events.filter((e) => e.type === 'spin')
@@ -57,7 +57,7 @@ describe('честная статистика (CD-10, systems-spec §3.1)', () =
     expect(st).toMatchObject({ shifts: 28, familyHelps: 28, daysPlayed: 27, cleanWeeks: 3, daysNoSpins: 27, billsPaid: 4, runsFinished: 1 })
     expect(session.profile.endings.quit).toMatchObject({ count: 1, bestGrade: 'A' })
     expect(session.profile.runHistory[0]).toMatchObject({ endingId: 'quit', grade: 'A', days: 28 })
-    const s = newSession(4)
+    const s = newSession(4, config)
     exec(s, { type: 'mfo/loan' })
     exec(s, { type: 'pawn/pawn', item: 'bike' })
     exec(s, { type: 'pawn/redeem', item: 'bike' })
@@ -65,14 +65,14 @@ describe('честная статистика (CD-10, systems-spec §3.1)', () =
   })
 
   it('время: timeTracked копится в run и lifetime', () => {
-    const s = newSession(1)
+    const s = newSession(1, config)
     const next = applyProgress(s.run, s.profile, [{ type: 'timeTracked', playSec: 10.7, underbellySec: 5 }], config, 0)
     expect(next.run.stats).toMatchObject({ playSec: 10, underbellySec: 5 })
     expect(next.profile.stats).toMatchObject({ playSec: 10, underbellySec: 5 })
   })
 
   it('брошенный ран: история пополняется, концовка не засчитывается', () => {
-    const s = newSession(1)
+    const s = newSession(1, config)
     const profile = abandonRun(s.run, s.profile, config, 5)
     expect(profile.runHistory[0]).toMatchObject({ endingId: 'abandoned', endedAt: 5 })
     expect(profile.endings).toEqual({})
@@ -97,7 +97,7 @@ describe('Выписка и Изнанка (systems-spec §3.2–§3.5)', () => 
   })
 
   it('buildStatement по концу рана: концовка, сгоревшее у казино, полная цена', () => {
-    const s = newSession(21)
+    const s = newSession(21, config)
     exec(s, { type: 'casino/enter' })
     exec(s, { type: 'casino/deposit', amount: 1000, bonus: false })
     exec(s, { type: 'slot/spin' })
@@ -117,7 +117,7 @@ describe('Выписка и Изнанка (systems-spec §3.2–§3.5)', () => 
   })
 
   it('HUD и Изнанка: счёт, развилка, прогноз бонуса, долг, вещи', () => {
-    const s = newSession(2)
+    const s = newSession(2, config)
     exec(s, { type: 'casino/enter' })
     exec(s, { type: 'casino/deposit', amount: 1000 })
     const hud = buildHud(s.run, config)

@@ -1,4 +1,4 @@
-import { addTilt, changeRep, forcedPay, needEnergy, needLife, needPhase, proposeEnding, shiftPay, shiftPromos } from '../rules'
+import { addTilt, changeRep, forcedPay, needEnergy, needLife, needPhase, proposeEnding, shiftPay, shiftPayNet, shiftPromos } from '../rules'
 import type { CommandOf, GameEvent } from '../types'
 import type { CommandHandler } from './types'
 
@@ -10,13 +10,17 @@ export const shiftHandler: CommandHandler<CommandOf<'work/shift'>> = {
     const B = ctx.config.balance
     const events: GameEvent[] = []
     const promosBefore = shiftPromos(draft, B)
-    const pay = shiftPay(draft, B)
+    const pay = shiftPayNet(draft, B)
+    const deducted = shiftPay(draft, B) - pay
+    draft.eventState.shiftDeductions.shift() // вычет карточки сна (аванс / «вишенки на экране») — по одному на смену
     draft.energy -= B.SHIFT_ENERGY
     draft.wallet += pay
     draft.today.earned += pay
+    draft.today.shifts += 1
+    draft.eventState.shiftsThisWeek += 1
     draft.shiftsDone += 1
     const promoted = draft.shiftsDone % B.SHIFT_PROMO_EVERY === 0 && promosBefore < B.SHIFT_PROMO_MAX
-    events.push({ type: 'shiftWorked', pay, promoted, repPenalty: draft.rep < 0 })
+    events.push({ type: 'shiftWorked', pay, promoted, repPenalty: draft.rep < 0, ...(deducted > 0 ? { deducted } : {}) })
     addTilt(draft, -B.TILT_SHIFT, 'shift', events, B)
     return events
   }

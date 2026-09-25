@@ -47,13 +47,55 @@ const V1_SAVE = JSON.stringify({
   settings: { locale: 'ru', musicVolume: 0.4, sfxVolume: 0.3, reducedMotion: true, skipSpinAnimation: false }
 })
 
+// Фикстура сейва v2 (ядро f1b42cc, до CD-12): ран без eventState и today.nearMiss/shifts
+const V2_SAVE = JSON.stringify({
+  version: 2,
+  savedAt: 1_700_000_000_000,
+  build: '0.2.0',
+  run: {
+    id: 'run-v2',
+    startedAt: 1,
+    seed: 7,
+    day: 9,
+    phase: 'day',
+    location: 'life',
+    energy: 40,
+    wallet: 2300,
+    casino: 150,
+    debtBank: 0,
+    debtMfo: 3000,
+    rep: 12,
+    tilt: 35,
+    items: { phone: 'owned', bike: 'pawned', laptop: 'owned', teaset: 'owned', console: 'owned' },
+    bet: 100,
+    bonus: { state: 'declined', wagerReq: 0, wagered: 0 },
+    withdrawals: [],
+    bills: [
+      { week: 1, dueDay: 7, fixed: 3500, status: 'paid' },
+      { week: 2, dueDay: 14, fixed: 5500, status: 'upcoming' },
+      { week: 3, dueDay: 21, fixed: 7500, status: 'upcoming' },
+      { week: 4, dueDay: 28, fixed: 10000, status: 'upcoming' }
+    ],
+    shiftsDone: 7,
+    eventCooldowns: { life_fridge: 4 },
+    today: { earned: 900, wagered: 200, paidOut: 50, spins: 2, startRep: 12, startTilt: 20 },
+    rngState: 99,
+    flags: {},
+    stats: { spins: 12 },
+    log: [{ id: 3, t: 1, event: { type: 'dayStarted', day: 9, week: 2 } }],
+    nextLogId: 4
+  },
+  profile: { stats: { spins: 40 }, achievements: { FIRST_DEPOSIT: { unlockedAt: 10, runId: 'run-v2' } } },
+  settings: { locale: 'ru', musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false, skipSpinAnimation: true }
+})
+
 function ok(text: string | null) {
   const result = parseSave(text, env)
   if (result.status !== 'ok') throw new Error(`ожидался ok, получили ${result.status}`)
   return result
 }
 
-describe('save: миграции до v2', () => {
+describe('save: миграции до v3', () => {
   it('legacy v0 → v2: старый забег сбрасывается (новый ран — «Новая игра»), настройки по умолчанию', () => {
     const { save, migratedFrom } = ok(LEGACY_NORMAL)
     expect(migratedFrom).toBe(0)
@@ -80,13 +122,37 @@ describe('save: миграции до v2', () => {
     expect(save.settings).toMatchObject({ musicVolume: 0.4, reducedMotion: true })
   })
 
+  it('v2 → v3: ран переносится, механики карточек сна получают значения «ничего не было»', () => {
+    const { save, migratedFrom } = ok(V2_SAVE)
+    expect(migratedFrom).toBe(2)
+    expect(save.version).toBe(3)
+    expect(save.run).toMatchObject({ id: 'run-v2', day: 9, wallet: 2300, debtMfo: 3000, shiftsDone: 7, eventCooldowns: { life_fridge: 4 } })
+    expect(save.run?.items.bike).toBe('pawned')
+    expect(save.run?.eventState).toEqual({
+      shiftDeductions: [],
+      casinoBlockedUntil: 0,
+      friendDebt: 0,
+      shiftsThisWeek: 0,
+      weekCasinoNet: 0,
+      bedTilt: 0,
+      spins: 0,
+      lastSpinDay: 0,
+      pawnedOn: {}
+    })
+    expect(save.run?.today).toMatchObject({ earned: 900, spins: 2, nearMiss: 0, shifts: 0 })
+    expect(save.profile.achievements.FIRST_DEPOSIT).toEqual({ unlockedAt: 10, runId: 'run-v2' })
+    // Мигрированный ран играется дальше
+    const next = executeCommand(save.run!, { type: 'family/help' }, { config: defaultConfig, now: env.now })
+    expect(next.ok).toBe(true)
+  })
+
   it('migrate: legacy без version считается v0 и доводится до текущей версии', () => {
     expect(migrate({ money: 5 }, env).version).toBe(CURRENT_SAVE_VERSION)
     expect(migrate({ version: 1 }, env).version).toBe(CURRENT_SAVE_VERSION)
   })
 })
 
-describe('save: v2', () => {
+describe('save: текущая версия', () => {
   it('round-trip serialize → parse сохраняет ран в любой фазе (F5 не меняет ран, AC 12)', () => {
     const s = newSession(42)
     exec(s, { type: 'casino/enter' })
@@ -229,7 +295,7 @@ describe('loadSave: порядок источников', () => {
   })
 
   it('будущая версия → только чтение', () => {
-    const out = loadSave({ main: JSON.stringify({ version: 3 }), backup: v2, legacy: null }, env)
+    const out = loadSave({ main: JSON.stringify({ version: CURRENT_SAVE_VERSION + 1 }), backup: v2, legacy: null }, env)
     expect(out).toMatchObject({ source: 'main', readOnly: true, needsWrite: false })
   })
 })

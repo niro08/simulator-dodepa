@@ -1,10 +1,24 @@
 import { ITEM_IDS, type GameConfig, type ItemId } from './config'
 import { appendLog } from './log'
 import { initialBills } from './rules'
-import type { DayCounters, ItemStatus, RunState } from './types'
+import type { DayCounters, EventState, ItemStatus, RunState } from './types'
 
 export function freshDayCounters(run: Pick<RunState, 'rep' | 'tilt'>): DayCounters {
-  return { earned: 0, wagered: 0, paidOut: 0, spins: 0, startRep: run.rep, startTilt: run.tilt }
+  return { earned: 0, wagered: 0, paidOut: 0, spins: 0, startRep: run.rep, startTilt: run.tilt, nearMiss: 0, shifts: 0 }
+}
+
+export function freshEventState(): EventState {
+  return {
+    shiftDeductions: [],
+    casinoBlockedUntil: 0,
+    friendDebt: 0,
+    shiftsThisWeek: 0,
+    weekCasinoNet: 0,
+    bedTilt: 0,
+    spins: 0,
+    lastSpinDay: 0,
+    pawnedOn: {}
+  }
 }
 
 /**
@@ -59,6 +73,7 @@ export function createRun(config: GameConfig, seed: number, now: number): RunSta
     today: freshDayCounters({ rep: B.START_REP, tilt: 0 }),
     daySummary: null,
     rngState: seed >>> 0,
+    eventState: freshEventState(),
     flags: {},
     stats: {},
     log: [],
@@ -78,6 +93,11 @@ export function cloneRun(state: RunState): RunState {
     eventCooldowns: { ...state.eventCooldowns },
     today: { ...state.today },
     daySummary: state.daySummary ? { ...state.daySummary } : null,
+    eventState: {
+      ...state.eventState,
+      shiftDeductions: state.eventState.shiftDeductions.slice(),
+      pawnedOn: { ...state.eventState.pawnedOn }
+    },
     flags: { ...state.flags },
     stats: { ...state.stats },
     log: state.log.slice()

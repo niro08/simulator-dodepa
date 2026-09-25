@@ -25,7 +25,34 @@ export { planRepay, minRepayAmount, isRejection, type RepayPlan } from './comman
 export { resolveSpin, effectiveBet, betCap } from './commands/slot'
 export { wagerLeft } from './commands/casino'
 export { expectedBonusLeft, type BonusForecast } from './bonus'
-export { applyProgress, abandonRun } from './progress'
+export {
+  applyProgress,
+  abandonRun,
+  achievementMet,
+  evaluateAchievements,
+  reconcileAchievements,
+  unlockAchievements,
+  type ProgressResult
+} from './progress'
+export {
+  equipCosmetic,
+  equippedCosmetics,
+  markCosmeticsSeen,
+  ownedCosmetics,
+  parseCosmeticId,
+  type EquipRejectReason
+} from './cosmetics'
+export {
+  buildAchievementsView,
+  buildCosmeticsView,
+  buildEndingsCollection,
+  buildProfileStats,
+  type AchievementView,
+  type CosmeticItemView,
+  type CosmeticsView,
+  type EndingCollectionEntry,
+  type ProfileStatsView
+} from './meta'
 export { reduceStats, stat, STAT_KEYS, type StatKey } from './stats'
 export {
   buildStatement,
@@ -45,4 +72,4 @@ export {
   type PendingEventView,
   type UnderbellyView
 } from './view'
-export { LIFE_EVENTS } from './content/events'
+export { LIFE_EVENTS, SLEEP_EVENTS } from './content/events'

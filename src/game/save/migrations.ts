@@ -51,10 +51,20 @@ function migrateV1toV2(data: Json): Json {
   }
 }
 
+/**
+ * v2 → v3 (CD-12): у рана появились `eventState` (вычеты из смен, блокировка казино, долг Серёге, недельные
+ * счётчики, дни залога) и `today.nearMiss/shifts`. Ран переносится как есть: новые поля заполнит validate
+ * значениями «ничего не было» (карточки просто начнут срабатывать с этого момента). Профиль не меняется.
+ */
+function migrateV2toV3(data: Json): Json {
+  return { ...data, version: 3 }
+}
+
 /** Ключ — версия, С которой мигрируем. */
 export const MIGRATIONS: Record<number, Migration> = {
   0: migrateV0toV1,
-  1: migrateV1toV2
+  1: migrateV1toV2,
+  2: migrateV2toV3
 }
 
 /** Версия сырого сейва: нет поля version → legacy v0. */

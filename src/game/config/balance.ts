@@ -124,8 +124,28 @@ export const EVENTS_BALANCE = {
   EVT_PAWN_SELL_BONUS: 0.20,
   EVT_LIFE_FRIDGE_COST: 2500, EVT_LIFE_FRIDGE_ENERGY: -60, EVT_LIFE_FRIDGE_TILT: 10,
   EVT_LIFE_TOOTH_COST: 2000, EVT_LIFE_TOOTH_ENERGY: -60, EVT_LIFE_TOOTH_TILT: 15,
-  EVT_LIFE_FINE_COST: 1500, EVT_LIFE_FINE_DEBT: 2000
+  EVT_LIFE_FINE_COST: 1500, EVT_LIFE_FINE_DEBT: 2000,
+  // Пороги условий появления (content-pack §2 `when`; CD-12)
+  EVT_FREESPINS_IDLE_DAYS: 2, EVT_EDUARD_CALL_FROM_DAY: 8, EVT_EDUARD_VISIT_DEBT: 15000, EVT_EDUARD_VISIT_FROM_DAY: 15,
+  EVT_BOSS_SAT_MIN_SHIFTS: 2, EVT_BOSS_CAUGHT_TILT: 40, EVT_SIGNALS_MIN_SPINS: 50, EVT_DREAM_NEAR_MISS: 3,
+  EVT_MAMA_BDAY_FROM_DAY: 8, EVT_MAMA_BDAY_TO_DAY: 21, EVT_CLIP_TILT: 30, EVT_INSOMNIA_BED_TILT: 70,
+  EVT_MAMA_WORRY_TILT: 40, EVT_MAMA_WORRY_REP_BELOW: 5, EVT_ADVANCE_DAYS_TO_BILL: 2,
+  EVT_CASHBACK_MIN_LOSS: 5000, EVT_PAWN_OFFER_MIN_DAYS: 3
 } as const satisfies Record<string, number>
+
+/**
+ * Веса карточек сна (economy-v1 §9: все 1). Тюнинг частоты — здесь, без правки content/events.ts.
+ * Ключи совпадают с id карточек (тест: у каждой карточки пула есть вес).
+ */
+export const EVENT_WEIGHTS = {
+  mama_meds: 1, push_we_miss_you: 1, seryoga_fishing: 1, eduard_call: 1, eduard_visit: 1,
+  boss_saturday: 1, boss_caught: 1, seryoga_wants_back: 1, anzhelika_bonus: 1, sms_preapproved: 1,
+  signals_channel: 1, grandma_service: 1, dream_777: 1, neighbor_drill: 1, mama_birthday: 1,
+  stream_clip: 1, seryoga_blocking: 1, mfo_robot: 1, withdraw_verification: 1, seryoga_birthday: 1,
+  insomnia_spin: 1, mama_worried: 1, mama_blocks_site: 1, boss_advance: 1, cashback_letter: 1,
+  pawn_offer: 1, life_fridge: 1, life_tooth: 1, life_fine: 1
+} as const satisfies Record<string, number>
+export type SleepEventId = keyof typeof EVENT_WEIGHTS
 
 /**
  * Честная статистика и Выписка (systems-spec §3.3, §3.6). Цены эквивалентов, связанные с балансом

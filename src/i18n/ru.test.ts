@@ -9,7 +9,7 @@ import {
   type GameEventType,
   type RejectReason
 } from '@/game'
-import { LIFE_EVENTS } from '@/game/content/events'
+import { LIFE_EVENTS, SLEEP_EVENTS } from '@/game/content/events'
 import {
   ENDINGS,
   endingTitle,
@@ -21,7 +21,10 @@ import {
   howToPlay,
   ITEM_NAMES,
   money,
-  SLEEP_EVENT_TEXTS
+  SLEEP_EVENT_TEXTS,
+  achievementText,
+  formatAchievementToast,
+  formatSleepEventCard
 } from './ru'
 
 const spin = (patch: Partial<EventOf<'spin'>>): EventOf<'spin'> => ({
@@ -70,7 +73,11 @@ const EVENTS = {
   runEnded: { type: 'runEnded', endingId: 'quit', grade: 'A', day: 28, weeksSurvived: 3, forfeitedCasino: 0, forfeitedWithdrawals: 0, itemsLost: [] },
   betChanged: { type: 'betChanged', from: 100, to: 200 },
   rejected: { type: 'rejected', command: 'slot/spin', reason: 'bet_below_min', min: 50 },
-  timeTracked: { type: 'timeTracked', playSec: 10, underbellySec: 0 }
+  timeTracked: { type: 'timeTracked', playSec: 10, underbellySec: 0 },
+  casinoCredited: { type: 'casinoCredited', source: 'freespins', amount: 120, wagerRequired: 4800 },
+  itemSold: { type: 'itemSold', itemId: 'laptop', amount: 1200 },
+  fakeTimerExpired: { type: 'fakeTimerExpired' },
+  achievementUnlocked: { type: 'achievementUnlocked', id: 'TILT_100', hidden: false, rewards: ['skin:clown'] }
 } satisfies { [K in GameEventType]: Extract<GameEvent, { type: K }> }
 
 const SPINS: EventOf<'spin'>[] = [
@@ -89,7 +96,7 @@ describe('i18n/ru', () => {
     for (const event of [...Object.values(EVENTS), ...SPINS] as GameEvent[]) {
       for (let variant = 0; variant < 4; variant++) {
         const text = formatEvent(event, variant)
-        if (event.type !== 'timeTracked') expect(text.length, event.type).toBeGreaterThan(0)
+        if (event.type !== 'timeTracked' && event.type !== 'fakeTimerExpired') expect(text.length, event.type).toBeGreaterThan(0)
         expect(text).not.toMatch(/undefined|NaN|null|\[object/)
       }
     }
@@ -177,5 +184,26 @@ describe('i18n/ru', () => {
     expect(guide.lines.join(' ')).toContain('тильт −50')
     expect(money(1234567)).toBe('1 234 567')
     expect(money(-500)).toBe('−500')
+  })
+
+  it('карточки сна CD-12: все тексты с подстановками без «дыр»; ачивки и тост', () => {
+    for (const e of SLEEP_EVENTS) {
+      const card = formatSleepEventCard({ eventId: e.id, vars: { casino_balance: 12_345, amount: 400, item: 'laptop' } })
+      expect(card?.text, e.id).not.toMatch(/\{\w+\}|undefined/)
+      for (const choice of [0, 1]) {
+        const text = formatEvent({ type: 'sleepEventResolved', eventId: e.id, choice, amount: -1250, item: 'bike' })
+        expect(text, `${e.id}/${choice}`).not.toMatch(/\{\w+\}|undefined|NaN/)
+      }
+    }
+    expect(formatSleepEventCard({ eventId: 'insomnia_spin', vars: { casino_balance: 12_345 } })?.text).toContain('12 345₽')
+    expect(formatEvent({ type: 'sleepEventResolved', eventId: 'insomnia_spin', choice: 0, amount: -1250 })).toContain('-1 250₽')
+    expect(formatSleepEventCard({ eventId: 'pawn_offer', vars: { casino_balance: 0, item: 'laptop' } })?.text).toContain('💻 Ноутбук')
+    expect(formatAchievementToast('TILT_100', ['skin:clown'])).toEqual({
+      v: '🏆 ДОСТИЖЕНИЕ: Тильт-проф!',
+      i: 'Зафиксировано: Тильт-проф. В этот момент решения принимал не ты.',
+      reward: '🎨 Открыт скин: Клоунский'
+    })
+    expect(achievementText('ENDING_REFERRAL', true).title).toBe('???')
+    expect(formatRejection('casino/enter', { reason: 'blocked_by_mama' })).toContain('Мама')
   })
 })

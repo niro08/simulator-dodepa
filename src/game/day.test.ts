@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig, type GameConfig } from './config'
+import { noEventsConfig, type GameConfig } from './config'
 import { LIFE_EVENTS } from './content/events'
 import { canExecute, dispatch, executeCommand } from './reducer'
 import { createRng } from './rng'
@@ -9,7 +9,7 @@ import { playRun, STRATEGIES } from './strategies'
 import { exec, newSession, tryExec, type Session } from './testing'
 import type { Command, EventOf, GameEvent, RunState } from './types'
 
-const config = defaultConfig
+const config = noEventsConfig
 const B = config.balance
 const run = (patch: Partial<RunState> = {}): RunState => ({ ...newSession(1, config, false).run, ...patch })
 const act = (state: RunState, cmd: Command, seed = 1, cfg: GameConfig = config) =>
@@ -253,7 +253,7 @@ describe('тильт 100 в особые дни (GDD §3.5.10, E3–E5)', () => 
 })
 
 describe('события сна: система (точка для CD-12)', () => {
-  const withLife: GameConfig = { ...config, events: { pool: LIFE_EVENTS } }
+  const withLife: GameConfig = { ...config, events: { ...config.events, pool: LIFE_EVENTS } }
 
   it('бросок ночью (не в ночь 1→2), показ утром, выбор, кулдаун 7 дней', () => {
     // ночь 1 → 2: события нет

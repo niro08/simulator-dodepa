@@ -197,6 +197,7 @@ CD-14 ─> CD-18 ; CD-07 ─> CD-20 ; CD-16/18 ─> CD-21 ; всё ─> CD-22
 - **Зависимости:** CD-09, CD-05, CD-07.
 
 ### CD-12 · Система событий сна · `gameplay-programmer` · P0
+> **Статус: ✅ логика.** 29 карточек (26 content-pack + 3 `life_*`) — `src/game/content/events.ts`: условия, веса (`EVENT_WEIGHTS`), эффекты по `EVENTS_BALANCE`. Механики (блокировка сайтов мамой, аванс/вычет из смен, продажа вещи, фриспины, кэшбэк, бонус Анжелики, автоспины бессонницы) — декларативные ключи эффекта в `day.ts`; сейв v3. Тесты: `content/events.test.ts` (все 29 выпадают, механики), коридоры баланса economy §9 — `balance.test.ts` (честный 59%, казино 7%, лудоман 0%, темщик 0%); итоги — economy-v1 §9.3. Карточка UI (←/→) — ui-programmer (`EventCard.vue` через `formatSleepEventCard`).
 - **Цель.** Карточки в стиле Reigns из CV §6.3 п.6.
 - **Критерии приёмки.**
   - Данные событий берутся из `src/game/content/events.ts`: условия появления, веса, 2 выбора, эффекты.
@@ -207,6 +208,7 @@ CD-14 ─> CD-18 ; CD-07 ─> CD-20 ; CD-16/18 ─> CD-21 ; всё ─> CD-22
 - **Зависимости:** CD-05, CD-11.
 
 ### CD-13 · Ачивки, коллекция концовок, мета-сохранение · `gameplay-programmer` · P0
+> **Статус: ✅ логика и стор.** 31 ачивка (systems-spec §4; id UPPER_SNAKE = Steam API Name) — `src/game/config/achievements.ts`, движок `evaluateAchievements` в `progress.ts` (stat/ending/allEndings/event, идемпотентно), событие `achievementUnlocked` → хроника и `onPresent` (тост: i18n `formatAchievementToast`). Коллекция концовок и «За всё время» — `store.endingsCollection`, `store.profileStats`, ачивки с прогрессом/скрытостью — `store.achievements`. Платформенный адаптер `src/platform/achievements.ts` (веб — noop, Steam — мост preload, reconcile при загрузке). Тексты — content-pack §3 в i18n. Тесты: `achievements.test.ts` (VETERAN_500, VALUED_CUSTOMER, CLEAN_WEEK, ALL_ENDINGS, идемпотентность). Экран «Коллекция» — ui-programmer.
 - **Цель.** Мета-слой из CV §5.4 и §8.
 - **Критерии приёмки.**
   - `dodepaMeta` хранит ачивки, концовки, открытую косметику, выбранные скин/тему/звук и lifetime-статистику. Переживает «Новую игру».
@@ -262,6 +264,7 @@ CD-14 ─> CD-18 ; CD-07 ─> CD-20 ; CD-16/18 ─> CD-21 ; всё ─> CD-22
 - **Зависимости:** CD-14.
 
 ### CD-19 · Система скинов, тем и «Гардероб» · `ui-programmer` · P0
+> **Статус: ✅ логика (gameplay-programmer).** Каталог `src/game/config/cosmetics.ts`: 9 скинов (8 эмодзи по тирам, art-bible §4), 4 темы (`neon|monday|mirror47|stream` = tokens.css), 4 звук-пака, 10 титулов. Владение вычисляется из ачивок (`cosmetics.ts`), экипировка — `profile.equipped`, `store.equip(id)` / `store.cosmetics` / `markCosmeticsSeen`; `src/skins` — `skinSymbols(id)`. Тест: каталог, темы = tokens.css, косметика не импортирует слот. Осталось UI: «Гардероб», связка `useTheme` ↔ `store.cosmetics.equipped.theme`.
 - **Цель.** Косметика из CV §9 (объём P0).
 - **Критерии приёмки.**
   - Скины заданы данными: `id`, символы, CSS-класс рамки, цвет свечения, условие анлока.

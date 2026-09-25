@@ -1,10 +1,10 @@
 import {
   applySleepEventOption,
-  canAffordOption,
   endDay,
   findSleepEvent,
   finishMorning,
   openFork,
+  optionRejection,
   runNight,
   wake
 } from '../day'
@@ -55,7 +55,7 @@ export const resumeHandler: CommandHandler<CommandOf<'day/resume'>> = {
   }
 }
 
-/** event/choose — выбор варианта карточки сна (система; контент — CD-12). */
+/** event/choose — выбор варианта карточки сна (система — day.ts; контент CD-12 — content/events.ts). */
 export const chooseEventHandler: CommandHandler<CommandOf<'event/choose'>> = {
   check(state, cmd, config) {
     const phase = needPhase(state, 'event')
@@ -64,15 +64,15 @@ export const chooseEventHandler: CommandHandler<CommandOf<'event/choose'>> = {
     if (!def) return { reason: 'no_event' }
     const option = def.options[cmd.option]
     if (!option) return { reason: 'invalid_amount' }
-    return canAffordOption(state, option) ? null : { reason: 'option_unaffordable', min: option.cost }
+    return optionRejection(state, option, config)
   },
   apply(draft, cmd, ctx) {
     const events: GameEvent[] = []
     const eventId = draft.pendingEventId ?? ''
     const option = findSleepEvent(ctx.config, eventId)?.options[cmd.option]
-    if (option) applySleepEventOption(draft, option, ctx, events)
+    const outcome = option ? applySleepEventOption(draft, option, ctx, events, eventId) : {}
     draft.pendingEventId = null
-    events.unshift({ type: 'sleepEventResolved', eventId, choice: cmd.option })
+    events.unshift({ type: 'sleepEventResolved', eventId, choice: cmd.option, ...outcome })
     finishMorning(draft, ctx, events)
     return events
   }

@@ -69,6 +69,7 @@ export const STAT_KEYS = [
   'redeemPaid',
   'redeemPremium',
   'itemsLost',
+  'itemsSold',
   // Счета и дни
   'billsPaid',
   'billsPaidAmount',
@@ -85,7 +86,7 @@ export const STAT_KEYS = [
   // Время и мета
   'playSec', // ач. —
   'underbellySec', // ач. INSIGHT
-  'fakeTimerExpiries', // ач. TIMER_LIES (UI, CD-13)
+  'fakeTimerExpiries', // ач. TIMER_LIES (UI → store.reportFakeTimerExpired)
   'runsStarted',
   'runsFinished'
 ] as const
@@ -222,6 +223,12 @@ export function applyStatEvent(stats: PlayerStats, event: GameEvent): void {
     case 'timeTracked':
       add(stats, 'playSec', Math.max(0, Math.floor(event.playSec)))
       add(stats, 'underbellySec', Math.max(0, Math.floor(event.underbellySec)))
+      break
+    case 'itemSold':
+      add(stats, 'itemsSold', 1)
+      break
+    case 'fakeTimerExpired':
+      add(stats, 'fakeTimerExpiries', 1)
       break
     case 'runStarted':
       add(stats, 'runsStarted', 1)

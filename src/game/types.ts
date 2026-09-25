@@ -66,6 +66,35 @@ export interface DayCounters {
   spins: number
   startRep: number
   startTilt: number
+  /** Near-miss за день (dream_777). */
+  nearMiss: number
+  /** Смены за день (boss_caught: «спины в день смены»). */
+  shifts: number
+}
+
+/**
+ * Состояние механик карточек сна (CD-12, content-pack §2). Только числа рана; числа баланса — EVENTS_BALANCE.
+ * Появилось в сейве v3.
+ */
+export interface EventState {
+  /** Вычеты из следующих смен, ₽, по одному на смену (boss_caught, boss_advance). */
+  shiftDeductions: number[]
+  /** Казино недоступно по этот день включительно (mama_blocks_site). 0 — нет блокировки. */
+  casinoBlockedUntil: number
+  /** Взято у друзей за ран и не возвращено (seryoga_wants_back). */
+  friendDebt: number
+  /** Смены за текущую неделю (boss_saturday). */
+  shiftsThisWeek: number
+  /** Выплаты − ставки слота за текущую неделю (cashback_letter: проигрыш = −weekCasinoNet). */
+  weekCasinoNet: number
+  /** 🔥 в момент отхода ко сну — до ночного спада (insomnia_spin). */
+  bedTilt: number
+  /** Спинов за ран (signals_channel) — независимо от статистики. */
+  spins: number
+  /** День последнего спина, 0 — ещё не крутил (push_we_miss_you). */
+  lastSpinDay: number
+  /** Вещь → день, когда её заложили (pawn_offer: «в ломбарде ≥ N дней»). */
+  pawnedOn: Partial<Record<ItemId, number>>
 }
 
 /** Снимок «Итог дня» (GDD N8). */
@@ -142,7 +171,9 @@ export interface RunState {
   daySummary: DaySummary | null
   /** Состояние RNG: исход следующего действия не меняется перезагрузкой. */
   rngState: number
-  /** Разовые флаги рана (подсказки, события CD-12…). */
+  /** Механики карточек сна (CD-12). */
+  eventState: EventState
+  /** Разовые флаги рана (подсказки; цепочки событий CD-12: deposited, eduard_ignored, mama_told, anzhelika_boost). */
   flags: Record<string, boolean>
   /** Статистика рана (заполняет progress.ts → stats.ts). */
   stats: PlayerStats
@@ -220,6 +251,8 @@ export type RejectReason =
   | 'feature_disabled'
   | 'no_event'
   | 'option_unaffordable'
+  /** Мама поставила блокировку сайтов (mama_blocks_site): казино закрыто на сегодня. */
+  | 'blocked_by_mama'
 
 /** Отказ в выполнении команды. min — число для текста («Мин. 500₽», «Счёт через N дн.»). */
 export interface Rejection {
@@ -269,7 +302,7 @@ export type GameEvent =
   | { type: 'bonusBusted'; balanceLeft: number; wagerLeft: number }
   | { type: 'withdrawRequested'; gross: number; fee: number; net: number; arriveDay: number }
   | { type: 'withdrawPaid'; net: number }
-  | { type: 'shiftWorked'; pay: number; promoted: boolean; repPenalty: boolean }
+  | { type: 'shiftWorked'; pay: number; promoted: boolean; repPenalty: boolean; /** Вычет по карточке сна, ₽. */ deducted?: number }
   | { type: 'schemeResolved'; success: boolean; amount: number; fine: number; jailed: boolean }
   | { type: 'friendBorrowed'; amount: number; diminished: boolean }
   | { type: 'friendsBlocked' }
@@ -292,7 +325,12 @@ export type GameEvent =
   | { type: 'tiltStageChanged'; from: TiltStage; to: TiltStage }
   | { type: 'casinoNight'; n: number; lost: number }
   | { type: 'sleepEventShown'; eventId: string }
-  | { type: 'sleepEventResolved'; eventId: string; choice: number }
+  /** amount/item/wager — для плейсхолдеров текста результата ({net}, {amount}, {item}, {debt}, {wager_left}). */
+  | { type: 'sleepEventResolved'; eventId: string; choice: number; amount?: number; item?: ItemId; wager?: number }
+  /** Зачисление на баланс казино под вейджер от карточки сна (фриспины, кэшбэк). */
+  | { type: 'casinoCredited'; source: 'freespins' | 'cashback'; amount: number; wagerRequired: number }
+  /** Вещь продана Гоше насовсем (pawn_offer). */
+  | { type: 'itemSold'; itemId: ItemId; amount: number }
   | {
       type: 'runEnded'
       endingId: RunEndId
@@ -309,28 +347,66 @@ export type GameEvent =
   | ({ type: 'rejected'; command: CommandType } & Rejection)
   /** Мета-событие: активное время игры (стор, systems-spec §3.6). Ран не меняет. */
   | { type: 'timeTracked'; playSec: number; underbellySec: number }
+  /** Мета-событие (UI): фейковый таймер «бонус сгорит» дошёл до 00:00 (ачивка TIMER_LIES). Ран не меняет. */
+  | { type: 'fakeTimerExpired' }
+  /** Мета-событие (progress.ts, CD-13): открыто достижение; rewards — CosmeticId из каталога. */
+  | { type: 'achievementUnlocked'; id: string; hidden: boolean; rewards: string[] }
 
 export type GameEventType = GameEvent['type']
 export type EventOf<T extends GameEventType> = Extract<GameEvent, { type: T }>
 
 // ─── События сна (система — здесь, контент — CD-12) ─────────────────────────
 
-/** Эффекты варианта карточки (GDD §3.5.11: только ключи общего pipeline). */
+/**
+ * Эффекты варианта карточки (GDD §3.5.11). Простые ключи общего pipeline + несколько механик CD-12
+ * (фриспины, кэшбэк, аванс, продажа вещи, блокировка сайтов) — всё декларативно, числа в EVENTS_BALANCE.
+ */
 export interface SleepEventEffect {
   wallet?: number
   casino?: number
   rep?: number
   tilt?: number
-  /** «−40⚡ завтра» в тексте карточки = сегодня (карточка показывается утром). */
+  /** «−40⚡ завтра» в тексте карточки = сегодня (карточка показывается утром). Кламп [0; ENERGY_PER_DAY]. */
   energyToday?: number
   energyNextMorning?: number
   /** Принудительный долг в МФО (без лимита, как недостача). */
   debtMfo?: number
+  /** Погасить долг (МФО → банк) на столько ₽ (не больше долга); деньги — из `cost`. */
+  repayDebt?: number
+  /** `cost` уходит на баланс казино как обычный депозит (withdraw_verification). */
+  costToCasino?: boolean
+  /** Вернуть Серёге весь долг рана (seryoga_wants_back; сумма — в `cost: 'friendDebt'`). */
+  repayFriend?: boolean
+  /** Засчитать смены для повышения (boss_saturday). */
+  shiftsDone?: number
+  /** Вычеты из следующих смен: фикс ₽ или доля оплаты следующей смены. */
+  shiftDeduction?: { amount?: number; shareOfShift?: number; shifts: number }
+  /** Обычный займ МФО (sms_preapproved); вариант недоступен, если упирается в лимит долга. */
+  mfoLoan?: boolean
+  /** Фриспины (push_we_miss_you): EVT_FREESPINS_*; выигрыш блокируется вейджером. */
+  freespins?: boolean
+  /** Кэшбэк недели (cashback_letter): EVT_CASHBACK_*; блокируется вейджером. */
+  cashback?: boolean
+  /** Следующий депозит получает бонус Анжелики (EVT_ANZH_*). */
+  depositBoost?: boolean
+  /** Автосерия спинов по текущей ставке без ⚡ и тильта за спин (insomnia_spin). */
+  autoSpins?: number
+  /** Казино недоступно N игровых дней, начиная с сегодняшнего (mama_blocks_site). */
+  casinoBlockDays?: number
+  /** Продать Гоше самую «старую» вещь из ломбарда: +доля залога, выкуп невозможен (pawn_offer). */
+  sellPawned?: boolean
+  /** Сразу открыть сайт казино (dream_777 «Это знак»). */
+  enterCasino?: boolean
+  /** Поставить флаг рана (цепочки: eduard_call → eduard_visit, mama_worried → mama_blocks_site). */
+  setFlag?: string
 }
+
+/** Динамическая стоимость: долг Серёге или «не больше долга» (для eduard_call). */
+export type SleepEventCost = number | 'friendDebt' | { upToDebt: number }
 
 export interface SleepEventOption {
   /** Стоимость в ₽ из кошелька; при нехватке вариант недоступен (option_unaffordable). */
-  cost?: number
+  cost?: SleepEventCost
   effect: SleepEventEffect
 }
 
@@ -377,7 +453,7 @@ export interface RunSummary {
 
 /**
  * Мета-профиль. Мета-валюты нет (пиллар 5, systems-spec §6).
- * achievements/equipped/unseenCosmetics заполнит CD-13; форма зафиксирована сейчас, чтобы не менять сейв.
+ * achievements — progress.ts (CD-13); equipped/unseenCosmetics — cosmetics.ts. Владение косметикой вычисляется из ачивок.
  */
 export interface Profile {
   /** Lifetime-статистика (та же форма, что run.stats). */
@@ -386,7 +462,7 @@ export interface Profile {
   achievements: Record<string, { unlockedAt: number; runId: string | null }>
   /** Коллекция концовок. */
   endings: Partial<Record<EndingId, { count: number; firstAt: number; bestGrade: Grade | null }>>
-  /** слот косметики (skin, theme, sound, title) → id предмета. */
+  /** Слот косметики (skin, theme, sound, title) → CosmeticId (`skin:fruit`…). Пусто — умолчание. */
   equipped: Record<string, string>
   unseenCosmetics: string[]
   /** Последние раны (FIFO, STATS_BALANCE.RUN_HISTORY_LIMIT). */

@@ -222,6 +222,16 @@ export function repMult(rep: number, B: BalanceV1): number {
     : 1 + Math.min(B.SHIFT_REP_BONUS_CAP, Math.max(0, rep - 10) * B.SHIFT_REP_BONUS_STEP)
 }
 
+/** Мама поставила блокировку сайтов (mama_blocks_site): казино закрыто сегодня. */
+export function casinoBlocked(run: Pick<RunState, 'day' | 'eventState'>): boolean {
+  return run.eventState.casinoBlockedUntil >= run.day
+}
+
+/** Оплата следующей смены с учётом вычетов карточек сна (boss_caught, boss_advance), ≥ 0. */
+export function shiftPayNet(run: RunState, B: BalanceV1): number {
+  return Math.max(0, shiftPay(run, B) - (run.eventState.shiftDeductions[0] ?? 0))
+}
+
 /** Оплата следующей смены: 630…2048₽ при ❤️ ∈ [−15; 40] (регресс B-05). */
 export function shiftPay(run: RunState, B: BalanceV1): number {
   return Math.round(B.SHIFT_PAY * (1 + B.SHIFT_PROMO_STEP * shiftPromos(run, B)) * repMult(run.rep, B))

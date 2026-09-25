@@ -1,17 +1,8 @@
 import type { SymbolId } from '@/game'
+import { skinSymbols } from './index'
 
 /**
- * Временный скин «эмодзи»: SymbolId → символ на барабане.
- * `satisfies` гарантирует, что скин покрывает все символы слота.
- * Полноценные скины с ассетами — TD-13/TD-21.
+ * Базовый скин «Фруктовый» (skin:fruit): SymbolId → символ на барабане.
+ * Данные всех 9 скинов — src/game/config/cosmetics.ts; выбор по экипировке — `skinSymbols(store.cosmetics.equipped.skin)`.
  */
-export const SYMBOL_EMOJI = {
-  cherry: '🍒',
-  lemon: '🍋',
-  orange: '🍊',
-  melon: '🍉',
-  star: '⭐',
-  diamond: '💎',
-  seven: '7️⃣',
-  clown: '🤡'
-} as const satisfies Record<SymbolId, string>
+export const SYMBOL_EMOJI: Readonly<Record<SymbolId, string>> = skinSymbols('skin:fruit')

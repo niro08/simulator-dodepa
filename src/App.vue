@@ -1,151 +1,197 @@
 <template>
-  <!-- Анимированный эмодзи для перехода -->
-  <div v-if="transitionState !== 'none'" class="transition-emoji-wrapper">
-    <div
-      class="transition-emoji"
-      :class="{
-        'grow': transitionState === 'growing',
-        'shrink': transitionState === 'shrinking'
-      }"
-    >
-      🎰
-    </div>
+  <p v-if="game.readOnly" class="save-warning" role="status">{{ COMMON.saveReadOnly }}</p>
+
+  <MainMenu v-if="shell.screen.value === 'menu'" @start="startRun" />
+  <MetaStub
+    v-else-if="shell.screen.value === 'wardrobe' || shell.screen.value === 'achievements' || shell.screen.value === 'endings'"
+    :kind="shell.screen.value"
+  />
+  <GameShell v-else />
+
+  <PauseMenu />
+  <SettingsPanel />
+  <HowToPlayPanel />
+  <ToastLayer />
+
+  <!-- Переход меню → ран: ≤ 600 мс, без вращения, пропускается кликом или любой клавишей (ux-flows §1) -->
+  <div
+    v-if="transitioning"
+    class="run-transition"
+    :class="{ 'run-transition--calm': theme.motionReduced.value }"
+    role="presentation"
+    @click="endTransition"
+  >
+    <span class="run-transition__emoji" aria-hidden="true">🎰</span>
+    <span class="run-transition__hint">{{ COMMON.skipTransition }}</span>
   </div>
-
-  <p v-if="game.readOnly" class="save-warning">
-    ⚠️ Сейв создан более новой версией игры — прогресс не сохраняется.
-  </p>
-
-  <MainMenu
-    v-if="!isGameStarted"
-    :has-save="game.hasSave"
-    @start-game="handleStartGame"
-  />
-  <CasinoUI
-    v-else
-    @exit-to-menu="handleExitToMenu"
-  />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useGameStore } from '@/stores/game'
 import { usePlayTime } from '@/composables/usePlayTime'
-import MainMenu from '@/components/MainMenu.vue'
-import CasinoUI from '@/components/CasinoUI.vue'
+import { useShell } from '@/composables/useShell'
+import { useSound } from '@/composables/useSound'
+import { useTheme } from '@/composables/useTheme'
+import { useToasts } from '@/composables/useToasts'
+import { COMMON } from '@/i18n/ui'
+import MainMenu from '@/components/menu/MainMenu.vue'
+import MetaStub from '@/components/menu/MetaStub.vue'
+import GameShell from '@/components/game/GameShell.vue'
+import PauseMenu from '@/components/overlays/PauseMenu.vue'
+import SettingsPanel from '@/components/overlays/SettingsPanel.vue'
+import HowToPlayPanel from '@/components/overlays/HowToPlayPanel.vue'
+import ToastLayer from '@/components/overlays/ToastLayer.vue'
 
 const game = useGameStore()
+const shell = useShell()
+const theme = useTheme()
+const sound = useSound()
+const toasts = useToasts()
 // Активное время игры для статистики и Выписки (systems-spec §3.6)
 usePlayTime()
-const isGameStarted = ref(false)
 
-// Состояние анимации: 'none' | 'growing' | 'shrinking'
-const transitionState = ref<'none' | 'growing' | 'shrinking'>('none')
+const TRANSITION_MS = 550
+const transitioning = ref(false)
+let transitionTimer: ReturnType<typeof setTimeout> | undefined
 
-function handleStartGame(isNewGame: boolean) {
-  // Защита от двойного старта (B-12)
-  if (transitionState.value !== 'none') return
-
-  // Этап 1: Увеличение (1.5 сек)
-  transitionState.value = 'growing'
-
-  setTimeout(() => {
-    // Новая игра — явный сброс забега; «Играть» без сейва тоже создаёт забег
-    if (isNewGame || !game.hasSave) {
-      game.newGame()
-    }
-    isGameStarted.value = true
-
-    // Этап 2: Сразу начинаем уменьшение (1 сек)
-    transitionState.value = 'shrinking'
-
-    setTimeout(() => {
-      transitionState.value = 'none'
-    }, 1000)
-  }, 1500)
+function endTransition() {
+  if (transitionTimer) clearTimeout(transitionTimer)
+  transitionTimer = undefined
+  transitioning.value = false
 }
 
-// Выход в меню только меняет экран: прогресс и сейв не трогаем (B-01)
-function handleExitToMenu() {
-  isGameStarted.value = false
+/** Старт или продолжение рана. Экран меняется сразу, переход — только декор поверх. */
+function startRun(isNew: boolean) {
+  if (transitioning.value) return
+  if (isNew || !game.hasSave) game.newGame()
+  shell.statementOpen.value = false
+  shell.setTab('casino')
+  shell.go('game')
+  sound.playStart()
+  transitioning.value = true
+  transitionTimer = setTimeout(endTransition, theme.motionReduced.value ? 250 : TRANSITION_MS)
 }
+
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
+}
+
+/** Esc: закрыть верхний слой, иначе — пауза в ране / назад в меню (ux-flows §3.4). */
+function onEscape(): boolean {
+  if (shell.topOverlay.value) {
+    shell.closeOverlay()
+    return true
+  }
+  if (shell.exitStep.value > 0) {
+    shell.exitLeave() // В S14 Esc = «уйти»: Esc всегда ведёт к выходу
+    return true
+  }
+  if (shell.sleepConfirm.value) {
+    shell.sleepConfirm.value = false
+    return true
+  }
+  if (shell.bonusOffer.value) {
+    shell.bonusOffer.value = false
+    return true
+  }
+  if (shell.cashier.value) {
+    shell.cashier.value = null
+    return true
+  }
+  if (shell.screen.value === 'game') {
+    shell.openOverlay('pause')
+    return true
+  }
+  if (shell.screen.value !== 'menu') {
+    shell.go('menu')
+    return true
+  }
+  return false
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (transitioning.value) {
+    endTransition()
+    if (event.key !== 'Escape') return
+  }
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return
+  if (event.key === 'Escape') {
+    if (onEscape()) event.preventDefault()
+    return
+  }
+  if (isTyping(event.target)) return
+  if (event.code === 'KeyM') {
+    const on = sound.toggle()
+    toasts.push({ kind: 'system', name: on ? COMMON.soundOn : COMMON.soundOff, icon: on ? '🔊' : '🔇' })
+    event.preventDefault()
+    return
+  }
+  if (event.key === '?' || event.key === 'F1') {
+    shell.openOverlay('howto')
+    event.preventDefault()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  endTransition()
+})
 </script>
 
 <style>
 .save-warning {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-  padding: 0.5rem 1rem;
+  inset: 0 0 auto;
+  z-index: var(--z-flash);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--c-gold);
+  color: var(--c-cta-text);
+  font-weight: 700;
   text-align: center;
-  font-weight: 600;
-  background: var(--color-warning);
-  color: var(--color-bg-primary);
 }
 
-/* Wrapper для анимированного эмодзи */
-.transition-emoji-wrapper {
+.run-transition {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 10000;
-  pointer-events: none;
+  inset: 0;
+  z-index: var(--z-flash);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--sp-4);
+  background: var(--c-page);
+  animation: run-fade 550ms ease-in forwards;
+  cursor: pointer;
 }
-
-/* Анимированный эмодзи */
-.transition-emoji {
-  position: fixed;
-  top: 50vh;
-  left: 50vw;
-  transform: translate(-50%, -50%);
-  font-size: 3rem;
-  will-change: transform, font-size;
-  opacity: 1;
+.run-transition__emoji {
+  font-size: clamp(4rem, 18vw, 10rem);
+  animation: run-pop 550ms var(--ease-out) both;
 }
-
-/* Быстрая анимация вращения (0.3s на оборот - очень быстро) */
-@keyframes spinFast {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
+.run-transition__hint {
+  color: var(--c-text-fine);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
-
-/* Этап 1: Увеличение с момента появления (1.5 сек) */
-.transition-emoji.grow {
-  animation: grow 1.5s ease-in forwards, spinFast 0.3s linear infinite;
+.run-transition--calm .run-transition__emoji {
+  animation: none;
 }
-
-@keyframes grow {
-  from {
-    font-size: 3rem;
-  }
-  to {
-    font-size: 120vw;
-  }
-}
-
-
-/* Этап 2: Уменьшение (1 сек) */
-.transition-emoji.shrink {
-  animation: shrink 1s ease-out forwards, spinFast 0.3s linear infinite;
-}
-
-@keyframes shrink {
-  from {
-    font-size: 120vw;
+@keyframes run-fade {
+  0%,
+  55% {
     opacity: 1;
   }
-  to {
-    font-size: 0;
+  100% {
     opacity: 0;
   }
 }
+@keyframes run-pop {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1.15);
+  }
+}
 </style>
-

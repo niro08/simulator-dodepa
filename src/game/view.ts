@@ -7,7 +7,8 @@ import { ITEM_IDS, slotMetrics, type GameConfig, type ItemId } from './config'
 import { betCap, effectiveBet } from './commands/slot'
 import { wagerLeft } from './commands/casino'
 import { checkQuit } from './commands/day'
-import { canAffordOption, findSleepEvent } from './day'
+import { findSleepEvent, optionCost, optionRejection } from './day'
+import { cashbackAmount, oldestPawned } from './content/events'
 import {
   billDueToday,
   billTotal,
@@ -18,7 +19,8 @@ import {
   isForkOpen,
   nextUnpaidBill,
   redeemCost,
-  shiftPay,
+  casinoBlocked,
+  shiftPayNet,
   shiftPromos,
   spinEnergyCost,
   tiltStage,
@@ -47,6 +49,10 @@ export interface BillView {
   fixed: number
   /** fixed + ceil(10% текущего долга). */
   total: number
+  /** Долговая часть счёта: ceil(10% долга) = total − fixed; при оплате гасит долг. */
+  debtPart: number
+  /** Фикс счёта после отсрочки (+GRACE_PENALTY); null — отсрочка уже была или счёт уже отсрочен. */
+  deferredFixed: number | null
   isToday: boolean
   status: BillStatus
 }
@@ -88,7 +94,12 @@ export interface HudView {
   casinoNights: number
   casinoNightsMax: number
   friendsBlocked: boolean
+  /** Оплата следующей смены с учётом вычетов (аванс, «вишенки на экране»). */
   shiftPay: number
+  /** Сколько следующих смен ещё с вычетом. */
+  shiftDeductions: number
+  /** Мама поставила блокировку: казино закрыто сегодня (mama_blocks_site). */
+  casinoBlocked: boolean
   /** Смен до следующего повышения (0 — повышения кончились). */
   shiftsToPromo: number
   friendAmount: number
@@ -100,12 +111,17 @@ export interface HudView {
 function billView(run: RunState, config: GameConfig): BillView | null {
   const bill = billDueToday(run) ?? forkBillToday(run) ?? nextUnpaidBill(run)
   if (!bill) return null
+  const B = config.balance
+  const total = billTotal(run, bill, B)
+  const canDefer = !run.graceUsed && B.GRACE_PER_RUN > 0 && bill.status !== 'deferred'
   return {
     week: bill.week,
     dueDay: bill.dueDay,
     daysLeft: Math.max(0, bill.dueDay - run.day),
     fixed: bill.fixed,
-    total: billTotal(run, bill, config.balance),
+    total,
+    debtPart: total - bill.fixed,
+    deferredFixed: canDefer ? Math.ceil(bill.fixed * (1 + B.GRACE_PENALTY)) : null,
     isToday: bill.dueDay === run.day,
     status: bill.status
   }
@@ -146,7 +162,9 @@ export function buildHud(run: RunState, config: GameConfig): HudView {
     casinoNights: run.casinoNights,
     casinoNightsMax: B.CASINO_NIGHTS_FOR_ENDING,
     friendsBlocked: run.friendsBlocked,
-    shiftPay: shiftPay(run, B),
+    shiftPay: shiftPayNet(run, B),
+    shiftDeductions: run.eventState.shiftDeductions.length,
+    casinoBlocked: casinoBlocked(run),
     shiftsToPromo: promos >= B.SHIFT_PROMO_MAX ? 0 : B.SHIFT_PROMO_EVERY - (run.shiftsDone % B.SHIFT_PROMO_EVERY),
     friendAmount: friendAmount(run, B),
     interestTonight: interestTonight(run, B),
@@ -158,16 +176,29 @@ export function buildHud(run: RunState, config: GameConfig): HudView {
 /** Карточка события сна для UI: id и доступность вариантов. */
 export interface PendingEventView {
   eventId: string
-  options: { index: number; cost: number; affordable: boolean }[]
+  /**
+   * affordable — вариант доступен; rejection — почему нет (нехватка ₽ / лимит долга) → formatRejection('event/choose', …).
+   */
+  options: { index: number; cost: number; affordable: boolean; rejection: Rejection | null }[]
+  /** Подстановки текста карточки (i18n formatSleepEventCard): {casino_balance}, {amount}, {item}. */
+  vars: { casino_balance: number; amount?: number; item?: ItemId }
 }
 
 export function buildPendingEvent(run: RunState, config: GameConfig): PendingEventView | null {
   if (run.phase !== 'event' || !run.pendingEventId) return null
   const def = findSleepEvent(config, run.pendingEventId)
   if (!def) return null
+  const vars: PendingEventView['vars'] = { casino_balance: run.casino }
+  if (def.id === 'cashback_letter') vars.amount = cashbackAmount(run, config)
+  if (def.id === 'seryoga_wants_back') vars.amount = run.eventState.friendDebt
+  if (def.id === 'pawn_offer') vars.item = oldestPawned(run) ?? undefined
   return {
     eventId: def.id,
-    options: def.options.map((o, index) => ({ index, cost: o.cost ?? 0, affordable: canAffordOption(run, o) }))
+    options: def.options.map((o, index) => {
+      const rejection = optionRejection(run, o, config)
+      return { index, cost: optionCost(run, o), affordable: rejection === null, rejection }
+    }),
+    vars
   }
 }
 

@@ -1,12 +1,13 @@
 import { ITEM_IDS, type ItemId } from '../config'
 import { applyInvariants, toInt } from '../invariants'
 import { ENDING_IDS, initialBills } from '../rules'
-import { freshDayCounters } from '../state'
+import { freshDayCounters, freshEventState } from '../state'
 import type {
   Bill,
   BonusState,
   DaySummary,
   EndingId,
+  EventState,
   GameEvent,
   GameEventType,
   Grade,
@@ -119,7 +120,11 @@ const EVENT_TYPES = {
   runEnded: true,
   betChanged: true,
   rejected: true,
-  timeTracked: true
+  timeTracked: true,
+  casinoCredited: true,
+  itemSold: true,
+  fakeTimerExpired: true,
+  achievementUnlocked: true
 } as const satisfies Record<GameEventType, true>
 
 function isEvent(x: unknown): x is GameEvent {
@@ -181,6 +186,28 @@ function validateDaySummary(x: unknown): DaySummary | null {
     tiltDelta: int(x.tiltDelta, 0),
     casinoNight: bool(x.casinoNight, false),
     eventRolled: bool(x.eventRolled, false)
+  }
+}
+
+function validateEventState(x: unknown): EventState {
+  const def = freshEventState()
+  if (!isRecord(x)) return def
+  const pawnedOn: EventState['pawnedOn'] = {}
+  if (isRecord(x.pawnedOn)) {
+    for (const id of ITEM_IDS) if (x.pawnedOn[id] !== undefined) pawnedOn[id] = int(x.pawnedOn[id], 0, 0)
+  }
+  return {
+    shiftDeductions: Array.isArray(x.shiftDeductions)
+      ? x.shiftDeductions.filter((v): v is number => typeof v === 'number' && Number.isFinite(v)).map((v) => Math.max(0, Math.floor(v)))
+      : def.shiftDeductions,
+    casinoBlockedUntil: int(x.casinoBlockedUntil, 0, 0),
+    friendDebt: int(x.friendDebt, 0, 0),
+    shiftsThisWeek: int(x.shiftsThisWeek, 0, 0),
+    weekCasinoNet: int(x.weekCasinoNet, 0),
+    bedTilt: int(x.bedTilt, 0, 0),
+    spins: int(x.spins, 0, 0),
+    lastSpinDay: int(x.lastSpinDay, 0, 0),
+    pawnedOn
   }
 }
 
@@ -249,10 +276,13 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
       paidOut: int(today.paidOut, 0, 0),
       spins: int(today.spins, 0, 0),
       startRep: int(today.startRep, rep),
-      startTilt: int(today.startTilt, tilt)
+      startTilt: int(today.startTilt, tilt),
+      nearMiss: int(today.nearMiss, 0, 0),
+      shifts: int(today.shifts, 0, 0)
     },
     daySummary: validateDaySummary(x.daySummary),
     rngState: int(x.rngState, env.seed) >>> 0,
+    eventState: validateEventState(x.eventState),
     flags: boolMap(x.flags),
     stats: numberMap(x.stats) as PlayerStats,
     log,

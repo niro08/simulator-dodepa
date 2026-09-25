@@ -4,12 +4,13 @@ import type { Profile, RunState, Settings } from '../types'
 /**
  * Текущая версия формата сейва. Меняешь форму RunState/Profile/Settings → +1 и миграция.
  * v1 — «старый» забег без дней (eb138e2 после рефакторинга ядра);
- * v2 — ран 28 дней (CD-05…CD-10), профиль по systems-spec §6, мета-валюта удалена.
+ * v2 — ран 28 дней (CD-05…CD-10), профиль по systems-spec §6, мета-валюта удалена;
+ * v3 — механики карточек сна (CD-12): `run.eventState`, `run.today.nearMiss/shifts`.
  */
-export const CURRENT_SAVE_VERSION = 2
+export const CURRENT_SAVE_VERSION = 3
 
-export interface SaveFileV2 {
-  version: 2
+export interface SaveFileV3 {
+  version: 3
   savedAt: number
   /** Версия билда игры (__APP_VERSION__), для баг-репортов. */
   build: string
@@ -19,8 +20,8 @@ export interface SaveFileV2 {
   settings: Settings
 }
 
-/** Актуальный формат. При изменениях: SaveFileV3, миграция 2 → 3 в migrations.ts. */
-export type SaveFile = SaveFileV2
+/** Актуальный формат. При изменениях: SaveFileV4, миграция 3 → 4 в migrations.ts. */
+export type SaveFile = SaveFileV3
 
 /** Окружение загрузки: миграции и валидация чистые, всё внешнее приходит отсюда. */
 export interface SaveEnv {

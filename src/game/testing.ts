@@ -19,10 +19,10 @@ export interface Session {
   progress: boolean
 }
 
-/** Новый ран, уже «проснувшийся» (фаза day дня 1). */
-export function newSession(seed: number, config: GameConfig = defaultConfig, progress = true): Session {
+/** Новый ран, уже «проснувшийся» (фаза day дня 1). profile — продолжить мета-профиль прошлых ранов. */
+export function newSession(seed: number, config: GameConfig = defaultConfig, progress = true, profile?: Profile): Session {
   const run = createRun(config, seed, 0)
-  const session: Session = { run, profile: createDefaultProfile(), config, events: [], progress }
+  const session: Session = { run, profile: profile ?? createDefaultProfile(), config, events: [], progress }
   record(session, [{ type: 'runStarted', runId: run.id, seed: run.seed }])
   exec(session, { type: 'day/wake' })
   return session
@@ -33,7 +33,7 @@ function record(session: Session, events: readonly GameEvent[]): void {
     const next = applyProgress(session.run, session.profile, events, session.config, 0)
     session.run = next.run
     session.profile = next.profile
-    session.events.push(...events)
+    session.events.push(...events, ...next.events)
   }
 }
 

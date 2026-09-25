@@ -25,6 +25,7 @@ export const borrowHandler: CommandHandler<CommandOf<'friends/borrow'>> = {
     const diminished = draft.friendLoansThisWeek > 0
     draft.energy -= B.FRIEND_ENERGY
     draft.wallet += amount
+    draft.eventState.friendDebt += amount
     draft.friendLoansThisWeek += 1
     events.push({ type: 'friendBorrowed', amount, diminished })
     changeRep(draft, B.FRIEND_REP, events, B)

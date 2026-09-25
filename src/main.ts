@@ -5,7 +5,7 @@ import { useGameStore } from './stores/game'
 import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/vfx.css'
-import './styles/casino.css'
+import './styles/base.css'
 
 const app = createApp(App)
 const pinia = createPinia()

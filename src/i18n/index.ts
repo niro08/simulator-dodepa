@@ -17,6 +17,15 @@ export {
   ITEM_NAMES,
   SLEEP_EVENT_TEXTS,
   TILT_STAGE_LABELS,
+  ACHIEVEMENT_TEXTS,
+  ACHIEVEMENT_SECRET,
+  COSMETIC_NAMES,
+  achievementText,
+  cosmeticRewardLine,
+  fillPlaceholders,
+  formatAchievementToast,
+  formatSleepEventCard,
+  type AchievementText,
   type EventTone,
   type EndingText
 } from './ru'

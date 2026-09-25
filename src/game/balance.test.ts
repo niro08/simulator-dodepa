@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { defaultConfig, type GameConfig } from './config'
+import { defaultConfig, noEventsConfig, type GameConfig } from './config'
 import { LIFE_EVENTS } from './content/events'
 import { debtOf } from './rules'
 import { casinoSession, playRun, STRATEGIES, winRate } from './strategies'
 import { exec, newSession, tryExec } from './testing'
 
 /**
- * Баланс на настоящем ядре (economy-v1 §10–§11, CD-04). Эталон — tools/balance-sim/sim.mjs.
- * Без пула событий сна (CD-12) честный ран детерминирован (economy §9.2), поэтому:
- * 1) честный — побитная сверка с эталонным симулятором без событий;
- * 2) казино каждый день / темщик — коридоры целей CD-02 и сверка с эталоном ±N п.п.
- * Коридор «честный 50–68%» требует полного пула карточек — проверим после CD-12 (it.todo ниже).
+ * Баланс на настоящем ядре (economy-v1 §9–§11, CD-04). Эталон — tools/balance-sim/sim.mjs.
+ * 1) без событий сна честный ран детерминирован (economy §9.2) — побитная сверка с эталоном без событий;
+ * 2) на полном пуле (CD-12, defaultConfig) — коридоры целей economy §9/§11.3:
+ *    честный 50–68%, казино каждый день ≤ 15%, лудоман ≈ 0, темщик < честного.
+ * Фактические значения — economy-v1 «Изменения после CD-12».
  */
 
 type SimModule = {
@@ -37,7 +37,7 @@ describe('баланс: стратегии на ядре', () => {
   it('честный работник без событий: совпадает с эталонным симулятором и побеждает', async () => {
     const sim = await loadSim()
     for (const seed of [1, 2, 3]) {
-      const core = playRun(STRATEGIES.honest, seed)
+      const core = playRun(STRATEGIES.honest, seed, noEventsConfig)
       const ref = sim.simulateRun(sim.STRATEGIES.honest, seed)
       expect(core.outcome).toBe(ref.ending)
       expect(core.session.run.grade).toBe(ref.grade)
@@ -46,31 +46,19 @@ describe('баланс: стратегии на ядре', () => {
       expect(core.session.run.rep).toBe(ref.rep)
       expect(debtOf(core.session.run)).toBe(ref.debtBank + ref.debtMfo)
     }
-    expect(playRun(STRATEGIES.honest, 7).outcome).toBe('quit')
+    expect(playRun(STRATEGIES.honest, 7, noEventsConfig).outcome).toBe('quit')
   })
 
-  it('казино каждый день (ставка 100): в пределах ±6 п.п. от эталона, много хуже честного', async () => {
+  it('казино каждый день без событий: в пределах ±6 п.п. от эталона без событий', async () => {
     const sim = await loadSim()
     const runs = 400
-    const core = winRate(STRATEGIES.casinoDaily, runs, 1)
+    const core = winRate(STRATEGIES.casinoDaily, runs, 1, noEventsConfig)
     const ref = simWinRate(sim, 'casino_daily', runs, 1)
-    // Цель CD-02 «≤ 15%» посчитана с пулом событий (economy §11.2: 9.5%); без него эталон даёт ≈ 16%
-    expect(core.wins).toBeLessThan(0.25)
     expect(Math.abs(core.wins - ref)).toBeLessThanOrEqual(0.06)
-    // Концовка «Ночь ×3» у казино-игрока: цель SD 10–30%
-    const nights = (core.outcomes.casino_nights ?? 0) / runs
-    expect(nights).toBeGreaterThanOrEqual(0.08)
-    expect(nights).toBeLessThanOrEqual(0.3)
   }, 60_000)
 
-  it('темщик (смена + темка каждый день): ≤ 20% побед', () => {
-    const { wins, outcomes } = winRate(STRATEGIES.shady, 300, 1)
-    expect(wins).toBeLessThanOrEqual(0.2)
-    expect((outcomes.jail ?? 0) + (outcomes.family_left ?? 0)).toBeGreaterThan(0)
-  })
-
   it('бытовые карточки сна дают дисперсию честному рану (система событий CD-12 готова)', () => {
-    const config: GameConfig = { ...defaultConfig, events: { pool: LIFE_EVENTS } }
+    const config: GameConfig = { ...defaultConfig, events: { ...defaultConfig.events, pool: LIFE_EVENTS } }
     const results = new Set<string>()
     for (let seed = 1; seed <= 30; seed++) {
       const { session } = playRun(STRATEGIES.honest, seed, config, true)
@@ -80,7 +68,45 @@ describe('баланс: стратегии на ядре', () => {
     expect(results.size).toBeGreaterThan(10)
   })
 
-  it.todo('честный работник 50–68% побед на полном пуле событий (после CD-12)')
+})
+
+describe('баланс: коридоры economy §9 на полном пуле событий (CD-12)', () => {
+  // 1000 честных ранов ≈ 0.6 с; seed-диапазоны разные, чтобы коридор не держался на одном наборе
+  const honest = winRate(STRATEGIES.honest, 1000, 1)
+  const honest2 = winRate(STRATEGIES.honest, 1000, 50_001)
+
+  it('честный работник: 50–68% побед, карточки реально выпадают', () => {
+    for (const r of [honest, honest2]) {
+      expect(r.wins).toBeGreaterThanOrEqual(0.5)
+      expect(r.wins).toBeLessThanOrEqual(0.68)
+    }
+    const { session } = playRun(STRATEGIES.honest, 3, defaultConfig, true)
+    expect(session.events.filter((e) => e.type === 'sleepEventShown').length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('казино каждый день (ставка 100): ≤ 15% побед, «Ночь ×3» 10–30%', () => {
+    const runs = 600
+    const r = winRate(STRATEGIES.casinoDaily, runs, 1)
+    expect(r.wins).toBeLessThanOrEqual(0.15)
+    expect(r.wins).toBeLessThan(honest.wins / 3)
+    const nights = (r.outcomes.casino_nights ?? 0) / runs
+    expect(nights).toBeGreaterThanOrEqual(0.1)
+    expect(nights).toBeLessThanOrEqual(0.3)
+  }, 60_000)
+
+  it('лудоман (бонус, «ДОДЕП ВСЁ», додеп в долг): ≈ 0 побед, в основном «Ночь ×3»', () => {
+    const runs = 300
+    const r = winRate(STRATEGIES.ludoman, runs, 1)
+    expect(r.wins).toBeLessThanOrEqual(0.02)
+    expect((r.outcomes.casino_nights ?? 0) / runs).toBeGreaterThan(0.6)
+  }, 60_000)
+
+  it('темщик (смена + темка каждый день): меньше честного и ≤ 20%', () => {
+    const { wins, outcomes } = winRate(STRATEGIES.shady, 300, 1)
+    expect(wins).toBeLessThanOrEqual(0.2)
+    expect(wins).toBeLessThan(honest.wins)
+    expect((outcomes.jail ?? 0) + (outcomes.family_left ?? 0)).toBeGreaterThan(0)
+  })
 })
 
 describe('регресс B-06 (economy-v1 §10)', () => {

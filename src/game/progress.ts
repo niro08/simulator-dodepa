@@ -1,13 +1,24 @@
-import type { GameConfig } from './config'
+import type { AchievementDef, GameConfig } from './config'
+import { ownedCosmetics } from './cosmetics'
+import { appendLog } from './log'
+import { ENDING_IDS } from './rules'
 import { casinoNetFinal } from './statement'
 import { reduceStats, stat } from './stats'
 import type { EventOf, GameEvent, Profile, RunState, RunSummary } from './types'
+
+export interface ProgressResult {
+  run: RunState
+  profile: Profile
+  /** Мета-события прогресса (achievementUnlocked) — для тостов, звука и платформенного адаптера. */
+  events: GameEvent[]
+}
 
 /**
  * Мета-прогресс: стор вызывает после каждой команды с её событиями (systems-spec §6, жизненный цикл).
  * 1. reduceStats на run.stats и profile.stats (lifetime) — одной функцией;
  * 2. runEnded → коллекция концовок и история ранов;
- * 3. точка для evaluateAchievements (CD-13): ачивки смотрят события + run/profile после этого шага.
+ * 3. evaluateAchievements (CD-13): события + run/profile после шагов 1–2 → новые ачивки, косметика «новое»,
+ *    событие achievementUnlocked (в хронику рана и в результат — для тоста).
  * Всё возвращается новыми объектами → стор пишет run+profile одним сейвом (атомарно).
  */
 export function applyProgress(
@@ -16,16 +27,78 @@ export function applyProgress(
   events: readonly GameEvent[],
   config: GameConfig,
   now = 0
-): { run: RunState; profile: Profile } {
-  if (events.length === 0) return { run, profile }
-  const nextRun: RunState = { ...run, stats: reduceStats(run.stats, events, run) }
+): ProgressResult {
+  if (events.length === 0) return { run, profile, events: [] }
+  let nextRun: RunState = { ...run, stats: reduceStats(run.stats, events, run) }
   let nextProfile: Profile = { ...profile, stats: reduceStats(profile.stats, events, run) }
 
   const ended = events.find((e): e is EventOf<'runEnded'> => e.type === 'runEnded')
   if (ended) nextProfile = recordRunEnd(nextRun, nextProfile, ended, config, now)
 
-  // CD-13: nextProfile = evaluateAchievements(nextRun, nextProfile, events, config, now)
-  return { run: nextRun, profile: nextProfile }
+  const unlocked = evaluateAchievements(nextRun, nextProfile, events, config)
+  if (unlocked.length === 0) return { run: nextRun, profile: nextProfile, events: [] }
+  const result = unlockAchievements(nextProfile, unlocked, nextRun.id, config, now)
+  nextProfile = result.profile
+  nextRun = appendLog(nextRun, result.events, now, config.balance.LOG_LIMIT)
+  return { run: nextRun, profile: nextProfile, events: result.events }
+}
+
+/** Выполнено ли условие ачивки (без учёта того, открыта ли она уже). */
+export function achievementMet(
+  def: AchievementDef,
+  run: RunState | null,
+  profile: Profile,
+  events: readonly GameEvent[],
+  config: GameConfig
+): boolean {
+  const c = def.condition
+  switch (c.kind) {
+    case 'stat':
+      return (c.scope === 'lifetime' ? (profile.stats[c.stat] ?? 0) : (run?.stats[c.stat] ?? 0)) >= c.gte
+    case 'ending':
+      return events.some((e) => e.type === 'runEnded' && e.endingId === c.ending)
+    case 'allEndings':
+      return ENDING_IDS.every((id) => (profile.endings[id]?.count ?? 0) > 0)
+    case 'event':
+      return run !== null && events.some((e) => c.match(e, { run, profile, balance: config.balance }))
+  }
+}
+
+/**
+ * Новые ачивки после команды (ADR-006): чистая и идемпотентная — открытые и выключенные (P1) не возвращаются.
+ * stat-условия проверяются всегда (догоняют старые сейвы), event/ending — только на событиях этой команды.
+ */
+export function evaluateAchievements(
+  run: RunState | null,
+  profile: Profile,
+  events: readonly GameEvent[],
+  config: GameConfig
+): AchievementDef[] {
+  return config.achievements.filter(
+    (def) => def.enabled !== false && !profile.achievements[def.id] && achievementMet(def, run, profile, events, config)
+  )
+}
+
+/** Записывает ачивки в профиль, отмечает новую косметику и строит события achievementUnlocked. */
+export function unlockAchievements(
+  profile: Profile,
+  defs: readonly AchievementDef[],
+  runId: string | null,
+  config: GameConfig,
+  now: number
+): { profile: Profile; events: EventOf<'achievementUnlocked'>[] } {
+  const ownedBefore = new Set(ownedCosmetics(profile, config))
+  const achievements = { ...profile.achievements }
+  for (const def of defs) achievements[def.id] = { unlockedAt: now, runId }
+  const next: Profile = { ...profile, achievements }
+  const fresh = ownedCosmetics(next, config).filter((id) => !ownedBefore.has(id) && !profile.unseenCosmetics.includes(id))
+  const events = defs.map((def) => ({
+    type: 'achievementUnlocked' as const,
+    id: def.id,
+    hidden: def.hidden,
+    rewards: def.rewards.filter((r) => (fresh as string[]).includes(r))
+  }))
+  return { profile: { ...next, unseenCosmetics: [...profile.unseenCosmetics, ...fresh] }, events }
 }
 
 /** Коллекция концовок (count, firstAt, bestGrade) и история ранов (FIFO). */
@@ -85,4 +158,16 @@ export function abandonRun(run: RunState, profile: Profile, config: GameConfig, 
     itemsLost: []
   }
   return applyProgress(run, profile, [event], config, now).profile
+}
+
+/**
+ * Досчитать ачивки по уже накопленной статистике без новых событий (загрузка старого сейва, новые ачивки в билде).
+ * Только stat/allEndings: событийные нельзя восстановить задним числом.
+ */
+export function reconcileAchievements(profile: Profile, config: GameConfig, now: number): { profile: Profile; events: GameEvent[] } {
+  const defs = evaluateAchievements(null, profile, [], config).filter(
+    (d) => (d.condition.kind === 'stat' && d.condition.scope === 'lifetime') || d.condition.kind === 'allEndings'
+  )
+  if (defs.length === 0) return { profile, events: [] }
+  return unlockAchievements(profile, defs, null, config, now)
 }

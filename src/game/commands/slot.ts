@@ -1,52 +1,11 @@
-import { evalReels, type GameConfig, type SlotConfigV1, type SymbolId } from '../config'
+import type { GameConfig } from '../config'
 import { endDay, runNight } from '../day'
-import type { Rng } from '../rng'
-import { addTilt, needPhase, proposeEnding, spinEnergyCost } from '../rules'
-import type { CommandOf, GameEvent, RunState, SpinResult, TiltSource } from '../types'
+import { addTilt, casinoBlocked, needPhase, proposeEnding, spinEnergyCost } from '../rules'
+import { pushBonusSettle, recordSpin, resolveSpin } from '../spin'
+import type { CommandOf, GameEvent, RunState, TiltSource } from '../types'
 import type { CommandHandler } from './types'
 
-/** Символ одного барабана по весам виртуальных позиций. */
-export function rollSymbol(slot: SlotConfigV1, rng: Rng): SymbolId {
-  const total = slot.symbols.reduce((sum, s) => sum + slot.reelWeights[s], 0)
-  let x = rng.next() * total
-  for (const s of slot.symbols) {
-    x -= slot.reelWeights[s]
-    if (x < 0) return s
-  }
-  return slot.symbols[slot.symbols.length - 1] as SymbolId
-}
-
-/** Раскладка near-miss 7-7-X в случайном порядке; X не даёт выплату (economy §2.2). */
-export function nearMissReels(slot: SlotConfigV1, rng: Rng): [SymbolId, SymbolId, SymbolId] {
-  const { symbol, thirdFrom } = slot.nearMiss
-  const reels: [SymbolId, SymbolId, SymbolId] = [symbol, symbol, symbol]
-  reels[rng.int(0, 2)] = rng.pick(thirdFrom)
-  return reels
-}
-
-/**
- * Исход спина (ADR-001, economy §2.2): три барабана по весам → evalReels.
- * Сигнатура не получает RunState: тильт, мета и скин не могут влиять на исход (systems-spec §2.6).
- * Near-miss — только подмена раскладки у части проигрышей; исход уже решён и остаётся `lose`.
- */
-export function resolveSpin(bet: number, slot: SlotConfigV1, rng: Rng): SpinResult {
-  let reels: [SymbolId, SymbolId, SymbolId] = [rollSymbol(slot, rng), rollSymbol(slot, rng), rollSymbol(slot, rng)]
-  const rule = evalReels(reels, slot.paytable)
-  let nearMiss = false
-  if (rule.id === 'lose' && rng.next() < slot.nearMiss.shareOfLosses) {
-    reels = nearMissReels(slot, rng)
-    nearMiss = true
-  }
-  return {
-    bet,
-    outcomeId: rule.id,
-    multiplier: rule.mult,
-    payout: Math.floor(bet * rule.mult),
-    reels,
-    ldw: rule.mult > 0 && rule.mult < 1,
-    nearMiss
-  }
-}
+export { nearMissReels, resolveSpin, rollSymbol } from '../spin'
 
 /** Потолок ставки: баланс казино и лимит активного бонуса (economy §5.2). */
 export function betCap(run: RunState, config: GameConfig): number {
@@ -81,6 +40,7 @@ export const spinHandler: CommandHandler<CommandOf<'slot/spin'>> = {
     const phase = needPhase(state, 'day')
     if (phase) return phase
     if (state.location !== 'casino') return { reason: 'not_in_casino' }
+    if (casinoBlocked(state)) return { reason: 'blocked_by_mama' }
     if (state.bet < B.MIN_BET) return { reason: 'bet_below_min', min: B.MIN_BET }
     if (effectiveBet(state, config) < B.MIN_BET) return { reason: 'no_money', min: B.MIN_BET }
     const cost = spinEnergyCost(state, B)
@@ -102,13 +62,7 @@ export const spinHandler: CommandHandler<CommandOf<'slot/spin'>> = {
 
     const result = resolveSpin(bet, ctx.config.slot, ctx.rng)
     draft.casino += result.payout
-    draft.loseStreak = result.payout < bet ? draft.loseStreak + 1 : 0
-    if (result.outcomeId === 'jackpot') draft.jackpotToday = true
-    draft.peakCasino = Math.max(draft.peakCasino, draft.casino)
-    draft.spinsThisWeek += 1
-    draft.today.spins += 1
-    draft.today.wagered += bet
-    draft.today.paidOut += result.payout
+    recordSpin(draft, result)
 
     events.push({
       type: 'spin',
@@ -127,15 +81,7 @@ export const spinHandler: CommandHandler<CommandOf<'slot/spin'>> = {
     addTilt(draft, tilt.delta, tilt.source, events, B, true)
 
     // Бонус: отыгран или сгорел
-    if (draft.bonus.state === 'active') {
-      if (draft.bonus.wagered >= draft.bonus.wagerReq) {
-        draft.bonus.state = 'done'
-        events.push({ type: 'bonusCleared', released: draft.casino })
-      } else if (draft.casino < B.MIN_BET) {
-        draft.bonus.state = 'lost'
-        events.push({ type: 'bonusBusted', balanceLeft: draft.casino, wagerLeft: draft.bonus.wagerReq - draft.bonus.wagered })
-      }
-    }
+    pushBonusSettle(draft, B, events)
 
     // Мгновенная концовка «Реферальная программа» — только после выплаты спина
     if (draft.casino >= B.REFERRAL_CASINO) proposeEnding(draft, 'referral')
