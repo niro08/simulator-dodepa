@@ -11,7 +11,14 @@ export interface ToastItem {
   name: string
   subtitle?: string
   icon?: string
+  /** Строка-чип награды: «🎨 Открыт скин: Клоунский». */
+  reward?: string
+  /** Кнопка-действие на тосте (ачивка с косметикой → Гардероб). */
+  action?: 'wardrobe'
 }
+
+/** Сколько тостов держим в очереди; ачивки не выбрасываем никогда. */
+const MAX_QUEUE = 6
 
 const queue = ref<ToastItem[]>([])
 let nextId = 1
@@ -24,7 +31,14 @@ export function useToasts() {
     // Одинаковые подряд не копим (например, повторный отказ одной кнопки)
     const last = queue.value[queue.value.length - 1]
     if (last && last.name === toast.name && last.kind === toast.kind) return
-    queue.value = [...queue.value, { ...toast, id: nextId++ }].slice(-5)
+    const next = [...queue.value, { ...toast, id: nextId++ }]
+    // Переполнение: выбрасываем самые старые системные/ошибки (кроме видимого), ачивки ждут своей очереди
+    while (next.length > MAX_QUEUE) {
+      const drop = next.findIndex((t, i) => i > 0 && t.kind !== 'achievement')
+      if (drop < 0) break
+      next.splice(drop, 1)
+    }
+    queue.value = next
   }
 
   function dismiss() {

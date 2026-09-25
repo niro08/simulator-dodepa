@@ -4,7 +4,7 @@
  * Хроника, отказы, концовки и карточки сна — в ru.ts (его ведёт gameplay-programmer).
  * Числа баланса сюда не хардкодятся: функции получают их аргументами из store.config / hud.
  */
-import { money } from './ru'
+import { COSMETIC_NAMES, money } from './ru'
 
 /** Склонение по Intl.PluralRules('ru'): [одна, две, пять]. */
 const pluralRules = new Intl.PluralRules('ru')
@@ -32,6 +32,7 @@ export const HELP_LINK = {
 
 export const COMMON = {
   back: '← Назад',
+  backToRun: '← В ран',
   close: 'Закрыть',
   cancel: 'Отмена',
   menu: 'В меню',
@@ -90,24 +91,96 @@ export const MENU = {
   confirmNo: 'Отмена'
 } as const
 
-export const META_STUB = {
-  wardrobe: {
-    title: 'Гардероб',
-    empty: 'Открывается за достижения. Никогда — за деньги.',
-    note: 'Скины, темы, звуки и титулы появятся здесь. Косметика не меняет шансы: возврат 90% в любом скине.'
-  },
-  achievements: {
-    title: 'Достижения',
-    empty: 'Пока ничего. Первое достижение — за первый депозит. Мы не советуем.',
-    note: 'Честный подзаголовок будет у каждого: мета — зона честности.'
-  },
-  endings: {
-    title: 'Концовки',
-    empty: 'Концовок семь. Хорошая — одна.',
-    note: 'Закрытые показаны подсказкой-направлением, а не инструкцией.'
-  },
-  soon: 'Раздел собирается. Прогресс уже считается.',
-  counter: (open: number, total: number) => `${open} / ${total}`
+/** Общие строки экранов меты S03–S05 (CD-19). */
+export const META = {
+  counter: (open: number, total: number) => `${open} / ${total}`,
+  counterAria: (open: number, total: number) => `Открыто ${open} из ${total}`,
+  locked: 'закрыто',
+  secret: 'СЕКРЕТ',
+  unknown: '???',
+  date: (ts: number) => new Date(ts).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+} as const
+
+/** Названия видов косметики и строки наград (карточки ачивок, Гардероб). */
+export const COSMETIC_KIND = {
+  skin: { icon: '🎨', tab: 'Скины слота', one: 'Скин' },
+  theme: { icon: '🖥', tab: 'Темы', one: 'Тема' },
+  sound: { icon: '🔊', tab: 'Звук-паки', one: 'Звук-пак' },
+  title: { icon: '🏷', tab: 'Титулы', one: 'Титул' }
+} as const
+
+/** «🏷 Новичок» — чип косметики (награда ачивки, Гардероб). */
+export function cosmeticChip(id: string): string {
+  const kind = id.split(':')[0] as keyof typeof COSMETIC_KIND
+  const icon = COSMETIC_KIND[kind]?.icon ?? '🎁'
+  return `${icon} ${COSMETIC_NAMES[id] ?? id}`
+}
+
+// ─── S04 · Достижения ──────────────────────────────────────────────────────
+
+export const ACHIEVEMENTS_SCREEN = {
+  title: 'Достижения',
+  empty: 'Пока ничего. Первое достижение — за первый депозит. Мы не советуем.',
+  filters: { all: 'Все', open: 'Открытые', locked: 'Закрытые' },
+  filtersAria: 'Фильтр достижений',
+  honest: 'Изнанка:',
+  secretHint: (hint: string) => `«${hint}»`,
+  secretReward: '🎁 награда: ???',
+  unlockedOn: (date: string) => `✓ ${date}`,
+  progress: (cur: number, target: number) => `${money(cur)} / ${money(target)}`,
+  scope: { run: 'за ран', lifetime: 'за всё время' },
+  noneInFilter: 'Здесь пусто. Пока.',
+  foot: 'Награды — только косметика. Ни одна не меняет шансы: возврат 90% при любых ачивках.'
+} as const
+
+// ─── S03 · Гардероб ────────────────────────────────────────────────────────
+
+export const WARDROBE = {
+  title: 'Гардероб',
+  tabsAria: 'Виды косметики',
+  onlyDefault: 'Открывается за достижения. Никогда — за деньги.',
+  preview: 'Превью',
+  equip: 'Надеть',
+  equipped: '✓ надето',
+  newBadge: 'NEW',
+  newAria: 'новое',
+  locked: '🔒 закрыто',
+  unlockBy: 'Откроется за:',
+  unlockOr: 'или',
+  hiddenAch: '??? (секретное достижение)',
+  noSource: 'Пока не выдаётся: достижение для неё появится в обновлении.',
+  default: 'Есть у всех с первого запуска.',
+  honest: 'Косметика не меняет шансы. Возврат 90% в любом скине.',
+  tiers: ['0.5x', '1x', '2x', '5x', '10x', '25x', '777', 'пусто'] as const,
+  tiersHonest: 'Символы по тирам выплат. Тиры и вероятности одинаковы во всех скинах.',
+  themeSample: { balance: 'Баланс', cta: 'ДЕПОЗИТ', hot: 'HOT', win: '+500₽', text: 'Удача любит смелых*' },
+  themeHonest: 'Тема меняет только Витрину. Изнанка и «Жизнь» остаются бумажными.',
+  soundDesc: {
+    'sound:classic': 'Квадратная волна, «динь-динь», арпеджио на выигрыш. Проигрыш с фанфарами звучит как выигрыш.',
+    'sound:honest': 'Один сухой щелчок на любой исход. Выигрыш, проигрыш и «почти» звучат одинаково — как и есть.',
+    'sound:hall_90s': 'Электромеханика, монеты в лоток. Проигрыш с фанфарами звучит как выигрыш.',
+    'sound:streamer': 'Хорны «ДОДЕП!». Громко празднует всё, включая минус.'
+  } as Record<string, string>,
+  soundHonest: 'В Изнанке исходы спина всегда звучат «Честно», какой бы пак ни был надет.',
+  titleWhere: 'Печатается в шапке сайта и в Выписке.',
+  titlePrefix: 'Игрок:',
+  titleChipAria: (t: string) => `Твой титул: ${t}. Сменить — в Гардеробе`,
+  equipFailed: 'Эта вещь ещё закрыта'
+} as const
+
+// ─── S05 · Коллекция концовок ──────────────────────────────────────────────
+
+export const ENDINGS_SCREEN = {
+  title: 'Концовки',
+  intro: 'Концовок семь. Хорошая — одна.',
+  count: (n: number) => `×${n}`,
+  first: (date: string) => `впервые ${date}`,
+  best: 'лучшая оценка',
+  grades: 'Оценки «Завязал»',
+  read: 'Читать',
+  readTitle: 'Концовка',
+  achievement: (title: string) => `🏆 ${title}`,
+  hintNote: 'Подсказки — направление, а не инструкция.'
 } as const
 
 // ─── Шапка-сайт, лобби, подвал (content-pack §5.3) ─────────────────────────
@@ -726,6 +799,7 @@ export const SETTINGS = {
   title: 'НАСТРОЙКИ',
   sound: 'ЗВУК',
   soundAll: 'Звук целиком',
+  volume: 'Громкость',
   music: 'Фоновая музыка',
   screen: 'ЭКРАН И ДВИЖЕНИЕ',
   calm: 'Меньше мигания',
@@ -784,5 +858,8 @@ export const TOASTS = {
   bonusBusted: 'Бонус сгорел вместе с депозитом',
   bonusCleared: (n: number) => `Отыгрыш пройден! ${money(n)}₽ можно вывести`,
   friendsBlocked: 'Друзья заблокировали твой номер',
-  forcedMfo: (n: number) => `Недостача ${money(n)}₽ оформлена в МФО`
+  forcedMfo: (n: number) => `Недостача ${money(n)}₽ оформлена в МФО`,
+  achievementTitle: 'ДОСТИЖЕНИЕ!',
+  toWardrobe: 'В гардероб →',
+  moreRewards: (n: number) => `и ещё ${n}`
 } as const

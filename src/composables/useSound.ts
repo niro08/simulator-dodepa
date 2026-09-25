@@ -1,16 +1,26 @@
 import { computed, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/game'
+import { useTheme } from '@/composables/useTheme'
+import { SfxEngine, SoundDirector, packIdFromCosmetic, type SoundPackId, type SoundSlot } from '@/audio'
 
 /**
- * Звук оболочки (ux-flows §2 п.4: 🔊 и M работают всегда).
- * «Звук целиком» — settings.sfxVolume/musicVolume стора (сейв). Фоновая музыка — отдельный тумблер
- * (CD-20: «существующая музыка остаётся под отдельным тумблером»), по умолчанию выключена и хранится
- * в localStorage `dodepa.music`. Аудио создаётся только после жеста пользователя.
- * SFX на Web Audio — CD-20 (sound-designer); здесь только громкость и музыка.
+ * Звук оболочки (ux-flows §2 п.4: 🔊 и M работают всегда) — фасад над процедурным SFX (src/audio, CD-20).
+ * - Громкость master = settings.sfxVolume (0..1, сейв); «Звук целиком» выкл = 0, вкл — возврат
+ *   к последней ненулевой громкости (localStorage `dodepa.volume`). Ползунок — в Настройках.
+ * - SFX синтезируются на Web Audio; AudioContext создаётся по первому жесту (pointerdown/keydown).
+ *   Нет Web Audio (SSR, тесты) — всё молча noop.
+ * - Звук-пак — store.cosmetics.equipped.sound; в режиме «Снять очки» исходы спина звучат честно
+ *   (сухой щелчок) и всё приглушено (systems-spec §5.4).
+ * - Исходы и события — из store.onPresent (для спина — после остановки барабанов); барабаны — reels()
+ *   из SlotPanel; клик — делегированно на любые кнопки.
+ * - Фоновая музыка — старый файл под отдельным тумблером (CD-20), по умолчанию выключена
+ *   (localStorage `dodepa.music`); новых обращений к public/audio нет.
  */
 
 const MUSIC_KEY = 'dodepa.music'
+const VOLUME_KEY = 'dodepa.volume'
 const DEFAULT_VOLUME = 1
+const CLICKABLE = 'button, [role="button"], [role="switch"], [role="tab"], a[href], summary'
 
 function readMusic(): boolean {
   try {
@@ -20,9 +30,32 @@ function readMusic(): boolean {
   }
 }
 
+function readLastVolume(): number {
+  try {
+    const v = Number(globalThis.localStorage?.getItem(VOLUME_KEY))
+    return Number.isFinite(v) && v > 0 && v <= 1 ? v : DEFAULT_VOLUME
+  } catch {
+    return DEFAULT_VOLUME
+  }
+}
+
+function writeLastVolume(v: number) {
+  try {
+    globalThis.localStorage?.setItem(VOLUME_KEY, String(v))
+  } catch {
+    /* хранилище недоступно — запомним до перезагрузки */
+  }
+}
+
+const clamp01 = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0)
+
 const musicWanted = ref(readMusic())
+let lastVolume = readLastVolume()
 let audio: HTMLAudioElement | null = null
 let initialized = false
+
+const engine = new SfxEngine()
+let director: SoundDirector | null = null
 
 function base(): string {
   return import.meta.env.BASE_URL ?? '/'
@@ -30,8 +63,11 @@ function base(): string {
 
 export function useSound() {
   const game = useGameStore()
+  const theme = useTheme()
+  const volume = computed(() => clamp01(game.settings.sfxVolume))
   const enabled = computed(() => game.settings.sfxVolume > 0 || game.settings.musicVolume > 0)
   const musicOn = computed(() => enabled.value && musicWanted.value)
+  const pack = computed<SoundPackId>(() => packIdFromCosmetic(game.cosmetics.equipped.sound))
 
   function syncMusic() {
     if (typeof Audio === 'undefined') return
@@ -43,7 +79,7 @@ export function useSound() {
       audio = new Audio(`${base()}audio/dep.mp3`)
       audio.loop = true
     }
-    audio.volume = Math.max(0, Math.min(1, game.settings.musicVolume * 0.5))
+    audio.volume = clamp01(game.settings.musicVolume * 0.5)
     audio.play().catch(() => {
       /* автоплей запрещён до жеста — попробуем при следующем клике */
     })
@@ -51,17 +87,60 @@ export function useSound() {
 
   if (!initialized) {
     initialized = true
+    director = new SoundDirector(engine, () => ({ pack: pack.value, underbelly: theme.isIznanka.value }))
+    engine.setVolume(volume.value)
+    watch(volume, (v) => engine.setVolume(v))
     watch(musicOn, syncMusic)
+    watch(() => game.settings.musicVolume, syncMusic)
+    game.onPresent((events) => director?.handleEvents(events))
+
     if (typeof document !== 'undefined') {
-      const onGesture = () => syncMusic()
-      document.addEventListener('pointerdown', onGesture, { once: true })
-      document.addEventListener('keydown', onGesture, { once: true })
+      let musicTried = false
+      const onGesture = () => {
+        engine.unlock()
+        if (!musicTried) {
+          musicTried = true
+          syncMusic()
+        }
+      }
+      // capture: контекст должен появиться до click-обработчиков, которые уже хотят играть
+      document.addEventListener('pointerdown', onGesture, { capture: true, passive: true })
+      document.addEventListener('keydown', onGesture, { capture: true, passive: true })
+      document.addEventListener(
+        'click',
+        (event) => {
+          const target = event.target as Element | null
+          const el = target && typeof target.closest === 'function' ? target.closest(CLICKABLE) : null
+          if (el && !(el as HTMLButtonElement).disabled && el.getAttribute('aria-disabled') !== 'true') {
+            director?.play('click')
+          }
+        },
+        { passive: true }
+      )
     }
   }
 
-  function setEnabled(on: boolean) {
-    const v = on ? DEFAULT_VOLUME : 0
+  /** Громкость master 0..1 (SFX и музыка). 0 — то же, что «звук выкл». */
+  function setVolume(value: number) {
+    const v = clamp01(value)
+    if (v > 0) {
+      lastVolume = v
+      writeLastVolume(v)
+    }
     game.updateSettings({ sfxVolume: v, musicVolume: v })
+  }
+
+  function setEnabled(on: boolean) {
+    if (on) {
+      setVolume(lastVolume > 0 ? lastVolume : DEFAULT_VOLUME)
+    } else {
+      if (volume.value > 0) {
+        lastVolume = volume.value
+        writeLastVolume(lastVolume)
+      }
+      game.updateSettings({ sfxVolume: 0, musicVolume: 0 })
+      engine.stopAll()
+    }
   }
 
   function toggle(): boolean {
@@ -79,13 +158,20 @@ export function useSound() {
     syncMusic()
   }
 
-  /** Короткий звук старта рана — только если включены и звук, и музыка. */
-  function playStart() {
-    if (!musicOn.value || typeof Audio === 'undefined') return
-    const a = new Audio(`${base()}audio/start_dep.mp3`)
-    a.volume = 0.4 * game.settings.sfxVolume
-    a.play().catch(() => undefined)
+  /** Сыграть слот текущего пака (с учётом Изнанки). */
+  function play(slot: SoundSlot): boolean {
+    return director?.play(slot) ?? false
   }
 
-  return { enabled, musicOn, musicWanted, toggle, setEnabled, setMusic, playStart }
+  /** Вращение барабанов: моменты остановки каждого барабана от старта, мс. */
+  function reels(stopsMs: readonly number[]): boolean {
+    return director?.reels(stopsMs) ?? false
+  }
+
+  /** Джингл старта рана (синтез, без файлов). */
+  function playStart() {
+    play('runStart')
+  }
+
+  return { enabled, volume, pack, musicOn, musicWanted, toggle, setEnabled, setVolume, setMusic, play, reels, playStart }
 }

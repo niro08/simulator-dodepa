@@ -164,6 +164,7 @@ import type { SlotFrameSkin } from '@/components/ui/SlotFrame.vue'
 import { useGameStore, type BetAdjust } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import { useTheme } from '@/composables/useTheme'
+import { useSound } from '@/composables/useSound'
 import SlotFrame from '@/components/ui/SlotFrame.vue'
 import NeonButton from '@/components/ui/NeonButton.vue'
 import Badge from '@/components/ui/Badge.vue'
@@ -177,6 +178,7 @@ import Stamp from '@/components/ui/Stamp.vue'
 const game = useGameStore()
 const shell = useShell()
 const theme = useTheme()
+const sound = useSound()
 const B = game.config.balance
 const { symbols, timing } = game.config.slot
 
@@ -261,6 +263,7 @@ function symbolHeight(): number {
 async function animate(target: readonly SymbolId[]) {
   const finals = target.map((s, i) => column(s, i))
   if (theme.motionReduced.value) {
+    sound.reels([150])
     await delay(150)
     strips.value = finals
     current.value = [...target]
@@ -270,6 +273,7 @@ async function animate(target: readonly SymbolId[]) {
   const times = target.map((_, i) =>
     fast ? timing.fastSpinMs - (2 - i) * 60 : timing.reelBaseMs + i * timing.reelStaggerMs - timing.reelStaggerMs * 2
   )
+  sound.reels(times) // SFX: старт, тики и стоп каждого барабана (CD-20)
   strips.value = target.map((to, i) => {
     const filler = Array.from({ length: FILLER }, (_, k) => symAt(k * 3 + i * 5 + (to.length % 7)))
     return [...(strips.value[i] ?? []), ...filler, ...(finals[i] ?? [])]

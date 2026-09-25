@@ -2,11 +2,16 @@
   <header class="site vitrina" role="banner">
     <div class="site__row">
       <ParodyLogo class="site__logo" :compact="compact" size="sm" slogan="" />
-      <p class="site__address">
-        <span aria-hidden="true">🔒</span>
-        <span class="vitrina-only">{{ SITE.address }}</span>
-        <span class="honest honest-inline">{{ SITE.addressHonest }}</span>
-      </p>
+      <div class="site__meta">
+        <p class="site__address">
+          <span aria-hidden="true">🔒</span>
+          <span class="vitrina-only">{{ SITE.address }}</span>
+          <span class="honest honest-inline">{{ SITE.addressHonest }}</span>
+        </p>
+        <span class="site__player" :aria-label="WARDROBE.titleChipAria(playerTitle)" :title="WARDROBE.titleChipAria(playerTitle)">
+          <span aria-hidden="true">🏷</span> {{ playerTitle }}
+        </span>
+      </div>
       <nav class="site__nav vitrina-only" aria-hidden="true">
         <span v-for="n in SITE.nav" :key="n">{{ n }}</span>
       </nav>
@@ -78,7 +83,8 @@ import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import { useSound } from '@/composables/useSound'
 import { useTheme } from '@/composables/useTheme'
-import { COMMON, SITE } from '@/i18n/ui'
+import { COSMETIC_NAMES } from '@/i18n'
+import { COMMON, SITE, WARDROBE } from '@/i18n/ui'
 import ParodyLogo from '@/components/ui/ParodyLogo.vue'
 import StatPlate from '@/components/ui/StatPlate.vue'
 import NeonButton from '@/components/ui/NeonButton.vue'
@@ -94,6 +100,8 @@ const shell = useShell()
 const sound = useSound()
 const theme = useTheme()
 const hud = computed(() => game.hud)
+// Титул игрока (CD-19): надетый в Гардеробе, «Клиент» по умолчанию
+const playerTitle = computed(() => COSMETIC_NAMES[game.cosmetics.equipped.title] ?? '')
 const pendingNet = computed(() => hud.value?.withdrawals.reduce((s, w) => s + w.net, 0) ?? 0)
 // На экранах чека/развилки ДЕПОЗИТ не пульсирует: там решается жизнь
 const calmHeader = computed(() => game.phase !== 'day')
@@ -118,6 +126,33 @@ const calmHeader = computed(() => game.phase !== 'day')
 }
 .site__logo {
   flex: none;
+}
+.site__meta {
+  flex: none;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+.site__player {
+  flex: none;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--c-gold);
+  border-radius: var(--r-pill);
+  color: var(--c-gold);
+  font-family: var(--font-condensed);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+:root[data-layer='iznanka'] .site__player {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono);
 }
 .site__address {
   display: flex;
@@ -227,6 +262,9 @@ const calmHeader = computed(() => game.phase !== 'day')
   }
 }
 @media (max-width: 420px) {
+  .site__player {
+    max-width: 110px;
+  }
   .site__icon {
     min-width: 40px;
     padding: 0 var(--sp-1);

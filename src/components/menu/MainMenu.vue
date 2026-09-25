@@ -12,6 +12,14 @@
     <header class="menu__top">
       <button
         type="button"
+        class="menu__player"
+        :aria-label="WARDROBE.titleChipAria(playerTitle)"
+        @click="shell.go('wardrobe')"
+      >
+        <span aria-hidden="true">🏷</span> {{ playerTitle }}
+      </button>
+      <button
+        type="button"
         class="menu__icon-btn"
         :aria-label="COMMON.soundAria(sound.enabled.value)"
         :aria-pressed="sound.enabled.value"
@@ -46,7 +54,12 @@
         >
           {{ MENU.newRun }}
         </button>
-        <button type="button" class="paper-btn menu__item" @click="shell.go('wardrobe')">{{ MENU.wardrobe }}</button>
+        <button type="button" class="paper-btn menu__item" @click="shell.go('wardrobe')">
+          {{ MENU.wardrobe }}
+          <span v-if="game.cosmetics.unseen.length > 0" class="menu__new" :aria-label="`${game.cosmetics.unseen.length} ${WARDROBE.newAria}`">
+            NEW {{ game.cosmetics.unseen.length }}
+          </span>
+        </button>
         <button type="button" class="paper-btn menu__item" @click="shell.go('achievements')">
           {{ MENU.achievements }} <span class="menu__count">{{ achievementsOpen }}/{{ ACHIEVEMENTS_TOTAL }}</span>
         </button>
@@ -97,7 +110,8 @@ import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import { useSound } from '@/composables/useSound'
 import { useTheme } from '@/composables/useTheme'
-import { COMMON, DISCLAIMER, duration, HELP_LINK, MENU } from '@/i18n/ui'
+import { COSMETIC_NAMES } from '@/i18n'
+import { COMMON, DISCLAIMER, duration, HELP_LINK, MENU, WARDROBE } from '@/i18n/ui'
 import ParodyLogo from '@/components/ui/ParodyLogo.vue'
 import Modal from '@/components/ui/Modal.vue'
 
@@ -113,6 +127,7 @@ const tagline = MENU.taglines[Math.floor(Date.now() / 86_400_000) % MENU.tagline
 const ACHIEVEMENTS_TOTAL = computed(() => game.achievements.length)
 const achievementsOpen = computed(() => game.achievements.filter((a) => a.unlocked).length)
 const endingsOpen = computed(() => game.endingsCollection.filter((e) => e.unlocked).length)
+const playerTitle = computed(() => COSMETIC_NAMES[game.cosmetics.equipped.title] ?? '')
 
 const lifetimeLine = computed(() => {
   const s = game.profile.stats
@@ -184,7 +199,30 @@ onMounted(async () => {
 .menu__top {
   position: relative;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.menu__player {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--c-gold);
+  border-radius: var(--r-pill);
+  background: var(--c-panel);
+  color: var(--c-gold);
+  font-family: var(--font-condensed);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.menu__new {
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: #ffff00;
+  color: #0b0620;
+  box-shadow: 0 0 0 1px #ff2bd6;
+  font-family: var(--font-condensed);
+  font-size: var(--fs-fine);
 }
 .menu__icon-btn {
   min-width: var(--tap-min);

@@ -265,6 +265,7 @@ CD-14 ─> CD-18 ; CD-07 ─> CD-20 ; CD-16/18 ─> CD-21 ; всё ─> CD-22
 
 ### CD-19 · Система скинов, тем и «Гардероб» · `ui-programmer` · P0
 > **Статус: ✅ логика (gameplay-programmer).** Каталог `src/game/config/cosmetics.ts`: 9 скинов (8 эмодзи по тирам, art-bible §4), 4 темы (`neon|monday|mirror47|stream` = tokens.css), 4 звук-пака, 10 титулов. Владение вычисляется из ачивок (`cosmetics.ts`), экипировка — `profile.equipped`, `store.equip(id)` / `store.cosmetics` / `markCosmeticsSeen`; `src/skins` — `skinSymbols(id)`. Тест: каталог, темы = tokens.css, косметика не импортирует слот. Осталось UI: «Гардероб», связка `useTheme` ↔ `store.cosmetics.equipped.theme`.
+> **Статус: ✅ UI (ui-programmer).** `src/components/meta/`: S03 Гардероб (вкладки скины/темы/звук-паки/титулы, превью — мини-барабаны 8 символов по тирам / плашка темы на её токенах, «Надеть», силуэт + 🔒 + ачивка с условием и прогрессом, NEW → `markCosmeticsSeen`), S04 Достижения (31 карточка, фильтры, N/31, прогресс, «???» для скрытых, честный подзаголовок, награды), S05 Концовки (7 карточек, A/B/C у «Завязал», «Читать»). Тост ачивки с наградой и «В гардероб →» (очередь не теряет ачивки). Тема — единый источник `store.cosmetics.equipped.theme` (App.vue → useTheme; в Настройках выбор через `store.equip`, localStorage только для calm). Титул — в шапке и меню. Скин слота в игре — `skinSymbols` (проверено Playwright).
 - **Цель.** Косметика из CV §9 (объём P0).
 - **Критерии приёмки.**
   - Скины заданы данными: `id`, символы, CSS-класс рамки, цвет свечения, условие анлока.
@@ -284,6 +285,8 @@ CD-14 ─> CD-18 ; CD-07 ─> CD-20 ; CD-16/18 ─> CD-21 ; всё ─> CD-22
   - Существующая фоновая музыка остаётся под отдельным тумблером.
   - Короткая спецификация звуков: `design/audio/sfx-spec.md`.
 - **Зависимости:** CD-07 (ui-programmer помогает с интеграцией).
+
+> **Статус (sound-designer, 2026-09-25): ✅.** Процедурный звук без файлов — `src/audio/` (пресеты → 4 пака `classic|honest|hall_90s|streamer` из `COSMETICS.sounds` → маппинг `GameEvent` → слоты → движок Web Audio: ленивый `AudioContext` по жесту, ≤ 10 голосов, лимитер на мастере, noop без Web Audio). Фасад — `useSound` (вместо `useSfx`): пак из `store.cosmetics.equipped.sound`, события из `store.onPresent`, барабаны из `SlotPanel`, клик делегированно. Изнанка: исходы звучат как `dry_click`, всё ×0.55. Громкость — `settings.sfxVolume` (ползунок в Настройках, mute M/🔊 возвращает последнюю громкость; хранится в сейве, а не в `dodepaMeta`, по ADR-008). Джингл старта синтезируется, `start_dep.mp3` больше не используется, музыка `dep.mp3` осталась под своим тумблером. Спека — `design/audio/sfx-spec.md`, тесты — `src/audio/audio.test.ts` (инварианты паков, маппинг, мок-AudioContext).
 
 ### CD-21 · Доступность и фотобезопасность · `accessibility-specialist` · P0
 - **Цель.** Неон не должен вредить (эпилепсия, мигрени).

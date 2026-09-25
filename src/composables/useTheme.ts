@@ -8,8 +8,9 @@ import { computed, readonly, ref, watch, type ComputedRef, type Ref } from 'vue'
  *   data-layer="vitrina|iznanka"               — слой «Снять очки»;
  *   class="calm"                                — «Меньше мигания».
  *
- * Тема и calm сохраняются в localStorage (ключ `dodepa.ui`), слой — нет:
- * это состояние рана, его хранит мета игры (`dodepaMeta`), стор может вызвать setLayer сам.
+ * Тема — надетая косметика (CD-19): единый источник — `store.cosmetics.equipped.theme` (сейв, профиль);
+ * App.vue зеркалит её сюда через setTheme. Менять тему — только `store.equip('theme:…')`.
+ * calm сохраняется в localStorage (ключ `dodepa.ui`), слой — нет: это состояние рана.
  * Если calm ни разу не выбирался, он следует `prefers-reduced-motion` (CD-21).
  * Состояние — модульный синглтон: все вызовы useTheme() видят одно и то же.
  */
@@ -28,7 +29,6 @@ export const THEME_LABELS: Record<ThemeId, string> = {
 const STORAGE_KEY = 'dodepa.ui'
 
 interface StoredUi {
-  theme?: ThemeId
   calm?: boolean
 }
 
@@ -43,10 +43,7 @@ function readStored(): StoredUi {
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return {}
     const obj = parsed as Record<string, unknown>
-    return {
-      theme: isTheme(obj.theme) ? obj.theme : undefined,
-      calm: typeof obj.calm === 'boolean' ? obj.calm : undefined
-    }
+    return { calm: typeof obj.calm === 'boolean' ? obj.calm : undefined }
   } catch {
     return {}
   }
@@ -95,7 +92,6 @@ function init(): void {
   initialized = true
 
   const stored = readStored()
-  if (stored.theme) theme.value = stored.theme
   if (stored.calm !== undefined) calmChoice.value = stored.calm
 
   const mq = matchReducedMotion()
@@ -108,8 +104,8 @@ function init(): void {
   }
 
   watch([theme, layer, calm], applyToDocument, { immediate: true })
-  watch([theme, calmChoice], () => {
-    const value: StoredUi = { theme: theme.value }
+  watch(calmChoice, () => {
+    const value: StoredUi = {}
     if (calmChoice.value !== null) value.calm = calmChoice.value
     writeStored(value)
   })
@@ -122,6 +118,7 @@ export interface UseTheme {
   prefersReducedMotion: Readonly<Ref<boolean>>
   motionReduced: ComputedRef<boolean>
   isIznanka: ComputedRef<boolean>
+  /** Зеркало экипировки из стора (App.vue). UI не зовёт напрямую: тема меняется через store.equip. */
   setTheme: (id: ThemeId) => void
   setLayer: (id: LayerId) => void
   toggleLayer: () => void

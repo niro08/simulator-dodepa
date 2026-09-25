@@ -24,6 +24,21 @@
         </button>
       </div>
       <div class="set__row">
+        <label for="set-volume">{{ SETTINGS.volume }}</label>
+        <input
+          id="set-volume"
+          class="set__range"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+          :value="Math.round(sound.volume.value * 100)"
+          :aria-valuetext="`${Math.round(sound.volume.value * 100)}%`"
+          @input="onVolume"
+          @change="sound.play('click')"
+        />
+      </div>
+      <div class="set__row">
         <span id="set-music">{{ SETTINGS.music }}</span>
         <button
           type="button"
@@ -74,8 +89,10 @@
       </div>
       <div class="set__row">
         <label for="set-theme">{{ SETTINGS.theme }}</label>
-        <select id="set-theme" class="set__select" :value="theme.theme.value" @change="onTheme">
-          <option v-for="id in THEMES" :key="id" :value="id">{{ THEME_LABELS[id] }}</option>
+        <select id="set-theme" class="set__select" :value="game.cosmetics.equipped.theme" @change="onTheme">
+          <option v-for="item in themes" :key="item.id" :value="item.id" :disabled="!item.owned">
+            {{ item.owned ? COSMETIC_NAMES[item.id] : `🔒 ${COSMETIC_NAMES[item.id]}` }}
+          </option>
         </select>
       </div>
     </section>
@@ -97,14 +114,14 @@ import { computed } from 'vue'
 import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import { useSound } from '@/composables/useSound'
-import { THEME_LABELS, THEMES, useTheme, type ThemeId } from '@/composables/useTheme'
+import { useTheme } from '@/composables/useTheme'
+import { COSMETIC_NAMES } from '@/i18n'
 import { HOTKEYS, SETTINGS } from '@/i18n/ui'
 import Modal from '@/components/ui/Modal.vue'
 
 /**
  * S06 Настройки: применяются сразу. Звук и «Быстрый спин» — в сейве (store.settings),
- * тема и «Меньше мигания» — useTheme (localStorage `dodepa.ui`).
- * Темы «Зеркало №47» / «Стрим» пока открыты все: анлоки — CD-19.
+ * тема — надетая косметика (store.equip, как в Гардеробе; закрытые — 🔒), «Меньше мигания» — useTheme.
  */
 const game = useGameStore()
 const shell = useShell()
@@ -112,8 +129,14 @@ const sound = useSound()
 const theme = useTheme()
 const open = computed(() => shell.overlays.value.includes('settings'))
 
+const themes = computed(() => game.cosmetics.items.filter((i) => i.kind === 'theme'))
+
+function onVolume(event: Event) {
+  sound.setVolume(Number((event.target as HTMLInputElement).value) / 100)
+}
+
 function onTheme(event: Event) {
-  theme.setTheme((event.target as HTMLSelectElement).value as ThemeId)
+  game.equip((event.target as HTMLSelectElement).value)
 }
 </script>
 
@@ -154,6 +177,10 @@ function onTheme(event: Event) {
 .set__switch[aria-checked='true'] {
   background: var(--ink);
   color: var(--paper-white);
+}
+.set__range {
+  width: min(180px, 50%);
+  accent-color: var(--ink);
 }
 .set__select {
   min-height: 36px;

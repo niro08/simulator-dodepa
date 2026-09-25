@@ -15,6 +15,8 @@ export type Overlay = 'pause' | 'settings' | 'howto'
 export type MobileTab = 'casino' | 'life' | 'iznanka'
 
 const screen = ref<Screen>('menu')
+/** Куда вести «← Назад» с экранов меты: в меню или обратно в ран (кнопка «В гардероб» на тосте). */
+const metaReturn = ref<'menu' | 'game'>('menu')
 const overlays = ref<Overlay[]>([])
 const cashier = ref<null | 'deposit' | 'withdraw'>(null)
 const bonusOffer = ref(false)
@@ -55,11 +57,19 @@ export function useShell() {
     bonusOffer.value = false
     sleepConfirm.value = false
     exitStep.value = 0
+    if (to === 'wardrobe' || to === 'achievements' || to === 'endings') {
+      if (screen.value === 'menu' || screen.value === 'game') metaReturn.value = screen.value
+    }
     screen.value = to
     if (to !== 'game') {
       theme.setLayer('vitrina')
       ui.underbellyOpen = false
     }
+  }
+
+  /** «← Назад» с экранов меты (S03–S05). */
+  function goBackFromMeta() {
+    go(metaReturn.value === 'game' && game.run ? 'game' : 'menu')
   }
 
   function setLayer(layer: 'vitrina' | 'iznanka') {
@@ -179,7 +189,9 @@ export function useShell() {
     inCasino,
     tiltLocked,
     anyDialogOpen,
+    metaReturn,
     go,
+    goBackFromMeta,
     openOverlay,
     closeOverlay,
     closeAllOverlays,

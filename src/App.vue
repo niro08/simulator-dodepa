@@ -2,10 +2,9 @@
   <p v-if="game.readOnly" class="save-warning" role="status">{{ COMMON.saveReadOnly }}</p>
 
   <MainMenu v-if="shell.screen.value === 'menu'" @start="startRun" />
-  <MetaStub
-    v-else-if="shell.screen.value === 'wardrobe' || shell.screen.value === 'achievements' || shell.screen.value === 'endings'"
-    :kind="shell.screen.value"
-  />
+  <WardrobeScreen v-else-if="shell.screen.value === 'wardrobe'" />
+  <AchievementsScreen v-else-if="shell.screen.value === 'achievements'" />
+  <EndingsScreen v-else-if="shell.screen.value === 'endings'" />
   <GameShell v-else />
 
   <PauseMenu />
@@ -27,16 +26,18 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '@/stores/game'
 import { usePlayTime } from '@/composables/usePlayTime'
 import { useShell } from '@/composables/useShell'
 import { useSound } from '@/composables/useSound'
-import { useTheme } from '@/composables/useTheme'
+import { useTheme, type ThemeId } from '@/composables/useTheme'
 import { useToasts } from '@/composables/useToasts'
 import { COMMON } from '@/i18n/ui'
 import MainMenu from '@/components/menu/MainMenu.vue'
-import MetaStub from '@/components/menu/MetaStub.vue'
+import WardrobeScreen from '@/components/meta/WardrobeScreen.vue'
+import AchievementsScreen from '@/components/meta/AchievementsScreen.vue'
+import EndingsScreen from '@/components/meta/EndingsScreen.vue'
 import GameShell from '@/components/game/GameShell.vue'
 import PauseMenu from '@/components/overlays/PauseMenu.vue'
 import SettingsPanel from '@/components/overlays/SettingsPanel.vue'
@@ -48,6 +49,12 @@ const shell = useShell()
 const theme = useTheme()
 const sound = useSound()
 const toasts = useToasts()
+// Тема Витрины — надетая косметика (CD-19): единый источник — store.cosmetics.equipped.theme
+watch(
+  () => game.cosmetics.equipped.theme,
+  (id) => theme.setTheme(id.replace(/^theme:/, '') as ThemeId),
+  { immediate: true }
+)
 // Активное время игры для статистики и Выписки (systems-spec §3.6)
 usePlayTime()
 
@@ -105,7 +112,7 @@ function onEscape(): boolean {
     return true
   }
   if (shell.screen.value !== 'menu') {
-    shell.go('menu')
+    shell.goBackFromMeta()
     return true
   }
   return false
