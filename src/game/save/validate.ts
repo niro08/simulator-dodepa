@@ -152,12 +152,17 @@ function validateItems(x: unknown): Record<ItemId, ItemStatus> {
 
 function validateBills(x: unknown, env: SaveEnv): Bill[] {
   if (!Array.isArray(x)) return initialBills(env.config.balance)
-  const bills = x.filter(isRecord).map((b) => ({
-    week: int(b.week, 1, 1),
-    dueDay: int(b.dueDay, 7, 1),
-    fixed: int(b.fixed, 0, 0),
-    status: oneOf(b.status, BILL_STATUSES, 'upcoming')
-  }))
+  const grace = Math.max(0, env.config.balance.GRACE_PER_RUN)
+  const bills = x.filter(isRecord).map((b) => {
+    const week = int(b.week, 1, 1)
+    // Срок счёта — 7w, после отсрочки 7w + 1 (GDD §3.6)
+    return {
+      week,
+      dueDay: int(b.dueDay, 7 * week, 7 * week, 7 * week + grace),
+      fixed: int(b.fixed, 0, 0),
+      status: oneOf(b.status, BILL_STATUSES, 'upcoming')
+    }
+  })
   return bills.length > 0 ? bills : initialBills(env.config.balance)
 }
 
@@ -211,6 +216,17 @@ function validateEventState(x: unknown): EventState {
   }
 }
 
+/**
+ * Последний возможный день рана (QA-04): день счёта недели 4 (28, 29 после отсрочки); в «Ещё неделю» — срок
+ * последнего созданного счёта (счёт следующей недели создаётся сразу при выборе, GDD §3.7).
+ */
+function maxRunDay(bills: readonly Bill[], endless: boolean, env: SaveEnv): number {
+  const B = env.config.balance
+  const lastDue = bills.reduce((m, b) => Math.max(m, b.dueDay), 0)
+  const cap = B.RUN_DAYS + Math.max(0, B.GRACE_PER_RUN)
+  return Math.max(1, endless ? lastDue : Math.min(lastDue, cap))
+}
+
 export function validateRun(x: unknown, env: SaveEnv): RunState | null {
   if (!isRecord(x)) return null
   const B = env.config.balance
@@ -223,11 +239,13 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
   const endingId = oneOf<EndingId | ''>(x.endingId, ENDING_IDS, '')
   let phase = oneOf(x.phase, PHASES, 'day')
   if (phase === 'ended' && !endingId) phase = 'day'
+  const bills = validateBills(x.bills, env)
+  const endless = bool(x.endless, false)
   const run: RunState = {
     id: str(x.id, `run-${env.now.toString(36)}`),
     startedAt: num(x.startedAt, env.now),
     seed: int(x.seed, env.seed) >>> 0,
-    day: int(x.day, 1, 1),
+    day: int(x.day, 1, 1, maxRunDay(bills, endless, env)),
     phase,
     location: x.location === 'casino' ? 'casino' : 'life',
     energy: int(x.energy, B.ENERGY_PER_DAY),
@@ -245,7 +263,7 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
       wagered: int(bonusSrc.wagered, 0, 0)
     },
     withdrawals: validateWithdrawals(x.withdrawals),
-    bills: validateBills(x.bills, env),
+    bills,
     graceUsed: bool(x.graceUsed, false),
     shiftsDone: int(x.shiftsDone, 0, 0),
     friendLoansThisWeek: int(x.friendLoansThisWeek, 0, 0),
@@ -260,7 +278,7 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
     energyModNextMorning: int(x.energyModNextMorning, 0),
     pendingEventId: typeof x.pendingEventId === 'string' ? x.pendingEventId : null,
     eventCooldowns: numberMap(x.eventCooldowns),
-    endless: bool(x.endless, false),
+    endless,
     extraWeeks: int(x.extraWeeks, 0, 0),
     endingId: endingId || null,
     grade: phase === 'ended' ? oneOf<Grade | ''>(x.grade, GRADES, '') || null : null,

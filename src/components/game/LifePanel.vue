@@ -49,7 +49,7 @@
           type="button"
           class="paper-btn paper-btn--primary"
           :aria-disabled="!!quitReason || undefined"
-          @click="!quitReason && game.execute({ type: 'run/quit' })"
+          @click="!quitReason && shell.requestQuit()"
         >
           {{ LIFE.quit }}
         </button>

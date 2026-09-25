@@ -15,7 +15,7 @@
           class="paper-btn paper-btn--primary fk__btn"
           :aria-disabled="!!quitReason || undefined"
           :aria-describedby="quitReason ? 'fk-quit-reason' : undefined"
-          @click="!quitReason && game.execute({ type: 'run/quit' })"
+          @click="!quitReason && shell.requestQuit()"
         >
           ✓ {{ FORK.quit }} <kbd>1</kbd>
         </button>
@@ -50,6 +50,7 @@ import { quitGrade } from '@/game'
 import { formatRejection } from '@/i18n'
 import { ENDING_SCREEN, FORK } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
+import { useShell } from '@/composables/useShell'
 import NeonButton from '@/components/ui/NeonButton.vue'
 
 /**
@@ -57,6 +58,8 @@ import NeonButton from '@/components/ui/NeonButton.vue'
  * Без таймера и авто-выбора: ←/→ и 1/2 только двигают фокус, подтверждение — Enter.
  */
 const game = useGameStore()
+/** «ЗАВЯЗАТЬ» — через shell.requestQuit: при деньгах на сайте сначала предупреждение E24 (QA-01). */
+const shell = useShell()
 const B = game.config.balance
 const hud = computed(() => game.hud)
 const quitReason = computed(() => {

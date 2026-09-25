@@ -165,6 +165,11 @@ export interface StatsBalance {
   RECENT_SPINS: number
   /** Сколько ранов хранит история профиля (FIFO). */
   RUN_HISTORY_LIMIT: number
+  /**
+   * Доля игроков, отыгрывающих бонус 200% (economy-v1 §5.3, v1: ×40, ставка ≤ 100 → 7.7–8.4%).
+   * Одна цифра для тикера Изнанки и Протокола (QA-07). Меняется вместе с §5.3 и sim.mjs.
+   */
+  BONUS_CLEAR_SHARE: number
 }
 
 export const STATS_BALANCE = {
@@ -182,5 +187,6 @@ export const STATS_BALANCE = {
   NIGHT_HOURS: 8,
   TICK_MAX_SEC: 15,
   RECENT_SPINS: 10,
-  RUN_HISTORY_LIMIT: 20
+  RUN_HISTORY_LIMIT: 20,
+  BONUS_CLEAR_SHARE: 0.08
 } as const satisfies StatsBalance

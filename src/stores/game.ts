@@ -40,7 +40,15 @@ import {
   type Statement,
   type UnderbellyView
 } from '@/game'
-import { CURRENT_SAVE_VERSION, createDefaultProfile, createDefaultSettings, loadSave, serializeSave, type SaveFile } from '@/game/save'
+import {
+  CURRENT_SAVE_VERSION,
+  createDefaultProfile,
+  createDefaultSettings,
+  loadSave,
+  serializeSave,
+  type SaveFile,
+  type SaveNotice
+} from '@/game/save'
 import { APP_VERSION, createPlatformAchievements, createPlatformStorage, randomSeed } from '@/platform'
 import { useUiStore } from './ui'
 
@@ -107,7 +115,8 @@ export type BetAdjust = 'half' | 'double' | 'min' | 'all'
  * - `reportFakeTimerExpired()` — фейковый таймер «бонус сгорит» дошёл до 00:00 (ачивка TIMER_LIES).
  * - `equip(cosmeticId)` — экипировать косметику (`'skin:clown'`, `'theme:monday'`…): null — ок, иначе причина
  *   ('unknown_cosmetic' | 'not_owned'); `markCosmeticsSeen(ids?)` — снять бейдж «новое».
- * - `updateSettings(patch)`, `load()`.
+ * - `updateSettings(patch)`, `load()`; `notices` — одноразовые сообщения загрузки ('legacy_run_reset'),
+ *   `dismissNotice(n)` — скрыть.
  * Подписки: `onEvents` — сразу после команды (статистика, аналитика), `onPresent` — когда можно показывать
  * (тосты, звук); для спина — после revealPending. В событиях есть мета-событие `achievementUnlocked`
  * {id, hidden, rewards} — тост ачивки (i18n `formatAchievementToast`); ачивки зеркалятся в платформу
@@ -127,6 +136,8 @@ export const useGameStore = defineStore('game', () => {
   /** Сейв из будущей версии игры: играть можно, сохранять — нет. */
   const readOnly = ref(false)
   const warnings = ref<string[]>([])
+  /** Одноразовые сообщения игроку после загрузки (QA-05: старый забег закрыт миграцией). */
+  const notices = ref<SaveNotice[]>([])
 
   const eventListeners = new Set<EventsListener>()
   const presentListeners = new Set<EventsListener>()
@@ -203,6 +214,7 @@ export const useGameStore = defineStore('game', () => {
     settings.value = outcome.save.settings
     readOnly.value = outcome.readOnly
     warnings.value = outcome.warnings
+    notices.value = outcome.notices
     outcome.warnings.forEach((w) => console.warn(w))
 
     // Ачивки по уже накопленной статистике (старый сейв, новые ачивки в билде) + зеркало в платформу
@@ -211,7 +223,7 @@ export const useGameStore = defineStore('game', () => {
     void platformAchievements.reconcile(Object.keys(profile.value.achievements))
 
     const written = outcome.needsWrite || reconciled.events.length > 0 ? await persist() : false
-    // Старый ключ удаляем только когда новый сейв точно лежит в основном слоте.
+    // Старый ключ (в т.ч. битый) удаляем только когда новый сейв точно лежит в основном слоте.
     if (legacy !== null && !outcome.readOnly && (outcome.source === 'main' || written)) {
       await storage.clearLegacy?.()
     }
@@ -368,6 +380,11 @@ export const useGameStore = defineStore('game', () => {
     void persist()
   }
 
+  /** Игрок прочитал сообщение загрузки — больше не показывать. */
+  function dismissNotice(notice: SaveNotice) {
+    notices.value = notices.value.filter((n) => n !== notice)
+  }
+
   function updateSettings(patch: Partial<Settings>) {
     settings.value = { ...settings.value, ...patch }
     void persist()
@@ -386,6 +403,7 @@ export const useGameStore = defineStore('game', () => {
     loaded,
     readOnly,
     warnings,
+    notices,
     hasSave,
     hud,
     phase,
@@ -412,6 +430,7 @@ export const useGameStore = defineStore('game', () => {
     equip,
     markCosmeticsSeen,
     updateSettings,
+    dismissNotice,
     onEvents: (listener: EventsListener) => subscribe(eventListeners, listener),
     onPresent: (listener: EventsListener) => subscribe(presentListeners, listener)
   }

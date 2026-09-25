@@ -36,6 +36,19 @@
         <p class="menu__tagline">{{ tagline }}</p>
       </div>
 
+      <section
+        v-if="game.notices.includes('legacy_run_reset')"
+        class="menu__notice paper"
+        role="status"
+        aria-labelledby="menu-notice-title"
+      >
+        <p id="menu-notice-title" class="menu__notice-title">{{ MENU.legacyResetTitle }}</p>
+        <p class="menu__notice-body">{{ MENU.legacyResetBody }}</p>
+        <button type="button" class="paper-btn menu__notice-ok" @click="game.dismissNotice('legacy_run_reset')">
+          {{ MENU.legacyResetOk }}
+        </button>
+      </section>
+
       <nav ref="nav" class="menu__list" aria-label="Главное меню">
         <button
           v-if="game.hasSave && hud"
@@ -44,7 +57,7 @@
           @click="emit('start', false)"
         >
           <span class="menu__continue-title">{{ MENU.continue }} <kbd>Enter</kbd></span>
-          <span class="menu__continue-sub">{{ MENU.continueSub(hud.day, hud.runDays, hud.wallet, hud.debt) }}</span>
+          <span class="menu__continue-sub">{{ MENU.continueSub(hud.day, hud.runDays, hud.wallet, hud.debt, hud.endless ? hud.week : undefined) }}</span>
         </button>
         <button
           type="button"
@@ -90,7 +103,7 @@
       :title="MENU.confirmTitle"
       @update:open="confirmOpen = $event"
     >
-      <p>{{ hud ? MENU.confirmBody(hud.day, hud.runDays) : '' }}</p>
+      <p>{{ hud ? MENU.confirmBody(hud.day, hud.runDays, hud.endless ? hud.week : undefined) : '' }}</p>
       <p class="menu__confirm-keep">{{ MENU.confirmKeep }}</p>
       <template #footer="{ close }">
         <div class="menu__confirm-actions">
@@ -263,6 +276,23 @@ onMounted(async () => {
   font-size: var(--fs-md);
 }
 
+.menu__notice {
+  width: min(460px, 100%);
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  text-align: left;
+}
+.menu__notice-title {
+  font-weight: 700;
+}
+.menu__notice-body {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.menu__notice-ok {
+  justify-self: end;
+}
 .menu__list {
   display: grid;
   grid-template-columns: 1fr 1fr;

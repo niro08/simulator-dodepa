@@ -12,8 +12,8 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { ITEM_IDS, stat, type EndingId, type Statement } from '@/game'
-import { ENDINGS, endingTitle, fillPlaceholders, QUIT_GRADES } from '@/i18n'
+import { collectorsCause, ITEM_IDS, stat, weekOf, type EndingId, type Statement } from '@/game'
+import { collectorsStatementLine, ENDINGS, endingTitle, fillPlaceholders, QUIT_GRADES } from '@/i18n'
 import { ENDING_SCREEN } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 
@@ -37,7 +37,8 @@ const vars = computed(() => {
   const count =
     id.value === 'jail' ? stat(s, 'schemes') : id.value === 'family_left' ? stat(s, 'friendLoans') : stat(s, 'itemsRedeemed')
   return {
-    week: Math.ceil((run?.day ?? 1) / 7),
+    // «Коллекторы»: неделя неоплаченного счёта, а не текущего дня (QA-02)
+    week: run && id.value === 'collectors' ? collectorsCause(run).week : weekOf(run?.day ?? 1),
     rep: run?.rep ?? 0,
     count,
     wallet: run?.wallet ?? 0,
@@ -51,15 +52,24 @@ const text = computed(() => {
   const raw = id.value === 'quit' && g ? QUIT_GRADES[g].text : ENDINGS[id.value].text
   return fillPlaceholders(raw, vars.value)
 })
+/** «День 12 из 28» или «День 36 · неделя 6» в режиме «Ещё неделю» (QA-03). */
+const dayLine = computed(() => {
+  const days = props.statement.days
+  return ENDING_SCREEN.dayLine(days, B.RUN_DAYS, props.statement.extraWeeks > 0 || days > B.RUN_DAYS ? weekOf(days) : undefined)
+})
 const why = computed(() => {
   if (!id.value) return ''
   const g = props.statement.grade
   if (id.value === 'quit' && g) {
     const run = game.run
     const owned = run ? ITEM_IDS.filter((i) => run.items[i] === 'owned').length : 0
-    return `${ENDING_SCREEN.dayLine(props.statement.days, B.RUN_DAYS)} · ${ENDING_SCREEN.grade(g)}: ${ENDING_SCREEN.gradeWhy(owned, ITEM_IDS.length, run?.rep ?? 0, B.QUIT_GRADE_A_REP)}`
+    return `${dayLine.value} · ${ENDING_SCREEN.grade(g)}: ${ENDING_SCREEN.gradeWhy(owned, ITEM_IDS.length, run?.rep ?? 0, B.QUIT_GRADE_A_REP)}`
   }
-  return `${ENDING_SCREEN.dayLine(props.statement.days, B.RUN_DAYS)} · ${fillPlaceholders(ENDINGS[id.value].statementLine, vars.value)}`
+  const line =
+    id.value === 'collectors' && game.run
+      ? collectorsStatementLine(collectorsCause(game.run))
+      : fillPlaceholders(ENDINGS[id.value].statementLine, vars.value)
+  return `${dayLine.value} · ${line}`
 })
 
 const titleEl = ref<HTMLElement | null>(null)

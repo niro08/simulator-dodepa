@@ -1,5 +1,6 @@
 import { slotMetrics } from '@/game'
 import type {
+  CollectorsCause,
   CommandType,
   EndingId,
   EventOf,
@@ -145,6 +146,16 @@ export const QUIT_GRADES: Record<Grade, { title: string; text: string; statement
       'Ты сидишь в пустой комнате, и это самая дорогая тишина в твоей жизни. Зато оплачена полностью.',
     statementLine: 'Итог: вышел голым. Но вышел.'
   }
+}
+
+/**
+ * Итоговая строка «Коллекторов» (QA-02): неделя — у неоплаченного счёта, а не у текущего дня;
+ * «Отсрочка использована» — только если она правда была. Базовый текст — ENDINGS.collectors.statementLine.
+ */
+export function collectorsStatementLine(cause: CollectorsCause): string {
+  if (cause.fork) return `Итог: счёт недели ${cause.week} оплачен, долг — нет. Коллекторы не завязывают. Дело передано.`
+  if (cause.graceUsed) return fillPlaceholders(ENDINGS.collectors.statementLine, { week: cause.week })
+  return `Итог: счёт недели ${cause.week} не оплачен. Отсрочку даже не просил. Дело передано.`
 }
 
 export function endingTitle(endingId: EndingId, grade: Grade | null): string {
@@ -544,19 +555,20 @@ export const COSMETIC_NAMES: Record<string, string> = {
   'title:all_bottoms': 'Прошёл всё. Буквально'
 }
 
-const COSMETIC_KIND_LABELS: Record<string, { icon: string; label: string }> = {
-  skin: { icon: '🎨', label: 'скин' },
-  theme: { icon: '🖥', label: 'тема' },
-  sound: { icon: '🔊', label: 'звук' },
-  title: { icon: '🏷', label: 'титул' }
+/** verb — причастие в роде слова (QA-06: «тема» — женский род). */
+const COSMETIC_KIND_LABELS: Record<string, { icon: string; label: string; verb: string }> = {
+  skin: { icon: '🎨', label: 'скин', verb: 'Открыт' },
+  theme: { icon: '🖥', label: 'тема', verb: 'Открыта' },
+  sound: { icon: '🔊', label: 'звук', verb: 'Открыт' },
+  title: { icon: '🏷', label: 'титул', verb: 'Открыт' }
 }
 
-/** «🎨 Открыт скин: Клоунский» — строка награды на тосте. */
+/** «🎨 Открыт скин: Клоунский», «🖥 Открыта тема: Утро понедельника» — строка награды на тосте. */
 export function cosmeticRewardLine(id: string): string {
   const kind = id.split(':')[0] ?? ''
   const k = COSMETIC_KIND_LABELS[kind]
   const name = COSMETIC_NAMES[id] ?? id
-  return k ? `${k.icon} Открыт ${k.label}: ${name}` : name
+  return k ? `${k.icon} ${k.verb} ${k.label}: ${name}` : name
 }
 
 // ─── Хроника ───────────────────────────────────────────────────────────────

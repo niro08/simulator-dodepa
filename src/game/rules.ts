@@ -71,6 +71,38 @@ export function quitGrade(run: RunState, B: BalanceV1): Grade {
   return 'B'
 }
 
+/**
+ * Что сгорит у казино, если ран закончится прямо сейчас (GDD §3.7, E24): баланс казино и выводы в очереди.
+ * Та же сумма уходит в runEnded (forfeitedCasino/forfeitedWithdrawals) и в Выписку («Осталось у казино»).
+ */
+export function forfeitOnEnd(run: Pick<RunState, 'casino' | 'withdrawals'>): { casino: number; withdrawals: number; total: number } {
+  const withdrawals = run.withdrawals.reduce((sum, w) => sum + w.net, 0)
+  return { casino: run.casino, withdrawals, total: run.casino + withdrawals }
+}
+
+/**
+ * Причина концовки «Коллекторы» для итоговой строки (QA-02): какой счёт не оплачен и была ли по нему отсрочка.
+ * `fork` — фолбэк §3.7 (FEATURE_ENDLESS=false): счёт оплачен, но долг не закрыт.
+ */
+export interface CollectorsCause {
+  week: number
+  /** Этот счёт уже был отсрочен. */
+  deferred: boolean
+  /** Отсрочка на ран потрачена (на этот или на прошлый счёт). */
+  graceUsed: boolean
+  fork: boolean
+}
+
+export function collectorsCause(run: RunState): CollectorsCause {
+  const graceUsed = run.graceUsed
+  const unpaid = billDueToday(run)
+  if (unpaid) return { week: unpaid.week, deferred: unpaid.status === 'deferred', graceUsed, fork: false }
+  const fork = forkBillToday(run)
+  if (fork) return { week: fork.week, deferred: false, graceUsed, fork: true }
+  const next = nextUnpaidBill(run)
+  return { week: next?.week ?? weekOf(run.day), deferred: next?.status === 'deferred', graceUsed, fork: false }
+}
+
 /** Закрывает ран, если в транзакции предложена концовка: фаза ended, событие runEnded. */
 export function finishRun(draft: RunState, events: GameEvent[], config: GameConfig): void {
   if (!draft.endingId || draft.phase === 'ended') return
@@ -83,8 +115,8 @@ export function finishRun(draft: RunState, events: GameEvent[], config: GameConf
     grade: draft.grade,
     day: draft.day,
     weeksSurvived: Math.max(0, weekOf(draft.day) - 1),
-    forfeitedCasino: draft.casino,
-    forfeitedWithdrawals: draft.withdrawals.reduce((sum, w) => sum + w.net, 0),
+    forfeitedCasino: forfeitOnEnd(draft).casino,
+    forfeitedWithdrawals: forfeitOnEnd(draft).withdrawals,
     itemsLost: lostItems(draft)
   })
 }

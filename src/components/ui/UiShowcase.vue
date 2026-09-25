@@ -185,7 +185,7 @@
           <p class="sc-type sc-type--caps">Oswald 700 · кнопки и тикер</p>
           <p class="sc-type">Onest 400 — основной текст интерфейса, «ёлки» и цифры 1 234 567 ₽.</p>
           <p class="sc-type sc-type--mono">JetBrains Mono — Операция №1432. Ставка 100₽. Возврат 50₽. Итог −50₽</p>
-          <p class="sc-type sc-type--fine">*Вейджер ×30 от бонуса. Баланс заблокирован до отыгрыша. Отыгрывают ~11%</p>
+          <p class="sc-type sc-type--fine">*Вейджер ×40 от бонуса. Баланс заблокирован до отыгрыша. Отыгрывают ~8%</p>
         </section>
 
         <Ticker :items="meanwhile" variant="paper" direction="right" label="А тем временем:" />
@@ -290,7 +290,7 @@ const slides: BannerSlide[] = [
     title: 'Бонус на первый деп*',
     hero: '200%',
     cta: 'Забрать бонус',
-    fine: '*Вейджер ×30 от бонуса. Баланс заблокирован до отыгрыша. Отыгрывают ~11%',
+    fine: '*Вейджер ×40 от бонуса. Баланс заблокирован до отыгрыша. Отыгрывают ~8%',
     emoji: '🎁💰',
     tone: 'magenta',
     timer: true

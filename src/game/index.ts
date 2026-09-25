@@ -10,9 +10,12 @@ export { createRun } from './state'
 export { applyInvariants } from './invariants'
 export {
   billTotal,
+  collectorsCause,
+  type CollectorsCause,
   debtOf,
   ENDING_IDS,
   ENDING_PRIORITY,
+  forfeitOnEnd,
   friendAmount,
   quitGrade,
   redeemCost,

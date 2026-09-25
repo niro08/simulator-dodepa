@@ -13,6 +13,7 @@ import {
   billDueToday,
   billTotal,
   debtOf,
+  forfeitOnEnd,
   forkBillToday,
   friendAmount,
   interestTonight,
@@ -91,6 +92,11 @@ export interface HudView {
   forkOpen: boolean
   /** Причина, по которой «ЗАВЯЗАТЬ» недоступна (null — можно). */
   quitBlock: Rejection | null
+  /**
+   * Что сгорит при «ЗАВЯЗАТЬ» (GDD §3.7, E24): баланс казино и выводы в очереди (придут «завтра», которого не будет).
+   * total > 0 → UI показывает предупреждение и ждёт подтверждения.
+   */
+  quitForfeit: { casino: number; withdrawals: number; total: number }
   casinoNights: number
   casinoNightsMax: number
   friendsBlocked: boolean
@@ -159,6 +165,7 @@ export function buildHud(run: RunState, config: GameConfig): HudView {
     graceUsed: run.graceUsed,
     forkOpen: isForkOpen(run),
     quitBlock: run.phase === 'ended' ? { reason: 'wrong_phase' } : checkQuit(run),
+    quitForfeit: forfeitOnEnd(run),
     casinoNights: run.casinoNights,
     casinoNightsMax: B.CASINO_NIGHTS_FOR_ENDING,
     friendsBlocked: run.friendsBlocked,

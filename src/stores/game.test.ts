@@ -41,6 +41,35 @@ describe('game store', () => {
     expect(saved().version).toBe(CURRENT_SAVE_VERSION)
   })
 
+  it('QA-05: игрок узнаёт, что старый забег закрыт (одноразовое уведомление); dismiss его убирает', async () => {
+    const game = setup({ [LEGACY_KEY]: JSON.stringify({ money: 12345, energy: 7 }) })
+    await game.load()
+    expect(game.notices).toEqual(['legacy_run_reset'])
+    game.dismissNotice('legacy_run_reset')
+    expect(game.notices).toEqual([])
+    // Второй запуск: legacy уже удалён — уведомления больше нет
+    setActivePinia(createPinia())
+    const next = useGameStore()
+    await next.load()
+    expect(next.notices).toEqual([])
+  })
+
+  it('QA-05: битый legacy удаляется после успешной записи нового сейва (без warning на каждой загрузке)', async () => {
+    const game = setup({ [LEGACY_KEY]: '{"money": 1, "energy": NaN' })
+    await game.load()
+    expect(ls.data.has(LEGACY_KEY)).toBe(false)
+    expect(saved().version).toBe(CURRENT_SAVE_VERSION)
+    expect(game.hasSave).toBe(false)
+    expect(game.notices).toEqual([])
+  })
+
+  it('QA-05: битый legacy остаётся, если основной сейв битый и записи ещё не было (R-10)', async () => {
+    const game = setup({ [SAVE_KEY]: '{bad', [BACKUP_KEY]: '{bad', [LEGACY_KEY]: '{bad' })
+    await game.load()
+    expect(ls.data.get(SAVE_KEY)).toBe('{bad')
+    expect(ls.data.has(LEGACY_KEY)).toBe(true)
+  })
+
   it('без сейва — нет рана; newGame создаёт ран, утро дня 1 уже наступило, сейв записан', async () => {
     const game = setup()
     await game.load()

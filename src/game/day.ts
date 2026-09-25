@@ -336,6 +336,8 @@ export function applySleepEventOption(
     // Фриспины: N спинов по фикс. ставке «от казино»; выигрыш — на баланс под вейджер
     let won = 0
     for (let i = 0; i < E.EVT_FREESPINS_COUNT; i++) won += resolveSpin(E.EVT_FREESPINS_BET, ctx.config.slot, ctx.rng).payout
+    // Фриспины — тоже спины: неделя с ними не «без единого спина» (CLEAN_WEEK, systems-spec §4 #9, QA-08)
+    draft.spinsThisWeek += E.EVT_FREESPINS_COUNT
     const wagerRequired = E.EVT_FREESPINS_WAGER * won
     draft.casino += won
     draft.peakCasino = Math.max(draft.peakCasino, draft.casino)

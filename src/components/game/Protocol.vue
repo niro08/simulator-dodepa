@@ -55,7 +55,7 @@
     <ul v-if="scope === 'run' && ub" class="proto__lines">
       <li v-if="ub.bonus">
         {{ PROTOCOL.bonus(ub.bonus.wagered, ub.bonus.wagerReq) }} ·
-        {{ PROTOCOL.bonusExpected(ub.bonus.forecast.expectedLeft, pct(ub.bonus.forecast.pClear)) }}
+        {{ PROTOCOL.bonusExpected(ub.bonus.forecast.expectedLeft, pct(game.config.stats.BONUS_CLEAR_SHARE)) }}
       </li>
       <li>{{ PROTOCOL.withdrawable(ub.casino.withdrawable) }}</li>
       <li v-if="ub.casino.spins > 0">{{ PROTOCOL.luck(ub.casino.luck) }}</li>

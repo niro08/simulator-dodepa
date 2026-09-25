@@ -1,7 +1,7 @@
 import type { AchievementDef, GameConfig } from './config'
 import { ownedCosmetics } from './cosmetics'
 import { appendLog } from './log'
-import { ENDING_IDS } from './rules'
+import { ENDING_IDS, forfeitOnEnd } from './rules'
 import { casinoNetFinal } from './statement'
 import { reduceStats, stat } from './stats'
 import type { EventOf, GameEvent, Profile, RunState, RunSummary } from './types'
@@ -153,8 +153,8 @@ export function abandonRun(run: RunState, profile: Profile, config: GameConfig, 
     grade: null,
     day: run.day,
     weeksSurvived: Math.max(0, Math.ceil(run.day / 7) - 1),
-    forfeitedCasino: run.casino,
-    forfeitedWithdrawals: run.withdrawals.reduce((sum, w) => sum + w.net, 0),
+    forfeitedCasino: forfeitOnEnd(run).casino,
+    forfeitedWithdrawals: forfeitOnEnd(run).withdrawals,
     itemsLost: []
   }
   return applyProgress(run, profile, [event], config, now).profile

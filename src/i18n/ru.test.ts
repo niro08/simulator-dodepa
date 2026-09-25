@@ -23,9 +23,12 @@ import {
   money,
   SLEEP_EVENT_TEXTS,
   achievementText,
+  collectorsStatementLine,
+  cosmeticRewardLine,
   formatAchievementToast,
   formatSleepEventCard
 } from './ru'
+import { ENDING_SCREEN, MENU, PROTOCOL, TICKER_HONEST, TICKER_SHOWCASE, tickerHonest } from './ui'
 
 const spin = (patch: Partial<EventOf<'spin'>>): EventOf<'spin'> => ({
   type: 'spin', bet: 100, outcomeId: 'lose', multiplier: 0, payout: 0, reels: ['star', 'clown', 'melon'], ldw: false, nearMiss: false,
@@ -205,5 +208,49 @@ describe('i18n/ru', () => {
     })
     expect(achievementText('ENDING_REFERRAL', true).title).toBe('???')
     expect(formatRejection('casino/enter', { reason: 'blocked_by_mama' })).toContain('Мама')
+  })
+})
+
+describe('регресс CD-22: тексты (QA-02, QA-03, QA-06, QA-07, QA-09)', () => {
+  it('QA-02: «Коллекторы» — неделя неоплаченного счёта; «Отсрочка использована» — только если была', () => {
+    expect(collectorsStatementLine({ week: 1, deferred: true, graceUsed: true, fork: false })).toBe(
+      'Итог: счёт недели 1 не оплачен. Отсрочка использована. Дело передано.'
+    )
+    const noGrace = collectorsStatementLine({ week: 1, deferred: false, graceUsed: false, fork: false })
+    expect(noGrace).toContain('недели 1')
+    expect(noGrace).not.toContain('Отсрочка использована')
+    expect(collectorsStatementLine({ week: 4, deferred: false, graceUsed: false, fork: true })).toContain('долг — нет')
+  })
+
+  it('QA-03: в «Ещё неделю» нет «из 28»', () => {
+    expect(ENDING_SCREEN.dayLine(36, 28, 6)).toBe('День 36 · неделя 6')
+    expect(ENDING_SCREEN.dayLine(12, 28)).toBe('День 12 из 28')
+    expect(MENU.continueSub(36, 28, 500, 0, 6)).toBe('День 36 · неделя 6 · 👛 500₽')
+    expect(MENU.continueSub(3, 28, 500, 0)).toContain('День 3 из 28')
+    expect(MENU.confirmBody(36, 28, 6)).not.toContain('из 28')
+  })
+
+  it('QA-06: род причастия у награды — «Открыта тема», «Открыт скин/звук/титул»', () => {
+    expect(cosmeticRewardLine('theme:monday')).toMatch(/^🖥 Открыта тема: /)
+    expect(cosmeticRewardLine('skin:clown')).toBe('🎨 Открыт скин: Клоунский')
+    expect(cosmeticRewardLine('sound:honest')).toMatch(/^🔊 Открыт звук: /)
+  })
+
+  it('QA-07: честный тикер и Протокол берут долю отыгрыша бонуса из одного числа config (economy-v1 §5.3)', () => {
+    const share = defaultConfig.stats.BONUS_CLEAR_SHARE
+    expect(share).toBeGreaterThanOrEqual(0.077)
+    expect(share).toBeLessThanOrEqual(0.088)
+    const honest = tickerHonest(defaultConfig.stats)
+    expect(honest).toHaveLength(TICKER_SHOWCASE.length)
+    expect(honest.join('\n')).not.toMatch(/\{\w+\}/)
+    const line = honest.find((l) => l.startsWith('Ки***л'))
+    expect(line).toBe(`Ки***л: не отыграл бонус. Как ~${100 - Math.round(share * 100)}% игроков.`)
+    expect(PROTOCOL.bonusExpected(1052, `${Math.round(share * 100)}%`)).toContain(`отыгрывают ~${Math.round(share * 100)}%`)
+    expect(tickerHonest({ BONUS_CLEAR_SHARE: 0.11 }).find((l) => l.startsWith('Ки***л'))).toContain('~89%')
+  })
+
+  it('QA-09: в тикерах нет реальных брендов и сервисов', () => {
+    const all = [...TICKER_SHOWCASE, ...TICKER_HONEST].join('\n')
+    expect(all).not.toMatch(/telegram|телеграм|whatsapp|вконтакте|youtube|twitch|tiktok/i)
   })
 })

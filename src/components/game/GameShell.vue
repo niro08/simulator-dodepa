@@ -113,7 +113,7 @@
 
     <!-- Мобильные: липкая CTA и таб-бар — вне .vitrina (фильтр Изнанки ломает position: fixed) -->
     <Teleport to="body">
-      <div v-if="isMobile && isGameLayout && phase === 'day'" class="gs-dock">
+      <div v-if="isMobile && isGameLayout && phase === 'day'" ref="dock" class="gs-dock">
         <div v-if="shell.mobileTab.value === 'casino'" class="gs-dock__cta">
           <NeonButton
             v-if="needsDeposit"
@@ -168,6 +168,7 @@
     <BonusOfferModal />
     <ExitConfirmModal />
     <SleepConfirmModal />
+    <QuitConfirmModal />
     <EventCard />
     <BillsModal />
   </div>
@@ -188,8 +189,8 @@ import {
   STATUS_LINE,
   TABS,
   TICKER,
-  TICKER_HONEST,
-  TICKER_SHOWCASE
+  TICKER_SHOWCASE,
+  tickerHonest
 } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 import { useShell, type MobileTab } from '@/composables/useShell'
@@ -207,6 +208,7 @@ import CashierModal from './CashierModal.vue'
 import BonusOfferModal from './BonusOfferModal.vue'
 import ExitConfirmModal from './ExitConfirmModal.vue'
 import SleepConfirmModal from './SleepConfirmModal.vue'
+import QuitConfirmModal from './QuitConfirmModal.vue'
 import EventCard from '@/components/phases/EventCard.vue'
 import BillsModal from '@/components/phases/BillsModal.vue'
 import DayReceipt from '@/components/phases/DayReceipt.vue'
@@ -237,6 +239,8 @@ mq?.addEventListener('change', onMq)
 
 // ─── Тикеры: 1 «победа» на 9 строк «а тем временем» (CV §7.4); в Изнанке — честные пары ───
 const WINS_SHOWN = 4
+/** Честные пары тикера: числа (доля отыгрыша бонуса) — из config.stats, как в Протоколе (QA-07). */
+const TICKER_HONEST = tickerHonest(game.config.stats)
 const tickerOffset = computed(() => ((hud.value?.day ?? 1) * 5) % TICKER_SHOWCASE.length)
 const topTicker = computed(() => {
   const idx = Array.from({ length: WINS_SHOWN }, (_, i) => (tickerOffset.value + i) % TICKER_SHOWCASE.length)
@@ -412,6 +416,20 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+// ─── Высота мобильного дока → --dock-h: тосты встают над доком, а не на барабаны (QA-10) ───
+const dock = ref<HTMLElement | null>(null)
+const dockObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => syncDockHeight()) : null
+function syncDockHeight() {
+  const h = dock.value ? Math.ceil(dock.value.getBoundingClientRect().height) : 0
+  document.documentElement.style.setProperty('--dock-h', `${h}px`)
+  document.documentElement.classList.toggle('has-dock', h > 0)
+}
+watch(dock, (el, old) => {
+  if (old) dockObserver?.unobserve(old)
+  if (el) dockObserver?.observe(el)
+  syncDockHeight()
+})
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   document.documentElement.classList.add('in-run')
@@ -426,7 +444,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   mq?.removeEventListener('change', onMq)
-  document.documentElement.classList.remove('in-run')
+  document.documentElement.classList.remove('in-run', 'has-dock')
+  document.documentElement.style.removeProperty('--dock-h')
+  dockObserver?.disconnect()
 })
 </script>
 
@@ -687,6 +707,11 @@ onBeforeUnmount(() => {
 @media (max-width: 1023px) {
   :global(html.in-run .ui-toast-region) {
     top: 112px;
+  }
+  /* QA-10: с доком тост живёт внизу, над CTA и вкладками — барабаны и итог спина вверху остаются видны */
+  :global(html.in-run.has-dock .ui-toast-region) {
+    top: auto;
+    bottom: calc(var(--dock-h, 0px) + var(--sp-2));
   }
 }
 </style>

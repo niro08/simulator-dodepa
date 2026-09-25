@@ -11,6 +11,7 @@ export {
   formatSpinBanner,
   eventTone,
   endingTitle,
+  collectorsStatementLine,
   howToPlay,
   ENDINGS,
   QUIT_GRADES,

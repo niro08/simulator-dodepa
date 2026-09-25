@@ -6,7 +6,7 @@ import { useTheme } from './useTheme'
 
 /**
  * Навигация оболочки и слои (ux-flows §3): экраны S01/S03–S05/S10, оверлеи S06–S08,
- * касса S12, бонус S13, выход при тильте S14, сон S40. Синглтон модуля.
+ * касса S12, бонус S13, выход при тильте S14, сон S40, предупреждение «ЗАВЯЗАТЬ» (E24). Синглтон модуля.
  * Игровую логику не содержит: всё меняется через store.execute.
  */
 
@@ -23,6 +23,8 @@ const bonusOffer = ref(false)
 /** Галочка бонуса в кассе (пародия: включена по умолчанию, GDD §3.5.3). */
 const bonusChecked = ref(true)
 const sleepConfirm = ref(false)
+/** «ЗАВЯЗАТЬ» при деньгах на сайте или выводе в очереди: предупреждение E24 ждёт подтверждения. */
+const quitConfirm = ref(false)
 const exitStep = ref<0 | 1 | 2>(0)
 const pendingLife = shallowRef<(() => void) | null>(null)
 const mobileTab = ref<MobileTab>('casino')
@@ -56,6 +58,7 @@ export function useShell() {
     cashier.value = null
     bonusOffer.value = false
     sleepConfirm.value = false
+    quitConfirm.value = false
     exitStep.value = 0
     if (to === 'wardrobe' || to === 'achievements' || to === 'endings') {
       if (screen.value === 'menu' || screen.value === 'game') metaReturn.value = screen.value
@@ -157,6 +160,21 @@ export function useShell() {
     viaLife(() => game.execute({ type: 'day/sleep' }))
   }
 
+  /**
+   * «ЗАВЯЗАТЬ» (развилка S46 и блок развилки в «Жизни»). GDD §3.7 / E24: если на сайте остались деньги или вывод
+   * в очереди — сначала предупреждение «Завтра не будет», ран закрывается только после подтверждения.
+   */
+  function requestQuit() {
+    const hud = game.hud
+    if (!hud || game.actions.quit) return
+    if (hud.quitForfeit.total > 0) quitConfirm.value = true
+    else game.execute({ type: 'run/quit' })
+  }
+  function confirmQuit() {
+    quitConfirm.value = false
+    game.execute({ type: 'run/quit' })
+  }
+
   /** Спин из Жизни: сначала зайти в казино (location). */
   function ensureCasino(): boolean {
     if (inCasino.value) return true
@@ -171,6 +189,7 @@ export function useShell() {
       cashier.value !== null ||
       bonusOffer.value ||
       sleepConfirm.value ||
+      quitConfirm.value ||
       exitStep.value > 0
   )
 
@@ -182,6 +201,7 @@ export function useShell() {
     bonusOffer,
     bonusChecked,
     sleepConfirm,
+    quitConfirm,
     exitStep,
     mobileTab,
     statementOpen,
@@ -206,6 +226,8 @@ export function useShell() {
     exitLeave,
     requestSleep,
     confirmSleep,
+    requestQuit,
+    confirmQuit,
     ensureCasino
   }
 }

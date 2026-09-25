@@ -250,6 +250,19 @@ onBeforeUnmount(stop)
 :global(.ui-toast-region > *) { pointer-events: auto; }
 @media (max-width: 599px) {
   :global(.ui-toast-region) { left: var(--sp-3); right: var(--sp-3); bottom: auto; top: 64px; }
-  .ui-toast { width: 100%; }
+  /* Компактный тост на узком экране (QA-10): меньше медаль и отступы, честный подзаголовок — в 2 строки */
+  .ui-toast { width: 100%; gap: var(--sp-2); padding: var(--sp-2) var(--sp-7) var(--sp-2) var(--sp-2); }
+  .ui-toast__medal { width: 36px; height: 36px; }
+  .ui-toast__icon { font-size: 20px; }
+  .ui-toast__name { font-size: var(--fs-sm); }
+  .ui-toast__subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ui-toast__reward { margin-top: var(--sp-1) !important; }
+  :root[data-layer="iznanka"] .ui-toast__medal { width: 56px; }
 }
 </style>

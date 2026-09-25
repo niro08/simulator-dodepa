@@ -23,6 +23,13 @@ export function duration(sec: number): string {
   return h > 0 ? `${h} ч ${String(m).padStart(2, '0')} мин` : `${m} мин`
 }
 
+/**
+ * «День 12 из 28» или, в режиме «Ещё неделю», «День 36 · неделя 6» (QA-03, GDD §3.7): после 28-го дня «из 28» врёт.
+ */
+export function dayOfRun(day: number, runDays: number, endlessWeek?: number): string {
+  return endlessWeek !== undefined ? `День ${day} · неделя ${endlessWeek}` : `День ${day} из ${runDays}`
+}
+
 export const HELP_LINK = {
   text: 'Анонимные Игроки — группы поддержки',
   url: 'https://www.gamblersanonymous.org/'
@@ -70,8 +77,9 @@ export const MENU = {
     'Казино обещает бонус 200%. Игра показывает выписку.'
   ],
   continue: '▶ Продолжить',
-  continueSub: (day: number, runDays: number, wallet: number, debt: number) =>
-    `День ${day} из ${runDays} · 👛 ${money(wallet)}₽${debt > 0 ? ` · долг ${money(debt)}₽` : ''}`,
+  /** endlessWeek — неделя в режиме «Ещё неделю» (QA-03: без «из 28»). */
+  continueSub: (day: number, runDays: number, wallet: number, debt: number, endlessWeek?: number) =>
+    `${dayOfRun(day, runDays, endlessWeek)} · 👛 ${money(wallet)}₽${debt > 0 ? ` · долг ${money(debt)}₽` : ''}`,
   newRun: '✨ Новый ран',
   wardrobe: '👔 Гардероб',
   achievements: '🏆 Достижения',
@@ -85,10 +93,17 @@ export const MENU = {
         ? `Изнанка · за всё время: ${spins} ${plural(spins, ['спин', 'спина', 'спинов'])}, казино пока не в плюсе · ${time}`
         : 'Изнанка: ты ещё ничего не проиграл. Пока.',
   confirmTitle: 'Начать новый ран?',
-  confirmBody: (day: number, runDays: number) => `Текущий ран (день ${day} из ${runDays}) будет удалён.`,
+  confirmBody: (day: number, runDays: number, endlessWeek?: number) =>
+    `Текущий ран (${dayOfRun(day, runDays, endlessWeek).toLowerCase()}) будет удалён.`,
   confirmKeep: 'Достижения, концовки и гардероб останутся.',
   confirmYes: 'Начать заново',
-  confirmNo: 'Отмена'
+  confirmNo: 'Отмена',
+  /** QA-05: сейв старой версии мигрирован, забег закрыт (TD-07). Показывается один раз. */
+  legacyResetTitle: '🔧 Игра обновилась',
+  legacyResetBody:
+    'Старый забег закрыт: в новой версии другие правила, и переносить в неё прошлые деньги было бы бонусом. А бонусы здесь ' +
+    'только у казино. Настройки на месте, ненастоящих денег не пострадало.',
+  legacyResetOk: 'Понятно'
 } as const
 
 /** Общие строки экранов меты S03–S05 (CD-19). */
@@ -322,7 +337,7 @@ export const TICKER_SHOWCASE = [
   'Ти***р поймал серию из 5 выигрышей! 🎺🎺🎺',
   'Ве***а подняла 4 400₽, пока варила пельмени 🥟',
   'Ма***м: «Думал завязать — и тут 777!» 😎',
-  'Ко***н закрыл ипотеку?! Подробности в Telegram*',
+  'Ко***н закрыл ипотеку?! Подробности в нашем канале*',
   'Ан***я: 3 000₽ на кофе с одного спина ☕',
   'Фё***р отыгрался! Полностью! Почти! 🔥',
   'Жа***а сорвала x25 на ставке 200₽ — 5 000₽!',
@@ -338,6 +353,15 @@ export const TICKER_SHOWCASE = [
   'Т***: можешь быть следующим! ДЕПОЗИТ →'
 ] as const
 
+/**
+ * Честный тикер. Строки с числами баланса — функции от config (QA-07: «не отыграл, как ~N%» = 1 − BONUS_CLEAR_SHARE,
+ * та же цифра, что в Протоколе Изнанки). Длина и порядок совпадают с TICKER_SHOWCASE (пары V/I).
+ */
+export function tickerHonest(stats: { BONUS_CLEAR_SHARE: number }): string[] {
+  const failPct = 100 - Math.round(stats.BONUS_CLEAR_SHARE * 100)
+  return TICKER_HONEST.map((line) => line.replace('{bonus_fail_pct}', String(failPct)))
+}
+
 export const TICKER_HONEST = [
   'Ал***й: −61 000₽ за месяц до этого выигрыша. Итог: −13 000₽.',
   'Ма***а: следующие 40 спинов вернули казино 12 500₽ и ещё 3 000₽.',
@@ -348,7 +372,7 @@ export const TICKER_HONEST = [
   'Ан***н: попытки 1 и 2 стоили 6 000₽. Попытка 3 вернула 5 000₽.',
   'Ви***р: 400 спинов «на удачу». Удача: −10% от оборота, по таблице.',
   'Юл***я: депнула на последние. Последние закончились.',
-  'Ки***л: не отыграл бонус. Как ~89% игроков.',
+  'Ки***л: не отыграл бонус. Как ~{bonus_fail_pct}% игроков.',
   'Ар***м: −15 000₽ в перерыве. Премию срезали за опоздание с перерыва.',
   'Та***на: подарок маме вернула в магазин. Деньги ушли в слот.',
   'Ро***н: следующий ДОДЕП ВСЁ → 🍒🍋🤡 → 0₽. Одно нажатие.',
@@ -603,7 +627,9 @@ export const PROTOCOL = {
   nearMissNote: 'исход решён до вращения. Это приём',
   winsShown: 'Празднований / настоящих выигрышей',
   bonus: (done: number, total: number) => `Бонус: отыграно ${money(done)} / ${money(total)}₽`,
-  bonusExpected: (expected: number, pSuccess: string) => `Ожидаемый остаток после отыгрыша ≈ ${money(expected)}₽ · отыгрывают ~${pSuccess}`,
+  /** clearShare — BONUS_CLEAR_SHARE из config.stats (та же цифра, что в честном тикере, QA-07). */
+  bonusExpected: (expected: number, clearShare: string) =>
+    `Ожидаемый остаток после отыгрыша ≈ ${money(expected)}₽ · отыгрывают ~${clearShare} игроков`,
   tilt: (v: number) => `Тильт: ${v}/100 · тильт не меняет шансы`,
   debt: (total: number, tonight: number, paid: number) =>
     `Долг ${money(total)}₽ · ночью +${money(tonight)}₽ · процентов уплачено ${money(paid)}₽`,
@@ -713,10 +739,21 @@ export const FORK = {
   locked: (debt: number) => `Долг ${money(debt)}₽. Завязать можно только с нулём: коллекторы не завязывают.`
 } as const
 
+/** Предупреждение «ЗАВЯЗАТЬ» при деньгах на сайте / выводе в очереди (GDD §3.7, E24; QA-01). */
+export const QUIT_CONFIRM = {
+  title: 'Завязать? На сайте остались деньги',
+  casino: (casino: number) => `На сайте осталось ${money(casino)}₽. Вывод придёт завтра. Завтра не будет.`,
+  withdrawals: (net: number) => `Заявка на вывод ${money(net)}₽ «на рассмотрении». Придёт завтра. Завтра не будет.`,
+  total: (total: number) => `Итого останется у казино: ${money(total)}₽ — строкой «Осталось у казино» в Выписке.`,
+  honest: 'Изнанка: казино рассчитывает, что ради этих денег ты останешься ещё на день. Уйти всё равно можно — это единственный выход.',
+  back: '← Назад',
+  confirm: '✓ Всё равно завязать'
+} as const
+
 export const ENDING_SCREEN = {
   kicker: (n: number, total: number, isNew: boolean) => `КОНЦОВКА ${n} из ${total}${isNew ? ' · НОВАЯ' : ''}`,
   abandoned: 'Ран брошен',
-  dayLine: (day: number, runDays: number) => `День ${day} из ${runDays}`,
+  dayLine: (day: number, runDays: number, endlessWeek?: number) => dayOfRun(day, runDays, endlessWeek),
   grade: (g: string) => `Оценка ${g}`,
   gradeWhy: (items: number, itemsTotal: number, rep: number, repA: number) =>
     `Сохранено вещей: ${items} из ${itemsTotal} · ❤️ ${rep} (для A нужно ≥ ${repA} и все вещи)`,
