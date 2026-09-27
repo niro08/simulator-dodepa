@@ -221,7 +221,7 @@
     "phase": "ended",
     "events": 478,
     "runHash": "22f77cdeb08a05ec5d42a482c03d3bd85b2ac197312c9516c96792f02dc088cc",
-    "eventsHash": "a15c49e0a80058acbed154f7e0094a3d4cfae017fbaceb0f83e256fc87010c65"
+    "eventsHash": "e6c548dad07e5a4851d44f30711208be7d881685b62ef0cccdfc6c43af618469"
   },
   "ludoman#9": {
     "outcome": "casino_nights",
@@ -261,7 +261,7 @@
     "phase": "ended",
     "events": 498,
     "runHash": "592f5ca38ca94418baa53fb3bab5ca80cb2aa30f7ea7a2c939125067257ce2d6",
-    "eventsHash": "7a17a74233d8ad7df65846ecd13847be924a9d26b6482779e36d14fffceea212"
+    "eventsHash": "06dfe02cf2e3abd7cb483d6bdd8788098eb96f6ce0146960f77a925b4aedbd84"
   },
   "ludoman#14": {
     "outcome": "casino_nights",
@@ -269,7 +269,7 @@
     "phase": "ended",
     "events": 984,
     "runHash": "ce9f828de577fa01a706c7d5f8d7ca154462da2907de4f6db386932da7b42ab1",
-    "eventsHash": "60b85bfd88454f84780d6de815a98c5c36422f383bf8f818821909634ab7b71c"
+    "eventsHash": "332186cd714fd5551cb7b1c222d56c1b6fcda6d49a2b2317162b2d6828719062"
   },
   "ludoman#15": {
     "outcome": "casino_nights",
@@ -468,8 +468,8 @@
     "day": 22,
     "phase": "ended",
     "events": 228,
-    "runHash": "534d34356c4f5a176081c4ec27e3a389372cc0159039011e897a2eee5dd24138",
-    "eventsHash": "8dd5541a4521d4e646a3a8e7d93343f474b6a15968776a1ef6cc17e3f7c0695c"
+    "runHash": "75e58956e6e160e59e00adb17b5cf3cfa0859ccf7630f4b08bef264046253084",
+    "eventsHash": "a479d193343d138f2f62ccd6712479203c8ccd2bb0ad0fd06e5fdd4ff397ec61"
   },
   "random#20": {
     "outcome": "collectors",
