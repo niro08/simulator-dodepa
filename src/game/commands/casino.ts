@@ -69,9 +69,14 @@ export const depositHandler: CommandHandler<CommandOf<'casino/deposit'>> = {
       lockBonus(draft, wagerRequired)
       events.push({ type: 'bonusGranted', deposit: amount, bonus, wagerRequired })
     }
-    // Ставку выбирали до депозита (потолок — кошелёк): возвращаем её в границы GDD §3.5.4,
-    // иначе первый же спин после депозита меньше ставки молча стал бы «ДОДЕП ВСЁ»
-    draft.bet = Math.min(draft.bet, Math.max(B.MIN_BET, betCap(draft, ctx.config)))
+    // Ставку выбирали до депозита (потолок — кошелёк) и она больше того, что есть в казино:
+    // опускаем на шаг ниже потолка, а не ровно в баланс — иначе первый же спин молча стал бы
+    // «ДОДЕП ВСЁ» (allIn = ставка == весь баланс) с его тильтом. Ровно в баланс — только если ниже некуда
+    const cap = betCap(draft, ctx.config)
+    if (draft.bet > cap) {
+      const belowAllIn = Math.ceil(cap / B.BET_STEP) * B.BET_STEP - B.BET_STEP
+      draft.bet = cap < draft.casino ? cap : Math.max(B.MIN_BET, Math.min(cap, belowAllIn))
+    }
     draft.flags.deposited = true
     draft.peakCasino = Math.max(draft.peakCasino, draft.casino)
     return events

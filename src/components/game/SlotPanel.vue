@@ -65,11 +65,11 @@
               <input
                 id="bet-input"
                 class="slot__bet-input tabular"
-                type="number"
+                type="text"
                 inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="off"
                 :aria-label="SLOT.betAria"
-                :min="B.MIN_BET"
-                :step="B.BET_STEP"
                 :value="betDraft"
                 :aria-disabled="busy || undefined"
                 :readonly="busy"
@@ -80,20 +80,32 @@
               <span aria-hidden="true">₽</span>
             </div>
             <div class="slot__chips" role="group" aria-label="Изменить ставку">
-              <button type="button" class="slot__chip" :aria-disabled="busy || undefined" aria-label="Половина ставки (−)" @click="adjust('half')">
+              <button
+                type="button"
+                class="slot__chip"
+                :aria-disabled="busy || atMin || undefined"
+                aria-label="Половина ставки (−)"
+                @click="adjust('half')"
+              >
                 {{ SLOT.half }}
               </button>
               <button
                 type="button"
                 class="slot__chip"
                 :aria-disabled="busy || atLimit || undefined"
-                :title="atLimit ? limitNote || undefined : undefined"
+                :aria-describedby="atLimit && limitNote ? 'bet-note' : undefined"
                 aria-label="Удвоить ставку (=)"
                 @click="adjust('double')"
               >
                 {{ SLOT.double }}
               </button>
-              <button type="button" class="slot__chip" :aria-disabled="busy || undefined" aria-label="Минимальная ставка (0)" @click="adjust('min')">
+              <button
+                type="button"
+                class="slot__chip"
+                :aria-disabled="busy || atMin || undefined"
+                aria-label="Минимальная ставка (0)"
+                @click="adjust('min')"
+              >
                 {{ SLOT.min }}
               </button>
             </div>
@@ -109,8 +121,8 @@
             </NeonButton>
           </div>
           <p class="honest slot__honest-note">{{ SLOT.doubleHonest }} · {{ SLOT.allInHonest(casino) }}</p>
-          <p v-if="effectiveNote" class="slot__note">{{ effectiveNote }}</p>
-          <p v-else-if="limitNote" class="slot__note" role="status">{{ limitNote }}</p>
+          <!-- Живой регион в DOM всегда: вставленный сразу с текстом скринридеры часто не читают -->
+          <p id="bet-note" class="slot__note" role="status">{{ betNote }}</p>
 
           <div class="slot__spin-row">
             <NeonButton
@@ -210,7 +222,11 @@ watch(
   (v) => (betDraft.value = v ?? B.START_BET)
 )
 function onBetInput(event: Event) {
-  betDraft.value = Number((event.target as HTMLInputElement).value)
+  // type="text": колесо над полем в фокусе крутит страницу, а не ставку. Цифры — только цифры
+  const el = event.target as HTMLInputElement
+  const digits = el.value.replace(/\D/g, '')
+  if (digits !== el.value) el.value = digits
+  betDraft.value = Number(digits)
 }
 function commitBet() {
   if (busy.value) return
@@ -220,6 +236,7 @@ function commitBet() {
 function adjust(kind: BetAdjust) {
   if (busy.value || game.phase !== 'day') return
   if (kind === 'double' && atLimit.value) return
+  if ((kind === 'half' || kind === 'min') && atMin.value) return
   game.adjustBet(kind)
   if (kind === 'all') document.getElementById('bet-input')?.focus()
 }
@@ -239,6 +256,7 @@ const atLimit = computed(() => {
   const h = hud.value
   return !!h && h.bet >= h.betLimit
 })
+const atMin = computed(() => (hud.value?.bet ?? B.MIN_BET) <= B.MIN_BET)
 const limitNote = computed(() => {
   const h = hud.value
   if (!h || !atLimit.value) return ''
@@ -252,6 +270,8 @@ const effectiveNote = computed(() => {
   if (!h || h.effectiveBet === h.bet || h.effectiveBet <= 0) return ''
   return `В спин уйдёт ${money(h.effectiveBet)}₽ (лимит ${money(h.betCap)}₽)`
 })
+/** Обе причины сразу: ставка выше того, что уйдёт в спин, и ×2 упёрлась в потолок. */
+const betNote = computed(() => [effectiveNote.value, limitNote.value].filter(Boolean).join(' · '))
 
 // ─── Барабаны: 3 видимых ряда, линия — средний ───
 const FILLER = 18
@@ -570,6 +590,7 @@ defineExpose({ spin, focusSpin, adjust })
 }
 .slot__chip[aria-disabled='true'] {
   opacity: 0.5;
+  border-style: dashed; /* не только цвет: в светлых темах 50% прозрачности почти не видно */
   cursor: not-allowed;
 }
 /* ДОДЕП ВСЁ отодвинута от КРУТИТЬ и от ставки (≥ 24 px, ux S11) */
@@ -580,6 +601,9 @@ defineExpose({ spin, focusSpin, adjust })
 .slot__note {
   color: var(--c-text-muted);
   font-size: var(--fs-xs);
+}
+.slot__note:empty {
+  margin: 0;
 }
 .slot__honest-note {
   font-family: var(--font-mono);
