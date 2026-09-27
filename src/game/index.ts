@@ -25,7 +25,7 @@ export {
   weekOf
 } from './rules'
 export { planRepay, minRepayAmount, isRejection, type RepayPlan } from './commands/bank'
-export { resolveSpin, effectiveBet, betCap } from './commands/slot'
+export { resolveSpin, effectiveBet, betCap, betLimit } from './commands/slot'
 export { wagerLeft } from './commands/casino'
 export { expectedBonusLeft, type BonusForecast } from './bonus'
 export {

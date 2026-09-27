@@ -83,7 +83,14 @@
               <button type="button" class="slot__chip" :aria-disabled="busy || undefined" aria-label="Половина ставки (−)" @click="adjust('half')">
                 {{ SLOT.half }}
               </button>
-              <button type="button" class="slot__chip" :aria-disabled="busy || undefined" aria-label="Удвоить ставку (=)" @click="adjust('double')">
+              <button
+                type="button"
+                class="slot__chip"
+                :aria-disabled="busy || atLimit || undefined"
+                :title="atLimit ? limitNote || undefined : undefined"
+                aria-label="Удвоить ставку (=)"
+                @click="adjust('double')"
+              >
                 {{ SLOT.double }}
               </button>
               <button type="button" class="slot__chip" :aria-disabled="busy || undefined" aria-label="Минимальная ставка (0)" @click="adjust('min')">
@@ -103,6 +110,7 @@
           </div>
           <p class="honest slot__honest-note">{{ SLOT.doubleHonest }} · {{ SLOT.allInHonest(casino) }}</p>
           <p v-if="effectiveNote" class="slot__note">{{ effectiveNote }}</p>
+          <p v-else-if="limitNote" class="slot__note" role="status">{{ limitNote }}</p>
 
           <div class="slot__spin-row">
             <NeonButton
@@ -211,6 +219,7 @@ function commitBet() {
 }
 function adjust(kind: BetAdjust) {
   if (busy.value || game.phase !== 'day') return
+  if (kind === 'double' && atLimit.value) return
   game.adjustBet(kind)
   if (kind === 'all') document.getElementById('bet-input')?.focus()
 }
@@ -225,6 +234,17 @@ const spinBlock = computed<Rejection | null>(() => {
 const needsDeposit = computed(() => game.phase === 'day' && casino.value < B.MIN_BET && !busy.value)
 const spinReason = computed(() => (spinBlock.value ? formatRejection('slot/spin', spinBlock.value) : undefined))
 const expectedLoss = computed(() => game.underbelly?.slot.expectedLossPerSpin ?? 0)
+/** Ставка упёрлась в потолок: ×2 больше ничего не даст — говорим почему, а не молчим. */
+const atLimit = computed(() => {
+  const h = hud.value
+  return !!h && h.bet >= h.betLimit
+})
+const limitNote = computed(() => {
+  const h = hud.value
+  if (!h || !atLimit.value) return ''
+  if (h.bonus.state === 'active' && h.betLimit === B.BONUS_MAX_BET) return SLOT.betLimitBonus(B.BONUS_MAX_BET)
+  return h.casino >= B.MIN_BET ? SLOT.betLimitCasino(h.betLimit) : SLOT.betLimitWallet(h.betLimit)
+})
 const effectiveNote = computed(() => {
   const h = hud.value
   if (!h || h.effectiveBet === h.bet || h.effectiveBet <= 0) return ''
