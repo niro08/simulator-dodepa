@@ -4,7 +4,7 @@ import { dispatch } from '../reducer'
 import { createRng } from '../rng'
 import { newSession } from '../testing'
 import type { EventOf, RunState } from '../types'
-import { resolveSpin } from './slot'
+import { betLimit, resolveSpin } from './slot'
 
 const config = defaultConfig
 const B = config.balance
@@ -176,15 +176,44 @@ describe('resolveSpin', () => {
 })
 
 describe('bet/set', () => {
-  it('шаг 10 вниз, [MIN_BET; casino], «ДОДЕП ВСЁ» = ровно баланс, NaN — без изменений', () => {
+  it('шаг 10 вниз, [MIN_BET; betLimit], «ДОДЕП ВСЁ» = ровно баланс, NaN — без изменений', () => {
     const state = casinoRun({ bet: 100, casino: 1234 })
     const set = (value: number, s = state) => dispatch(s, { type: 'bet/set', value }, ctx()).state.bet
     expect(set(257.7)).toBe(250)
     expect(set(0)).toBe(50)
     expect(set(99_999)).toBe(1234)
     expect(set(Number.NaN)).toBe(100)
-    expect(set(500, casinoRun({ casino: 0 }))).toBe(50)
+    expect(set(500, casinoRun({ casino: 0, wallet: 0 }))).toBe(50)
     expect(set(500, casinoRun({ bonus: { state: 'active', wagerReq: 1, wagered: 0 } }))).toBe(B.BONUS_MAX_BET)
+  })
+
+  it('до депозита ставка ограничена кошельком, а не пустым казино: ×2 от 100 даёт 200', () => {
+    const state = casinoRun({ bet: 100, casino: 0, wallet: 1000 })
+    const set = (value: number) => dispatch(state, { type: 'bet/set', value }, ctx()).state.bet
+    expect(set(200)).toBe(200)
+    expect(set(5000)).toBe(1000)
+    expect(set(20)).toBe(50)
+    expect(set(500)).toBe(500)
+    expect(betLimit(casinoRun({ casino: 0, wallet: 20 }), config)).toBe(B.MIN_BET)
+  })
+
+  it('ставка выше депозита клампится на шаг ниже баланса: следующий спин — не случайный «ДОДЕП ВСЁ»', () => {
+    const state = casinoRun({ bet: 1000, casino: 0, wallet: 1000, bonus: { state: 'available', wagerReq: 0, wagered: 0 } })
+    const deposited = dispatch(state, { type: 'casino/deposit', amount: 500, bonus: false }, ctx()).state
+    expect(deposited.bet).toBe(490)
+    const spun = dispatch(deposited, { type: 'slot/spin' }, ctx()).events
+    expect(spun).toContainEqual(expect.objectContaining({ type: 'spin', bet: 490 }))
+    expect(spun).not.toContainEqual(expect.objectContaining({ source: 'all_in' }))
+    const withBonus = dispatch(state, { type: 'casino/deposit', amount: 500, bonus: true }, ctx()).state
+    expect(withBonus.bet).toBe(B.BONUS_MAX_BET)
+    const small = dispatch(casinoRun({ bet: 200, casino: 0, wallet: 1000 }), { type: 'casino/deposit', amount: 1000, bonus: false }, ctx()).state
+    expect(small.bet).toBe(200)
+  })
+
+  it('×2 на бонусе упирается в BONUS_MAX_BET, betLimit это показывает', () => {
+    const state = casinoRun({ bet: 100, casino: 3000, bonus: { state: 'active', wagerReq: 1, wagered: 0 } })
+    expect(betLimit(state, config)).toBe(B.BONUS_MAX_BET)
+    expect(dispatch(state, { type: 'bet/set', value: 200 }, ctx()).state.bet).toBe(B.BONUS_MAX_BET)
   })
 
   it('смена ставки не пишется в хронику', () => {

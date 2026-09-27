@@ -2,6 +2,7 @@ import { addTilt, casinoBlocked, needPhase, normalizeAmount } from '../rules'
 import { lockBonus } from '../spin'
 import type { CommandOf, GameEvent } from '../types'
 import type { CommandHandler } from './types'
+import { betCap } from './slot'
 
 /** casino/enter — открыть сайт казино (спины только здесь). */
 export const enterHandler: CommandHandler<CommandOf<'casino/enter'>> = {
@@ -67,6 +68,14 @@ export const depositHandler: CommandHandler<CommandOf<'casino/deposit'>> = {
       draft.casino += bonus
       lockBonus(draft, wagerRequired)
       events.push({ type: 'bonusGranted', deposit: amount, bonus, wagerRequired })
+    }
+    // Ставку выбирали до депозита (потолок — кошелёк) и она больше того, что есть в казино:
+    // опускаем на шаг ниже потолка, а не ровно в баланс — иначе первый же спин молча стал бы
+    // «ДОДЕП ВСЁ» (allIn = ставка == весь баланс) с его тильтом. Ровно в баланс — только если ниже некуда
+    const cap = betCap(draft, ctx.config)
+    if (draft.bet > cap) {
+      const belowAllIn = Math.ceil(cap / B.BET_STEP) * B.BET_STEP - B.BET_STEP
+      draft.bet = cap < draft.casino ? cap : Math.max(B.MIN_BET, Math.min(cap, belowAllIn))
     }
     draft.flags.deposited = true
     draft.peakCasino = Math.max(draft.peakCasino, draft.casino)

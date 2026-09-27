@@ -97,9 +97,23 @@ export const spinHandler: CommandHandler<CommandOf<'slot/spin'>> = {
 }
 
 /**
+ * Верхняя граница ставки при её выборе (GDD §3.5.4): `betCap`, а пока казино пустое
+ * (< MIN_BET, депозита ещё нет) — кошелёк, из которого придёт депозит. Иначе до депозита
+ * любая кнопка давала MIN_BET: ×2 от 100 превращался в 50. В спин всё равно уходит effectiveBet.
+ */
+export function betLimit(run: RunState, config: GameConfig): number {
+  const B = config.balance
+  const cap = betCap(run, config)
+  if (cap >= B.MIN_BET) return cap
+  const wallet = Math.floor(run.wallet / B.BET_STEP) * B.BET_STEP
+  const limit = Math.max(B.MIN_BET, wallet)
+  return run.bonus.state === 'active' ? Math.min(limit, B.BONUS_MAX_BET) : limit
+}
+
+/**
  * bet/set — ставка нормализуется и никогда не отклоняется (GDD §3.5.4, economy §2.2):
- * шаг BET_STEP вниз, [MIN_BET; casino], ≤ BONUS_MAX_BET при активном бонусе.
- * Значение ≥ баланса казино = «ДОДЕП ВСЁ»: ставка ровно в баланс (без шага).
+ * шаг BET_STEP вниз в пределах [MIN_BET; betLimit] (≤ BONUS_MAX_BET при активном бонусе).
+ * Исключение — значение ≥ betCap при непустом казино: «ДОДЕП ВСЁ», ставка ровно в cap (без шага).
  */
 export const setBetHandler: CommandHandler<CommandOf<'bet/set'>> = {
   check: (state) => (state.phase === 'ended' ? { reason: 'wrong_phase' } : null),
@@ -108,10 +122,11 @@ export const setBetHandler: CommandHandler<CommandOf<'bet/set'>> = {
     const from = draft.bet
     if (!Number.isFinite(cmd.value)) return [{ type: 'betChanged', from, to: from }]
     const cap = betCap(draft, ctx.config)
+    const limit = betLimit(draft, ctx.config)
     const wanted = Math.floor(cmd.value)
     let to: number
     if (cap >= B.MIN_BET && wanted >= cap) to = cap
-    else to = Math.min(Math.max(B.MIN_BET, cap), Math.max(B.MIN_BET, Math.floor(wanted / B.BET_STEP) * B.BET_STEP))
+    else to = Math.min(limit, Math.max(B.MIN_BET, Math.floor(wanted / B.BET_STEP) * B.BET_STEP))
     draft.bet = to
     return [{ type: 'betChanged', from, to }]
   }
