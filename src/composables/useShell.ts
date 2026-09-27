@@ -25,7 +25,9 @@ const bonusChecked = ref(true)
 const sleepConfirm = ref(false)
 /** «ЗАВЯЗАТЬ» при деньгах на сайте или выводе в очереди: предупреждение E24 ждёт подтверждения. */
 const quitConfirm = ref(false)
-const exitStep = ref<0 | 1 | 2>(0)
+const exitStep = ref<0 | 1>(0)
+/** «ран:день», в который уже показали S14: уговаривать остаться — раз в день, а не на каждом выходе. */
+let exitNagKey: string | null = null
 const pendingLife = shallowRef<(() => void) | null>(null)
 const mobileTab = ref<MobileTab>('casino')
 /** Слой до входа во вкладку «Изнанка» (мобильный): вернуть при выходе из неё. */
@@ -110,7 +112,8 @@ export function useShell() {
   const tiltLocked = computed(() => (game.hud?.tilt ?? 0) >= game.config.balance.TILT_T2)
 
   /**
-   * Действие «Жизни» (или сон): из казино сначала выходим. При 🔥 ≥ 70 — через два подтверждения S14.
+   * Действие «Жизни» (или сон): из казино сначала выходим. При 🔥 ≥ 70 — через одно подтверждение S14,
+   * и только при первом таком выходе за игровой день.
    * Esc/⏸/👓 сюда не ведут: системный выход трение не получает.
    */
   function viaLife(action: () => void) {
@@ -118,7 +121,9 @@ export function useShell() {
       action()
       return
     }
-    if (tiltLocked.value) {
+    const nagKey = `${game.run?.id ?? ''}:${game.hud?.day ?? 0}`
+    if (tiltLocked.value && exitNagKey !== nagKey) {
+      exitNagKey = nagKey
       pendingLife.value = action
       exitStep.value = 1
       return
@@ -136,10 +141,6 @@ export function useShell() {
     pendingLife.value = null
   }
   function exitLeave() {
-    if (exitStep.value === 1) {
-      exitStep.value = 2
-      return
-    }
     exitStep.value = 0
     const action = pendingLife.value
     pendingLife.value = null
