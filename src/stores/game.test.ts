@@ -166,6 +166,30 @@ describe('game store', () => {
     expect(game.hud?.bet).toBe(50)
   })
 
+  it('adjustBet до депозита: ×2 растёт от кошелька, а не упирается в пустое казино', async () => {
+    const game = setup()
+    await game.load()
+    game.newGame()
+    expect(game.hud?.casino).toBe(0)
+    game.adjustBet('double')
+    expect(game.hud?.bet).toBe(200)
+    game.adjustBet('double')
+    expect(game.hud?.bet).toBe(400)
+    game.adjustBet('half')
+    expect(game.hud?.bet).toBe(200)
+  })
+
+  it('adjustBet на бонусе: ×2 упирается в BONUS_MAX_BET, betLimit это показывает', async () => {
+    const game = setup()
+    await game.load()
+    game.newGame()
+    game.execute({ type: 'casino/deposit', amount: 500, bonus: true })
+    game.adjustBet('double')
+    game.adjustBet('double')
+    expect(game.hud?.bet).toBe(game.config.balance.BONUS_MAX_BET)
+    expect(game.hud?.betLimit).toBe(game.config.balance.BONUS_MAX_BET)
+  })
+
   it('день: сон → итог дня → утро; Изнанка и HUD доступны', async () => {
     const game = setup()
     await game.load()

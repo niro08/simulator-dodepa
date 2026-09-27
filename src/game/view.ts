@@ -4,7 +4,7 @@
  */
 import { expectedBonusLeft, type BonusForecast } from './bonus'
 import { ITEM_IDS, slotMetrics, type GameConfig, type ItemId } from './config'
-import { betCap, effectiveBet } from './commands/slot'
+import { betCap, betLimit, effectiveBet } from './commands/slot'
 import { wagerLeft } from './commands/casino'
 import { checkQuit } from './commands/day'
 import { findSleepEvent, optionCost, optionRejection } from './day'
@@ -81,6 +81,8 @@ export interface HudView {
   /** Ставка, которая уйдёт в спин (клампится балансом и лимитом бонуса). */
   effectiveBet: number
   betCap: number
+  /** Верхняя граница выбора ставки (кнопка ×2 упирается в неё). */
+  betLimit: number
   spinEnergyCost: number
   items: Record<ItemId, ItemStatus>
   bonus: { state: BonusState; wagered: number; wagerReq: number; wagerLeft: number }
@@ -157,6 +159,7 @@ export function buildHud(run: RunState, config: GameConfig): HudView {
     bet: run.bet,
     effectiveBet: effectiveBet(run, config),
     betCap: betCap(run, config),
+    betLimit: betLimit(run, config),
     spinEnergyCost: spinEnergyCost(run, B),
     items: { ...run.items },
     bonus: { ...run.bonus, wagerLeft: wagerLeft(run.bonus) },

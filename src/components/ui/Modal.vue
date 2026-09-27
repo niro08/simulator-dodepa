@@ -54,7 +54,7 @@
  * друг у друга до переполнения стека (CD-21).
  */
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
-import { isTopModal, popModal, pushModal } from './modalStack'
+import { isTopModal, lockScroll, popModal, pushModal, unlockScroll } from './modalStack'
 
 const props = withDefaults(
   defineProps<{
@@ -154,14 +154,12 @@ function onFocusIn(event: FocusEvent) {
   }
 }
 
-let prevOverflow = ''
 const token = Symbol('modal')
 
 async function activate() {
   pushModal(token)
   returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  prevOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
+  lockScroll(token, document.body)
   document.addEventListener('focusin', onFocusIn)
   await nextTick()
   const root = dialog.value
@@ -177,7 +175,7 @@ async function activate() {
 function deactivate() {
   popModal(token)
   document.removeEventListener('focusin', onFocusIn)
-  document.body.style.overflow = prevOverflow
+  unlockScroll(token, document.body)
   const target = returnFocus
   returnFocus = null
   if (target && document.contains(target)) target.focus()
