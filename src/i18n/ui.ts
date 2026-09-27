@@ -576,7 +576,7 @@ export const LIFE = {
   bank: { title: '🏦 Банк «Надёжный»', verb: 'Взять кредит' },
   bankGain: (amount: number, rate: string) => `кредит ${money(amount)}₽ · ${rate} в день`,
   bankNote: (repMin: number, rep: number) => `Нужна репутация ❤️ ≥ ${repMin} (у тебя ${rep})`,
-  mfo: { title: '💸 МФО «БЫСТРОДЕНЬГИ-НУ-ПОЧТИ»', verb: '▶ ПОЛУЧИТЬ ДЕНЬГИ ◀' },
+  mfo: { title: '💸 МФО «БЕСПЛАТНЫЕ ДЕНЬГИ… НУ ПОЧТИ»', verb: '▶ ПОЛУЧИТЬ ДЕНЬГИ ◀' },
   mfoShout: (amount: number) => `${money(amount)}₽ ЗА 5 МИНУТ! ВСЕГО 1% В ДЕНЬ!* Одобряем ВСЕМ!`,
   mfoFine: (apr: string, amount: number, after28: number) =>
     `*${apr} годовых. Сложный процент: через 28 дней ${money(amount)}₽ → ${money(after28)}₽.`,

@@ -322,7 +322,7 @@ export const SLEEP_EVENT_TEXTS: Record<string, { speaker: string; text: string; 
     ]
   },
   mfo_robot: {
-    speaker: 'Робот МФО «Быстроденьги-ну-почти»',
+    speaker: 'Робот МФО «Бесплатные деньги… ну почти»',
     text: 'Здравствуйте! Ваш займ можно ПРОЛОНГИРОВАТЬ! Для пролонгации нажмите 1. Для связи с оператором нажмите 0.',
     options: ['Нажать 1', 'Нажать 0'],
     results: [
@@ -699,7 +699,7 @@ export function formatEvent(event: GameEvent, variant = 0): string {
     case 'loanTaken':
       return event.lender === 'bank'
         ? `Банк одобрил ${money(event.amount)}₽. Менеджер улыбнулся по скрипту.`
-        : pick([`«Быстроденьги-ну-почти»: +${money(event.amount)}₽ за 4 минуты.`, `МФО одобрило ${money(event.amount)}₽. Одобряет всем. В этом и дело.`], variant)
+        : pick([`«Бесплатные деньги… ну почти»: +${money(event.amount)}₽ за 4 минуты.`, `МФО одобрило ${money(event.amount)}₽. Одобряет всем. В этом и дело.`], variant)
     case 'interestAccrued':
       return `Ночью набежало процентов: +${money(event.total)}₽. Долг: ${money(event.debt)}₽.`
     case 'debtRepaid':
