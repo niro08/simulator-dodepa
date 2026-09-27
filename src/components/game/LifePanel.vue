@@ -61,7 +61,7 @@
           <dt>👛 {{ LIFE.wallet }}</dt>
           <dd :class="{ minus: hud.wallet < 0 }">{{ money(hud.wallet) }}₽</dd>
         </div>
-        <div class="dots">
+        <div class="dots" :class="{ 'life__no-debt': hud.debt <= 0 }">
           <dt>{{ hud.debt > 0 ? '💳 Долг' : LIFE.noDebt }}</dt>
           <dd v-if="hud.debt > 0">{{ money(hud.debt) }}₽ <span class="life__small">+{{ money(hud.interestTonight) }}₽/ночь</span></dd>
           <dd v-else />
@@ -74,7 +74,7 @@
 
       <div class="life__meter life__meter--tilt" :class="`life__meter--${hud.tiltStage}`">
         <span class="life__meter-label">🔥 {{ LIFE.tilt }}</span>
-        <div class="life__bar" role="meter" :aria-valuenow="hud.tilt" aria-valuemin="0" aria-valuemax="100" :aria-label="LIFE.tilt">
+        <div class="life__bar" role="meter" :aria-valuenow="hud.tilt" aria-valuemin="0" aria-valuemax="100" :aria-label="LIFE.tilt" :aria-valuetext="`${hud.tilt} — ${TILT_STAGE_LABELS[hud.tiltStage].v}`">
           <span :style="{ width: `${Math.min(100, hud.tilt)}%` }" />
           <i :style="{ left: `${B.TILT_T1}%` }" aria-hidden="true" />
           <i :style="{ left: `${B.TILT_T2}%` }" aria-hidden="true" />
@@ -513,6 +513,10 @@ defineExpose({ focusHeading })
   min-width: 4ch;
   text-align: right;
   font-weight: 700;
+}
+/* «Долгов нет. …» — фраза без значения: точечный отвод к пустой ячейке не нужен (и висел после переноса) */
+.life__no-debt::after {
+  content: none;
 }
 .life__tilt-label {
   font-size: var(--fs-xs);

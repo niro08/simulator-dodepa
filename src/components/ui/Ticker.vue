@@ -258,6 +258,28 @@ const trackStyle = computed(() => {
   opacity: .6;
 }
 .ui-ticker__amount { font-weight: 700; }
+
+/* Статичная «честная» лента (calm / reduced-motion): запись не уезжает, значит должна
+   поместиться целиком — переносим строку и растим высоту, остальные записи оставляем
+   только для скринридера. Иначе на 360px видно ~30 символов из 110. */
+.ui-ticker--paper.ui-ticker--static { height: auto; min-height: 28px; }
+.ui-ticker--paper.ui-ticker--static .ui-ticker__viewport { -webkit-mask-image: none; mask-image: none; }
+.ui-ticker--paper.ui-ticker--static .ui-ticker__track { width: auto; }
+.ui-ticker--paper.ui-ticker--static .ui-ticker__item {
+  display: inline;
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2);
+  white-space: normal;
+}
+.ui-ticker--paper.ui-ticker--static .ui-ticker__item::after { content: none; }
+.ui-ticker--paper.ui-ticker--static .ui-ticker__item:not(:first-child) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .ui-ticker--neon .ui-ticker__amount--win { color: var(--c-win); text-shadow: var(--glow-win); }
 .ui-ticker--neon .ui-ticker__amount--lose { color: var(--c-alert-fg); }
 .ui-ticker--paper .ui-ticker__amount { color: var(--ink); }

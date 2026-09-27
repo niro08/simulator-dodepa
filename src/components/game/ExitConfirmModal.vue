@@ -5,8 +5,8 @@
       <NeonButton variant="cta" size="lg" pulse @click="shell.exitStay()">
         {{ EXIT_CONFIRM.stay }}
       </NeonButton>
-      <button type="button" class="ex__leave" data-autofocus @click="shell.exitLeave()">
-        {{ EXIT_CONFIRM.leave }} <kbd>Esc</kbd>
+      <button type="button" class="ex__leave" data-autofocus aria-keyshortcuts="Escape" @click="shell.exitLeave()">
+        {{ EXIT_CONFIRM.leave }} <kbd aria-hidden="true">Esc</kbd>
       </button>
     </div>
     <!-- Разоблачение видно всегда, не только в режиме 👓 -->

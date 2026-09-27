@@ -10,10 +10,12 @@
     <SiteHeader id="site-zone" tabindex="-1" :compact="isMobile" />
 
     <!-- Липкая статус-строка выживания (моб.): день, ⚡, 🔥, счёт — всегда видна (ux §4.2) -->
-    <button v-if="hud && isGameLayout" type="button" class="gs__status" :aria-label="STATUS_LINE.aria" @click="shell.setTab('life')">
+    <!-- Без aria-label: он заменял бы значения; имя = подсказка + видимый текст (WCAG 2.5.3), эмодзи озвучены словами -->
+    <button v-if="hud && isGameLayout" type="button" class="gs__status" @click="shell.setTab('life')">
+      <span class="sr-only">{{ STATUS_LINE.aria }}:</span>
       <span>Д{{ hud.day }}{{ hud.endless ? '' : `/${hud.runDays}` }}</span>
-      <span>⚡{{ hud.energy }}</span>
-      <span :class="{ 'gs__status-tilt': hud.tilt >= B.TILT_T2 }">🔥{{ hud.tilt }}<template v-if="hud.tilt >= B.TILT_T2"> {{ LIFE.tiltTag }}</template></span>
+      <span><span aria-hidden="true">⚡</span><span class="sr-only">{{ LIFE.energy }} </span>{{ hud.energy }}</span>
+      <span :class="{ 'gs__status-tilt': hud.tilt >= B.TILT_T2 }"><span aria-hidden="true">🔥</span><span class="sr-only">{{ LIFE.tilt }} </span>{{ hud.tilt }}{{ hud.tilt >= B.TILT_T2 ? ` ${LIFE.tiltTag}` : '' }}</span>
       <span v-if="hud.bill">{{ STATUS_LINE.bill(hud.bill.total, hud.bill.daysLeft) }}</span>
     </button>
     </div>
