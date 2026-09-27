@@ -197,6 +197,16 @@ describe('bet/set', () => {
     expect(betLimit(casinoRun({ casino: 0, wallet: 20 }), config)).toBe(B.MIN_BET)
   })
 
+  it('ставка выше депозита после депозита клампится в баланс: следующий спин — не случайный «ДОДЕП ВСЁ»', () => {
+    const state = casinoRun({ bet: 1000, casino: 0, wallet: 1000, bonus: { state: 'available', wagerReq: 0, wagered: 0 } })
+    const deposited = dispatch(state, { type: 'casino/deposit', amount: 500, bonus: false }, ctx()).state
+    expect(deposited.bet).toBe(500)
+    const withBonus = dispatch(state, { type: 'casino/deposit', amount: 500, bonus: true }, ctx()).state
+    expect(withBonus.bet).toBe(B.BONUS_MAX_BET)
+    const small = dispatch(casinoRun({ bet: 200, casino: 0, wallet: 1000 }), { type: 'casino/deposit', amount: 1000, bonus: false }, ctx()).state
+    expect(small.bet).toBe(200)
+  })
+
   it('×2 на бонусе упирается в BONUS_MAX_BET, betLimit это показывает', () => {
     const state = casinoRun({ bet: 100, casino: 3000, bonus: { state: 'active', wagerReq: 1, wagered: 0 } })
     expect(betLimit(state, config)).toBe(B.BONUS_MAX_BET)

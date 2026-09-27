@@ -112,8 +112,8 @@ export function betLimit(run: RunState, config: GameConfig): number {
 
 /**
  * bet/set — ставка нормализуется и никогда не отклоняется (GDD §3.5.4, economy §2.2):
- * шаг BET_STEP вниз, [MIN_BET; betLimit], ≤ BONUS_MAX_BET при активном бонусе.
- * Значение ≥ баланса казино = «ДОДЕП ВСЁ»: ставка ровно в баланс (без шага).
+ * шаг BET_STEP вниз в пределах [MIN_BET; betLimit] (≤ BONUS_MAX_BET при активном бонусе).
+ * Исключение — значение ≥ betCap при непустом казино: «ДОДЕП ВСЁ», ставка ровно в cap (без шага).
  */
 export const setBetHandler: CommandHandler<CommandOf<'bet/set'>> = {
   check: (state) => (state.phase === 'ended' ? { reason: 'wrong_phase' } : null),

@@ -243,7 +243,9 @@ const limitNote = computed(() => {
   const h = hud.value
   if (!h || !atLimit.value) return ''
   if (h.bonus.state === 'active' && h.betLimit === B.BONUS_MAX_BET) return SLOT.betLimitBonus(B.BONUS_MAX_BET)
-  return h.casino >= B.MIN_BET ? SLOT.betLimitCasino(h.betLimit) : SLOT.betLimitWallet(h.betLimit)
+  if (h.casino >= B.MIN_BET) return SLOT.betLimitCasino(h.betLimit)
+  // Кошелёк меньше минималки: «это весь кошелёк» было бы враньём, кнопка депозита скажет сама
+  return h.wallet >= B.MIN_BET ? SLOT.betLimitWallet(h.betLimit) : ''
 })
 const effectiveNote = computed(() => {
   const h = hud.value

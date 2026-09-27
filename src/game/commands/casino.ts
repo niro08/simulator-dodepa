@@ -2,6 +2,7 @@ import { addTilt, casinoBlocked, needPhase, normalizeAmount } from '../rules'
 import { lockBonus } from '../spin'
 import type { CommandOf, GameEvent } from '../types'
 import type { CommandHandler } from './types'
+import { betCap } from './slot'
 
 /** casino/enter — открыть сайт казино (спины только здесь). */
 export const enterHandler: CommandHandler<CommandOf<'casino/enter'>> = {
@@ -68,6 +69,9 @@ export const depositHandler: CommandHandler<CommandOf<'casino/deposit'>> = {
       lockBonus(draft, wagerRequired)
       events.push({ type: 'bonusGranted', deposit: amount, bonus, wagerRequired })
     }
+    // Ставку выбирали до депозита (потолок — кошелёк): возвращаем её в границы GDD §3.5.4,
+    // иначе первый же спин после депозита меньше ставки молча стал бы «ДОДЕП ВСЁ»
+    draft.bet = Math.min(draft.bet, Math.max(B.MIN_BET, betCap(draft, ctx.config)))
     draft.flags.deposited = true
     draft.peakCasino = Math.max(draft.peakCasino, draft.casino)
     return events
