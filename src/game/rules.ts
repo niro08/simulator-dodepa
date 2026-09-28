@@ -66,7 +66,7 @@ export function needWork(run: RunState, B: BalanceV1): Rejection | null {
   return B.FEATURE_EVENING_FIX && run.workToday ? { reason: 'work_done' } : null
 }
 
-/** Ночной спад тильта: 30 при флаге, 50 без (§3.4). */
+/** Ночной спад тильта: TILT_SLEEP_DECAY_FIX при флаге, TILT_SLEEP_DECAY без (§3.4). */
 export function sleepTiltDecay(B: BalanceV1): number {
   return B.FEATURE_EVENING_FIX ? B.TILT_SLEEP_DECAY_FIX : B.TILT_SLEEP_DECAY
 }

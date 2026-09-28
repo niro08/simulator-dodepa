@@ -186,7 +186,7 @@ describe('i18n/ru', () => {
     const guide = howToPlay(defaultConfig)
     expect(guide.lines).toHaveLength(10)
     expect(guide.lines.join(' ')).toContain('RTP 90%')
-    expect(guide.lines.join(' ')).toContain('тильт −30')
+    expect(guide.lines.join(' ')).toContain('тильт −40')
     expect(money(1234567)).toBe('1 234 567')
     expect(money(-500)).toBe('−500')
   })

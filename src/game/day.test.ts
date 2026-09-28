@@ -240,7 +240,7 @@ describe('тильт 100 в особые дни (GDD §3.5.10, E3–E5)', () => 
       expect(canExecute(result.state, { type: 'day/resume' }, config)).toEqual({ reason: 'forced' })
       expect(canExecute(result.state, { type: 'pawn/pawn', item: 'bike' }, config)).toEqual({ reason: 'wrong_phase' })
       const paid = act(result.state, { type: 'bills/pay' })
-      expect(paid.state).toMatchObject({ phase: 'daySummary', casinoNights: 1, tilt: 50 })
+      expect(paid.state).toMatchObject({ phase: 'daySummary', casinoNights: 1, tilt: B.TILT_AFTER_CASINO_NIGHT_FIX })
       return
     }
     throw new Error('не нашли проигрыш')

@@ -207,7 +207,7 @@ export const STRATEGIES = {
         return
       }
       leaveIfWoke(s)
-      if ((s.run.familyStreak ?? 0) >= 1 && s.run.energy >= s.config.balance.OVERTIME_ENERGY) {
+      if (s.run.lastFamilyDay === s.run.day - 1 && s.run.energy >= s.config.balance.OVERTIME_ENERGY) {
         tryExec(s, { type: 'work/overtime' })
       } else {
         if (!tryExec(s, { type: 'work/shift' })) tryExec(s, { type: 'work/half' })

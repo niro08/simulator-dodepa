@@ -115,28 +115,36 @@ describe('баланс: коридоры economy §9 на полном пуле 
 })
 
 /**
- * Пакет «Быстрый фикс» (design/quick-fix-evening.md §10 п.7) на полном пуле событий, флаг true.
- * Факт на 2000 ранов (seed 1…2000, OVERTIME_PAY_MULT 1.2): честный ≈ 83.5%, формальный ≈ 6%, осторожный темщик ≈ 35%,
- * казино каждый день 0% («Ночь ×3» ≈ 86%), лудоман 0%, темщик 0%.
+ * Пакет «Быстрый фикс» (design/quick-fix-evening.md §10 п.7, §11) на полном пуле событий, флаг true.
+ * Итог §11: набор A + TILT_AFTER_CASINO_NIGHT_FIX 35 из B («Ночь ×3» в A была 55% > 50%).
+ * Факт, ядро, 2000 ранов: честный 57.6%, формальный 32.5%, осторожный темщик 39.6%,
+ * казино каждый день 5.7% («Ночь ×3» 37.4%), лудоман 0%, темщик 0%. Подробно: economy-v1 §14.1a.
  */
 describe('баланс: пакет «Быстрый фикс» (quick-fix-evening §10 п.7), FEATURE_EVENING_FIX=true', () => {
   const on = withFix(defaultConfig, true)
   const honest = winRate(STRATEGIES.honest, 1000, 1, on)
+  const honest2 = winRate(STRATEGIES.honest, 1000, 50_001, on)
 
-  // ИЗВЕСТНОЕ РАСХОЖДЕНИЕ со спецификацией: честный вне коридора 55–66% даже после шага подстройки §7.2
-  // (OVERTIME_PAY_MULT 1.25 → 1.2). it.fails станет красным, как только коридор начнёт держаться, — тогда заменить на it.
-  it.fails('честный (чередование мама / переработка): 55–66% — сейчас выше коридора, эскалировано game-designer', () => {
-    expect(honest.wins).toBeGreaterThanOrEqual(0.55)
-    expect(honest.wins).toBeLessThanOrEqual(0.66)
+  it('честный (чередование мама / переработка): 55–66%', () => {
+    for (const r of [honest, honest2]) {
+      expect(r.wins).toBeGreaterThanOrEqual(0.55)
+      expect(r.wins).toBeLessThanOrEqual(0.66)
+    }
   })
 
-  it('честный выигрывает больше формального; осторожный темщик ≤ честный − 8 п.п.', () => {
-    expect(winRate(STRATEGIES.honestFormal, 1000, 1, on).wins).toBeLessThan(honest.wins)
+  it('формальный 30–45% и меньше честного; осторожный темщик ≤ честный − 8 п.п.', () => {
+    const formal = winRate(STRATEGIES.honestFormal, 1000, 1, on).wins
+    expect(formal).toBeGreaterThanOrEqual(0.3)
+    expect(formal).toBeLessThanOrEqual(0.45)
+    expect(formal).toBeLessThan(honest.wins)
     expect(winRate(STRATEGIES.shadyCautious, 1000, 1, on).wins).toBeLessThanOrEqual(honest.wins - 0.08)
   })
 
-  it('казино каждый день ≤ 10%, лудоман ≤ 2%, темщик ≤ 5%', () => {
-    expect(winRate(STRATEGIES.casinoDaily, 600, 1, on).wins).toBeLessThanOrEqual(0.1)
+  it('казино каждый день ≤ 10% побед и «Ночь ×3» ≤ 50%; лудоман ≤ 2%; темщик ≤ 5%', () => {
+    const runs = 600
+    const casino = winRate(STRATEGIES.casinoDaily, runs, 1, on)
+    expect(casino.wins).toBeLessThanOrEqual(0.1)
+    expect((casino.outcomes.casino_nights ?? 0) / runs).toBeLessThanOrEqual(0.5)
     expect(winRate(STRATEGIES.ludoman, 300, 1, on).wins).toBeLessThanOrEqual(0.02)
     expect(winRate(STRATEGIES.shady, 300, 1, on).wins).toBeLessThanOrEqual(0.05)
   }, 60_000)

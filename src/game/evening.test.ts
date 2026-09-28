@@ -46,7 +46,9 @@ describe('флаг выключен (§10 п.1)', () => {
     expect(shift.workToday).toBeUndefined()
     const slept = act(run({ tilt: 80 }, off), { type: 'day/sleep' }, off).state
     expect(slept.tilt).toBe(30)
-    for (const key of ['eveningUsed', 'workToday', 'familyStreak', 'earlyBedPending', 'earlyCarry', 'wokeInCasino']) {
+    const night = act(run({ location: 'casino', casinoNightPending: true, tilt: 100, casino: 1000 }, off), { type: 'day/sleep' }, off).state
+    expect(night.tilt).toBe(off.balance.TILT_AFTER_CASINO_NIGHT)
+    for (const key of ['eveningUsed', 'workToday', 'lastFamilyDay', 'earlyBedPending', 'earlyCarry', 'wokeInCasino']) {
       expect(key in slept).toBe(false)
     }
   })
@@ -135,12 +137,14 @@ describe('работа: смена, полсмены, переработка (§
   })
 })
 
-describe('семья подряд: +2, +1, 0 (§3.5, §10 п.4)', () => {
-  const repGains = (days: boolean[]): number[] => {
-    let s = run()
+describe('семья: +2 «после разлуки», иначе +1 (§3.5, §10 п.4)', () => {
+  /** Помогать маме в дни из списка (дни 1…max), ❤️-прирост каждого визита. */
+  const repGains = (helpDays: number[]): number[] => {
+    let s = run({ wallet: 100_000 })
     const gains: number[] = []
-    for (const help of days) {
-      if (help) {
+    for (let day = 1; day <= Math.max(...helpDays); day++) {
+      if (!canExecute(s, { type: 'bills/pay' }, on)) s = chain(s, [{ type: 'bills/pay' }]) // день счёта (7)
+      if (helpDays.includes(day)) {
         const before = s.rep
         s = chain(s, [{ type: 'family/help' }])
         gains.push(s.rep - before)
@@ -150,15 +154,18 @@ describe('семья подряд: +2, +1, 0 (§3.5, §10 п.4)', () => {
     return gains
   }
 
-  it('4 дня подряд: +2, +1, 0, 0; через день: +2, +2', () => {
-    expect(repGains([true, true, true, true])).toEqual([2, 1, 0, 0])
-    expect(repGains([true, false, true])).toEqual([2, 2])
+  it('дни 1,2,3: +2,+1,+1; дни 1,3,5: +2,+1,+1; дни 1 и 8: +2,+2; дни 1 и 7: +2,+1', () => {
+    expect(repGains([1, 2, 3])).toEqual([2, 1, 1])
+    expect(repGains([1, 3, 5])).toEqual([2, 1, 1])
+    expect(repGains([1, 8])).toEqual([2, 2])
+    expect(repGains([1, 7])).toEqual([2, 1])
   })
 
-  it('🔥 −15 всегда; familyHelped.rep для строки лога; при 0 нет лишних событий ❤️', () => {
-    const r = act(run({ tilt: 50, familyStreak: 2 }), { type: 'family/help' })
-    expect(r.state).toMatchObject({ tilt: 35, rep: 10, familyStreak: 3 })
-    expect(r.events[0]).toEqual({ type: 'familyHelped', rep: 0 })
+  it('🔥 −15 всегда; lastFamilyDay = день; familyHelped.rep/yesterday для строки лога', () => {
+    const r = act(run({ day: 5, tilt: 50, lastFamilyDay: 4 }), { type: 'family/help' })
+    expect(r.state).toMatchObject({ tilt: 35, rep: 11, lastFamilyDay: 5 })
+    expect(r.events[0]).toEqual({ type: 'familyHelped', rep: 1, yesterday: true })
+    expect(act(run({ day: 5, lastFamilyDay: 3 }), { type: 'family/help' }).events[0]).toEqual({ type: 'familyHelped', rep: 1 })
     expect(act(run(), { type: 'family/help' }).events[0]).toEqual({ type: 'familyHelped', rep: 2 })
     expect(act(run({}, off), { type: 'family/help' }, off).events[0]).toEqual({ type: 'familyHelped' })
   })
@@ -171,13 +178,13 @@ describe('«Лечь пораньше» (§3.3, §10 п.5)', () => {
     expect(earlyBedPreview({ energy: 100 }, B)).toEqual({ tilt: 30, energy: 10 })
   })
 
-  it('с 50⚡ при 🔥 60: утром 🔥 = 5, ⚡ = 110', () => {
-    const night = act(run({ energy: 50, tilt: 60 }), { type: 'day/early' })
+  it('с 50⚡ при 🔥 80: утром 🔥 = 80 − 25 − 40 = 15, ⚡ = 110', () => {
+    const night = act(run({ energy: 50, tilt: 80 }), { type: 'day/early' })
     expect(night.ok).toBe(true)
     expect(find(night.events, 'earlyBed')).toEqual({ type: 'earlyBed', tilt: 25, energy: 10 })
     expect(night.events.find((e) => e.type === 'tiltChanged' && e.source === 'early_bed')).toBeTruthy()
-    expect(night.state.eventState.bedTilt).toBe(35)
-    expect(night.state).toMatchObject({ tilt: 5, earlyCarry: 10 })
+    expect(night.state.eventState.bedTilt).toBe(55)
+    expect(night.state).toMatchObject({ tilt: 15, earlyCarry: 10 })
     expect(night.state.earlyBedPending).toBeUndefined()
     const morning = act(night.state, { type: 'day/wake' }).state
     expect(morning.energy).toBe(110)
@@ -211,13 +218,13 @@ describe('«Лечь пораньше» (§3.3, §10 п.5)', () => {
 })
 
 describe('тильт помнит вечер и пробуждение в казино (§3.4, §10 п.6)', () => {
-  it('спад за ночь 30 вместо 50', () => {
-    expect(act(run({ tilt: 90 }), { type: 'day/sleep' }).state.tilt).toBe(60)
+  it('спад за ночь TILT_SLEEP_DECAY_FIX (40) вместо 50', () => {
+    expect(act(run({ tilt: 90 }), { type: 'day/sleep' }).state.tilt).toBe(90 - B.TILT_SLEEP_DECAY_FIX)
   })
 
   it('после «Ночи в казино»: утро в казино, 🔥 50; первый выход −10⚡, второй бесплатно', () => {
     const night = act(run({ location: 'casino', casinoNightPending: true, tilt: 100, casino: 1000 }), { type: 'day/sleep' }).state
-    expect(night).toMatchObject({ location: 'casino', wokeInCasino: true, tilt: B.TILT_AFTER_CASINO_NIGHT })
+    expect(night).toMatchObject({ location: 'casino', wokeInCasino: true, tilt: B.TILT_AFTER_CASINO_NIGHT_FIX })
     const morning = act(night, { type: 'day/wake' }).state
     expect(morning).toMatchObject({ phase: 'day', location: 'casino', energy: 100 })
     expect(canExecute(morning, { type: 'work/shift' }, on)).toEqual({ reason: 'in_casino' })
@@ -256,10 +263,10 @@ describe('сейв (§5)', () => {
   const env = { config: on, now: 0, seed: 1 }
 
   it('валидные поля копируются, мусорные опускаются; старый сейв без полей — undefined', () => {
-    const good = validateRun({ ...run(), eveningUsed: 'family', workToday: 'half', familyStreak: 3, earlyCarry: 10, earlyBedPending: true, wokeInCasino: true, energy: 110 }, env)
-    expect(good).toMatchObject({ eveningUsed: 'family', workToday: 'half', familyStreak: 3, earlyCarry: 10, earlyBedPending: true, wokeInCasino: true, energy: 110 })
-    const bad = validateRun({ ...run(), eveningUsed: 'casino', workToday: 1, familyStreak: 0, earlyCarry: 11, earlyBedPending: false, wokeInCasino: 'yes' }, env)
-    for (const key of ['eveningUsed', 'workToday', 'familyStreak', 'earlyCarry', 'earlyBedPending', 'wokeInCasino']) {
+    const good = validateRun({ ...run({ day: 5 }), eveningUsed: 'family', workToday: 'half', lastFamilyDay: 3, earlyCarry: 10, earlyBedPending: true, wokeInCasino: true, energy: 110 }, env)
+    expect(good).toMatchObject({ eveningUsed: 'family', workToday: 'half', lastFamilyDay: 3, earlyCarry: 10, earlyBedPending: true, wokeInCasino: true, energy: 110 })
+    const bad = validateRun({ ...run({ day: 5 }), eveningUsed: 'casino', workToday: 1, lastFamilyDay: 6, earlyCarry: 11, earlyBedPending: false, wokeInCasino: 'yes' }, env)
+    for (const key of ['eveningUsed', 'workToday', 'lastFamilyDay', 'earlyCarry', 'earlyBedPending', 'wokeInCasino']) {
       expect(key in (bad ?? {}), key).toBe(false)
     }
   })

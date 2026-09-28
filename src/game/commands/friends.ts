@@ -37,7 +37,8 @@ export const borrowHandler: CommandHandler<CommandOf<'friends/borrow'>> = {
 
 /**
  * family/help — помочь семье: ❤️ +2, 🔥 −15, не чаще раза в день (GDD §3.5, E28).
- * При FEATURE_EVENING_FIX — занимает вечер, ❤️ по серии дней подряд FAMILY_REP_STREAK (quick-fix-evening §3.5).
+ * При FEATURE_EVENING_FIX — занимает вечер; ❤️ +FAMILY_REP_FRESH «после разлуки» (первый визит или
+ * ≥ FAMILY_FRESH_GAP_DAYS дней без визитов), иначе +FAMILY_REP_REPEAT (quick-fix-evening §3.5).
  */
 export const familyHandler: CommandHandler<CommandOf<'family/help'>> = {
   check(state, _cmd, config) {
@@ -60,12 +61,13 @@ export const familyHandler: CommandHandler<CommandOf<'family/help'>> = {
       addTilt(draft, -B.TILT_FAMILY, 'family', events, B)
       return events
     }
-    const streak = draft.familyStreak ?? 0
-    const gain = B.FAMILY_REP_STREAK[Math.min(streak, B.FAMILY_REP_STREAK.length - 1)] ?? 0
-    const events: GameEvent[] = [{ type: 'familyHelped', rep: gain }]
+    const last = draft.lastFamilyDay
+    const fresh = last === undefined || draft.day - last >= B.FAMILY_FRESH_GAP_DAYS
+    const gain = fresh ? B.FAMILY_REP_FRESH : B.FAMILY_REP_REPEAT
+    const events: GameEvent[] = [{ type: 'familyHelped', rep: gain, ...(last === draft.day - 1 ? { yesterday: true as const } : {}) }]
     draft.energy -= B.FAMILY_ENERGY
     draft.familyHelpsToday += 1
-    draft.familyStreak = streak + 1
+    draft.lastFamilyDay = draft.day
     draft.eveningUsed = 'family'
     changeRep(draft, gain, events, B)
     addTilt(draft, -B.TILT_FAMILY, 'family', events, B)

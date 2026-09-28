@@ -192,8 +192,8 @@ export interface RunState {
   eveningUsed?: EveningSlot
   /** Какая работа была сегодня; удаляется ночью (N7). */
   workToday?: WorkSlot
-  /** Сколько дней подряд помогал семье (1…); удаляется ночью, если сегодня не помогал. */
-  familyStreak?: number
+  /** День последней помощи семье (family/help); ночью не сбрасывается (quick-fix-evening §3.5). */
+  lastFamilyDay?: number
   /** Выбрано «Лечь пораньше»; снимается ночью или «Назад» со счёта/развилки. */
   earlyBedPending?: true
   /** ⚡ сверху к утренней энергии от раннего сна (0…EARLY_CARRY_MAX); снимается утром (M4). */
@@ -342,8 +342,8 @@ export type GameEvent =
   | { type: 'schemeResolved'; success: boolean; amount: number; fine: number; jailed: boolean }
   | { type: 'friendBorrowed'; amount: number; diminished: boolean }
   | { type: 'friendsBlocked' }
-  /** rep — только при FEATURE_EVENING_FIX (строка лога по streak). */
-  | { type: 'familyHelped'; rep?: number }
+  /** rep/yesterday — только при FEATURE_EVENING_FIX (строка лога §8.3): yesterday — помогал и вчера. */
+  | { type: 'familyHelped'; rep?: number; yesterday?: true }
   | { type: 'loanTaken'; lender: 'bank' | 'mfo'; amount: number }
   | { type: 'interestAccrued'; bank: number; mfo: number; total: number; debt: number }
   | { type: 'debtRepaid'; amount: number; repGain: number; debtLeft: number; viaBill: boolean }

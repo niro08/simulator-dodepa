@@ -150,7 +150,7 @@ const WORK_SLOTS: readonly WorkSlot[] = ['shift', 'half', 'overtime']
  * Поля пакета «Быстрый фикс» (quick-fix-evening §5): копируются, только если есть и валидны, иначе опускаются
  * (старый сейв = «ничего не делал»).
  */
-function validateEveningFix(x: Json): Partial<RunState> {
+function validateEveningFix(x: Json, day: number, carryMax: number): Partial<RunState> {
   const out: Partial<RunState> = {}
   if (typeof x.eveningUsed === 'string' && (EVENING_SLOTS as readonly string[]).includes(x.eveningUsed)) {
     out.eveningUsed = x.eveningUsed as EveningSlot
@@ -158,10 +158,10 @@ function validateEveningFix(x: Json): Partial<RunState> {
   if (typeof x.workToday === 'string' && (WORK_SLOTS as readonly string[]).includes(x.workToday)) {
     out.workToday = x.workToday as WorkSlot
   }
-  if (Number.isInteger(x.familyStreak) && (x.familyStreak as number) >= 1 && (x.familyStreak as number) <= 99) {
-    out.familyStreak = x.familyStreak as number
+  if (Number.isInteger(x.lastFamilyDay) && (x.lastFamilyDay as number) >= 1 && (x.lastFamilyDay as number) <= day) {
+    out.lastFamilyDay = x.lastFamilyDay as number
   }
-  if (Number.isInteger(x.earlyCarry) && (x.earlyCarry as number) >= 0 && (x.earlyCarry as number) <= 10) {
+  if (Number.isInteger(x.earlyCarry) && (x.earlyCarry as number) >= 0 && (x.earlyCarry as number) <= carryMax) {
     out.earlyCarry = x.earlyCarry as number
   }
   if (x.earlyBedPending === true) out.earlyBedPending = true
@@ -335,8 +335,8 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
     stats: numberMap(x.stats) as PlayerStats,
     log,
     nextLogId: Math.max(int(x.nextLogId, 1), maxLogId + 1),
-    ...validateEveningFix(x)
   }
+  Object.assign(run, validateEveningFix(x, run.day, B.EARLY_CARRY_MAX))
   return applyInvariants(run, env.config)
 }
 

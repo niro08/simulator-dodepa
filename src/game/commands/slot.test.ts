@@ -108,7 +108,7 @@ describe('slot/spin (CD-07)', () => {
       expect(result.events.find((e) => e.type === 'casinoNight')).toMatchObject({ n: 1, lost: Math.floor(casinoAfterSpin * 0.2) })
       expect(result.state.casino).toBe(casinoAfterSpin - Math.floor(casinoAfterSpin * 0.2))
       // quick-fix-evening §3.4: после «Ночи» просыпаешься в казино
-      expect(result.state).toMatchObject({ phase: 'daySummary', day: 2, tilt: B.TILT_AFTER_CASINO_NIGHT, casinoNights: 1, location: 'casino', wokeInCasino: true })
+      expect(result.state).toMatchObject({ phase: 'daySummary', day: 2, tilt: B.TILT_AFTER_CASINO_NIGHT_FIX, casinoNights: 1, location: 'casino', wokeInCasino: true })
       return
     }
     throw new Error('не нашли проигрыш')

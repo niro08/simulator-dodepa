@@ -120,8 +120,10 @@ export function runNight(draft: RunState, ctx: DayCtx, events: GameEvent[]): voi
 
   // N5. Тильт (до спада запоминаем «тильт при отходе ко сну» — insomnia_spin)
   draft.eventState.bedTilt = draft.tilt
-  if (casinoNight) setTilt(draft, B.TILT_AFTER_CASINO_NIGHT, 'casino_night', events, B)
-  else setTilt(draft, Math.max(0, draft.tilt - sleepTiltDecay(B)), 'sleep', events, B)
+  if (casinoNight) {
+    const after = B.FEATURE_EVENING_FIX ? B.TILT_AFTER_CASINO_NIGHT_FIX : B.TILT_AFTER_CASINO_NIGHT
+    setTilt(draft, after, 'casino_night', events, B)
+  } else setTilt(draft, Math.max(0, draft.tilt - sleepTiltDecay(B)), 'sleep', events, B)
 
   // N6. Бросок события сна (в ночь с дня 1 на 2 — нет)
   const eventRolled = rollSleepEvent(draft, ctx)
@@ -131,8 +133,7 @@ export function runNight(draft: RunState, ctx: DayCtx, events: GameEvent[]): voi
   const noSpins = draft.today.spins === 0
   draft.casinoNightPending = false
   if (B.FEATURE_EVENING_FIX) {
-    // quick-fix-evening §3.1, §3.2, §3.5: вечер и работа — на день; серия семьи рвётся днём без помощи
-    if (draft.familyHelpsToday === 0) delete draft.familyStreak
+    // quick-fix-evening §3.1, §3.2: вечер и работа — на день
     delete draft.eveningUsed
     delete draft.workToday
   }
