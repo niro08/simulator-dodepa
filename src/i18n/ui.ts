@@ -600,6 +600,20 @@ export const LIFE = {
   resultFlash: 'Результат'
 } as const
 
+/**
+ * Пакет «Быстрый фикс» (design/quick-fix-evening.md §8.1): блок «Вечер», полсмены, переработка, «Лечь пораньше».
+ * Отказы evening_used/work_done — formatRejection (ru.ts), строка пробуждения — WOKE_IN_CASINO_LINE (ru.ts).
+ */
+export const EVENING = {
+  title: 'Вечер',
+  hint: 'Вечер один. Как и я.',
+  shift: (energy: number) => `Смена · ${energy}⚡`,
+  half: (energy: number, pay: number) => `Полсмены · ${energy}⚡ · ${money(pay)}₽`,
+  overtime: (energy: number, pay: number) => `Остаться на переработку · ${energy}⚡ · ${money(pay)}₽`,
+  early: 'Лечь пораньше',
+  earlyPreview: (tilt: number, energy: number) => `🔥 −${tilt}, завтра +${energy}⚡`
+} as const
+
 export const ITEM_DESC: Record<string, { desc: string; note?: string }> = {
   phone: { desc: 'Через него звонит мама. И казино.', note: 'Без телефона нельзя занимать у друзей.' },
   bike: { desc: 'Летом возил тебя на смену. Бесплатно и с ветерком.' },

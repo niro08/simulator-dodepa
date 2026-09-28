@@ -47,6 +47,15 @@ export interface BalanceV1 {
   REP_MIN: number; REP_MAX: number; REP_FAMILY_LEAVES: number
   EVENT_CHANCE_PER_NIGHT: number; EVENT_COOLDOWN_DAYS: number
   MINIMALISM_MONEY: number; REFERRAL_CASINO: number; QUIT_GRADE_A_REP: number
+  // Пакет «Быстрый фикс» (design/quick-fix-evening.md §9). При FEATURE_EVENING_FIX=false ядро ведёт себя как раньше.
+  FEATURE_EVENING_FIX: boolean
+  HALF_SHIFT_ENERGY: number; HALF_SHIFT_PAY_MULT: number; TILT_HALF_SHIFT: number
+  OVERTIME_ENERGY: number; OVERTIME_PAY_MULT: number; TILT_OVERTIME: number
+  EARLY_MIN_ENERGY: number; EARLY_TILT_PER_ENERGY: number; EARLY_TILT_MAX: number
+  EARLY_CARRY_PER_ENERGY: number; EARLY_CARRY_MAX: number
+  TILT_SLEEP_DECAY_FIX: number; WAKE_CASINO_LEAVE_ENERGY: number
+  /** ❤️ за помощь семье по номеру дня подряд (0, 1, 2+). */
+  FAMILY_REP_STREAK: readonly [number, number, number]
   // Техническое (не экономика): сколько записей хроники хранит ран
   LOG_LIMIT: number
 }
@@ -90,6 +99,14 @@ export const BALANCE_V1 = {
   REP_MIN: -15, REP_MAX: 40, REP_FAMILY_LEAVES: -15,
   EVENT_CHANCE_PER_NIGHT: 0.40, EVENT_COOLDOWN_DAYS: 7,
   MINIMALISM_MONEY: 50, REFERRAL_CASINO: 100000, QUIT_GRADE_A_REP: 20,
+
+  FEATURE_EVENING_FIX: true,
+  HALF_SHIFT_ENERGY: 30, HALF_SHIFT_PAY_MULT: 0.45, TILT_HALF_SHIFT: 5,
+  OVERTIME_ENERGY: 80, OVERTIME_PAY_MULT: 1.2, TILT_OVERTIME: 5, // 1.25 → 1.2: подстройка §7.2 (честный > 66%)
+  EARLY_MIN_ENERGY: 10, EARLY_TILT_PER_ENERGY: 0.5, EARLY_TILT_MAX: 30,
+  EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
+  TILT_SLEEP_DECAY_FIX: 30, WAKE_CASINO_LEAVE_ENERGY: 10,
+  FAMILY_REP_STREAK: [2, 1, 0],
 
   LOG_LIMIT: 50
 } as const satisfies BalanceV1

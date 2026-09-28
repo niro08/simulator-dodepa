@@ -486,6 +486,14 @@ export interface BalanceV1 {
   REP_MIN: number; REP_MAX: number; REP_FAMILY_LEAVES: number
   EVENT_CHANCE_PER_NIGHT: number; EVENT_COOLDOWN_DAYS: number
   MINIMALISM_MONEY: number; REFERRAL_CASINO: number; QUIT_GRADE_A_REP: number
+  // Пакет «Быстрый фикс» (design/quick-fix-evening.md §9)
+  FEATURE_EVENING_FIX: boolean
+  HALF_SHIFT_ENERGY: number; HALF_SHIFT_PAY_MULT: number; TILT_HALF_SHIFT: number
+  OVERTIME_ENERGY: number; OVERTIME_PAY_MULT: number; TILT_OVERTIME: number
+  EARLY_MIN_ENERGY: number; EARLY_TILT_PER_ENERGY: number; EARLY_TILT_MAX: number
+  EARLY_CARRY_PER_ENERGY: number; EARLY_CARRY_MAX: number
+  TILT_SLEEP_DECAY_FIX: number; WAKE_CASINO_LEAVE_ENERGY: number
+  FAMILY_REP_STREAK: readonly [number, number, number]
 }
 
 export const BALANCE_V1 = {
@@ -527,6 +535,13 @@ export const BALANCE_V1 = {
   REP_MIN: -15, REP_MAX: 40, REP_FAMILY_LEAVES: -15,
   EVENT_CHANCE_PER_NIGHT: 0.40, EVENT_COOLDOWN_DAYS: 7,
   MINIMALISM_MONEY: 50, REFERRAL_CASINO: 100000, QUIT_GRADE_A_REP: 20,
+  FEATURE_EVENING_FIX: true,
+  HALF_SHIFT_ENERGY: 30, HALF_SHIFT_PAY_MULT: 0.45, TILT_HALF_SHIFT: 5,
+  OVERTIME_ENERGY: 80, OVERTIME_PAY_MULT: 1.2, TILT_OVERTIME: 5, // 1.25 → 1.2: подстройка quick-fix-evening §7.2
+  EARLY_MIN_ENERGY: 10, EARLY_TILT_PER_ENERGY: 0.5, EARLY_TILT_MAX: 30,
+  EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
+  TILT_SLEEP_DECAY_FIX: 30, WAKE_CASINO_LEAVE_ENERGY: 10,
+  FAMILY_REP_STREAK: [2, 1, 0],
 } as const satisfies BalanceV1
 
 /** Числа карточек событий (ключи — design/content-pack.md §2; + бытовые life_* из economy-v1 §9.2). */
@@ -562,6 +577,21 @@ export const EVENTS_BALANCE = {
   EVT_LIFE_FINE_COST: 1500, EVT_LIFE_FINE_DEBT: 2000,
 } as const satisfies Record<string, number>
 ```
+
+#### 14.1a Пакет «Быстрый фикс» (quick-fix-evening.md): прогон 2026-09-28
+`FEATURE_EVENING_FIX: true`, `OVERTIME_PAY_MULT` 1.2 (шаг подстройки §7.2 после 1.25 → честный 89%). Ядро — `winRate`, 2000 ранов, seed 1…2000, полный пул событий; sim.mjs — 20 000 ранов, seed 1.
+
+| Бот | флаг false (ядро) | флаг true (ядро) | sim.mjs 20 000 | Коридор спеки §7.2 / §10 п.7 |
+|---|---|---|---|---|
+| Честный (чередование) | 59.4% | 83.5% | 83.7% | 57–66% / 55–66% — **вне коридора** |
+| Честный «формальный» | — (= честный) | 6.3% | 6.7% | 45–52% / < честного — **вне ожидания** |
+| Темщик осторожный | 51.5% | 34.6% | 35.5% | 42–50% / ≤ честный − 8 п.п. |
+| Темщик каждый день | 0% | 0% | 0% | 0–2% / ≤ 5% |
+| Казино каждый день | 6.4% | 0% («Ночь ×3» 86%) | 0.2% («Ночь ×3» 95.5%) | 5–9% / ≤ 10% |
+| Лудоман | 0% | 0% | 0% | ≤ 0.1% / ≤ 2% |
+| Честный + ломбард | — | — | 100% | ≥ 95% |
+
+Причина превышения у честного: при чередовании «мама / переработка» серия семьи рвётся каждый второй день, поэтому мама всегда даёт +2 (❤️ к концу рана ≈ 38, а не ≈ 24 из §7.2). Кроме того, полсмены спасают дни после карточек −40/−60⚡. «Формальный» падает, потому что ❤️ застревает на 13 < `BANK_REP_MIN` 15: банк закрыт, остаётся только МФО. Решение за game-designer.
 
 ### 14.2 `src/game/config/slot.ts`
 

@@ -31,6 +31,13 @@ export type TiltSource =
   | 'withdraw'
   | 'one_more_week'
   | 'event'
+  /** «Лечь пораньше» (quick-fix-evening §3.3). */
+  | 'early_bed'
+
+/** Вечерний слот (quick-fix-evening §3.1): одна вечерняя команда в день. */
+export type EveningSlot = 'family' | 'friends' | 'shady' | 'overtime'
+/** Рабочий слот (quick-fix-evening §3.2): одна рабочая команда в день. */
+export type WorkSlot = 'shift' | 'half' | 'overtime'
 
 /** Статистика: только числовые монотонные счётчики/максимумы (systems-spec §3.1). Ключи — stats.ts. */
 export type PlayerStats = Record<string, number>
@@ -180,6 +187,19 @@ export interface RunState {
   /** Хроника: события, а не строки; текст строит i18n. Новые записи — в начале. */
   log: LogEntry[]
   nextLogId: number
+  // ─── Пакет «Быстрый фикс» (quick-fix-evening.md). Только при FEATURE_EVENING_FIX; иначе undefined. ───
+  /** Чем занят вечер сегодня; удаляется ночью (N7). */
+  eveningUsed?: EveningSlot
+  /** Какая работа была сегодня; удаляется ночью (N7). */
+  workToday?: WorkSlot
+  /** Сколько дней подряд помогал семье (1…); удаляется ночью, если сегодня не помогал. */
+  familyStreak?: number
+  /** Выбрано «Лечь пораньше»; снимается ночью или «Назад» со счёта/развилки. */
+  earlyBedPending?: true
+  /** ⚡ сверху к утренней энергии от раннего сна (0…EARLY_CARRY_MAX); снимается утром (M4). */
+  earlyCarry?: number
+  /** После «Ночи в казино» проснулся в казино: первый выход стоит ⚡. */
+  wokeInCasino?: true
 }
 
 export interface LogEntry {
@@ -210,6 +230,12 @@ export type Command =
   | { type: 'slot/spin' }
   | { type: 'work/shift' }
   | { type: 'work/shady' }
+  /** Полсмены (quick-fix-evening §3.2). */
+  | { type: 'work/half' }
+  /** Переработка: смена + вечер (quick-fix-evening §3.2). */
+  | { type: 'work/overtime' }
+  /** «Лечь пораньше» (quick-fix-evening §3.3). */
+  | { type: 'day/early' }
   | { type: 'family/help' }
   | { type: 'friends/borrow' }
   | { type: 'bank/loan' }
@@ -253,11 +279,17 @@ export type RejectReason =
   | 'option_unaffordable'
   /** Мама поставила блокировку сайтов (mama_blocks_site): казино закрыто на сегодня. */
   | 'blocked_by_mama'
+  /** Вечер уже занят (quick-fix-evening §3.1); чем — Rejection.evening. */
+  | 'evening_used'
+  /** Сегодня уже работал (quick-fix-evening §3.2). */
+  | 'work_done'
 
 /** Отказ в выполнении команды. min — число для текста («Мин. 500₽», «Счёт через N дн.»). */
 export interface Rejection {
   reason: RejectReason
   min?: number
+  /** Для evening_used: чем занят вечер (текст отказа по §8.2). */
+  evening?: EveningSlot
 }
 
 // ─── События (systems-spec §1) ──────────────────────────────────────────────
@@ -294,7 +326,8 @@ export type GameEvent =
       loseStreak: number
     } & SpinResult)
   | { type: 'casinoEntered' }
-  | { type: 'casinoLeft' }
+  /** woke/energy — первый выход после пробуждения в казино (quick-fix-evening §3.4). */
+  | { type: 'casinoLeft'; woke?: true; energy?: number }
   | { type: 'deposit'; amount: number }
   | { type: 'bonusGranted'; deposit: number; bonus: number; wagerRequired: number }
   | { type: 'bonusDeclined' }
@@ -302,11 +335,15 @@ export type GameEvent =
   | { type: 'bonusBusted'; balanceLeft: number; wagerLeft: number }
   | { type: 'withdrawRequested'; gross: number; fee: number; net: number; arriveDay: number }
   | { type: 'withdrawPaid'; net: number }
-  | { type: 'shiftWorked'; pay: number; promoted: boolean; repPenalty: boolean; /** Вычет по карточке сна, ₽. */ deducted?: number }
+  | { type: 'shiftWorked'; pay: number; promoted: boolean; repPenalty: boolean; /** Вычет по карточке сна, ₽. */ deducted?: number; /** Переработка (quick-fix-evening §3.2). */ overtime?: true }
+  | { type: 'halfShiftWorked'; pay: number }
+  /** «Лечь пораньше»: 🔥 снято, ⚡ перенесено на утро. */
+  | { type: 'earlyBed'; tilt: number; energy: number }
   | { type: 'schemeResolved'; success: boolean; amount: number; fine: number; jailed: boolean }
   | { type: 'friendBorrowed'; amount: number; diminished: boolean }
   | { type: 'friendsBlocked' }
-  | { type: 'familyHelped' }
+  /** rep — только при FEATURE_EVENING_FIX (строка лога по streak). */
+  | { type: 'familyHelped'; rep?: number }
   | { type: 'loanTaken'; lender: 'bank' | 'mfo'; amount: number }
   | { type: 'interestAccrued'; bank: number; mfo: number; total: number; debt: number }
   | { type: 'debtRepaid'; amount: number; repGain: number; debtLeft: number; viaBill: boolean }

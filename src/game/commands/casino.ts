@@ -16,12 +16,20 @@ export const enterHandler: CommandHandler<CommandOf<'casino/enter'>> = {
   }
 }
 
-/** casino/leave — выйти. Двойное подтверждение при 🔥 ≥ 70 — только UI (логике одно). */
+/**
+ * casino/leave — выйти. Двойное подтверждение при 🔥 ≥ 70 — только UI (логике одно).
+ * Первый выход после пробуждения в казино стоит min(WAKE_CASINO_LEAVE_ENERGY, ⚡) и никогда не блокируется
+ * (quick-fix-evening §3.4).
+ */
 export const leaveHandler: CommandHandler<CommandOf<'casino/leave'>> = {
   check: (state) => needPhase(state, 'day') ?? (state.location !== 'casino' ? { reason: 'not_in_casino' } : null),
-  apply(draft) {
+  apply(draft, _cmd, ctx) {
     draft.location = 'life'
-    return [{ type: 'casinoLeft' }]
+    if (!draft.wokeInCasino) return [{ type: 'casinoLeft' }]
+    const energy = Math.min(ctx.config.balance.WAKE_CASINO_LEAVE_ENERGY, Math.max(0, draft.energy))
+    draft.energy -= energy
+    delete draft.wokeInCasino
+    return [{ type: 'casinoLeft', woke: true, energy }]
   }
 }
 

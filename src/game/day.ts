@@ -7,6 +7,8 @@ import { cashbackAmount, oldestPawned } from './content/events'
 import {
   addTilt,
   billDueToday,
+  casinoBlocked,
+  earlyBedPreview,
   billTotal,
   changeRep,
   checkMfoLoan,
@@ -19,6 +21,7 @@ import {
   repayCore,
   setTilt,
   shiftPay,
+  sleepTiltDecay,
   weekOf
 } from './rules'
 import type { Rng } from './rng'
@@ -106,10 +109,19 @@ export function runNight(draft: RunState, ctx: DayCtx, events: GameEvent[]): voi
   draft.debtBank += bank
   if (mfo + bank > 0) events.push({ type: 'interestAccrued', bank, mfo, total: mfo + bank, debt: debtOf(draft) })
 
+  // N4½. «Лечь пораньше» (quick-fix-evening §3.3): остаток ⚡ → −🔥 сейчас и ⚡ на завтра
+  if (draft.earlyBedPending) {
+    const { tilt: tiltCut, energy: carry } = earlyBedPreview(draft, B)
+    setTilt(draft, draft.tilt - tiltCut, 'early_bed', events, B)
+    draft.earlyCarry = carry
+    events.push({ type: 'earlyBed', tilt: tiltCut, energy: carry })
+    delete draft.earlyBedPending
+  }
+
   // N5. Тильт (до спада запоминаем «тильт при отходе ко сну» — insomnia_spin)
   draft.eventState.bedTilt = draft.tilt
   if (casinoNight) setTilt(draft, B.TILT_AFTER_CASINO_NIGHT, 'casino_night', events, B)
-  else setTilt(draft, Math.max(0, draft.tilt - B.TILT_SLEEP_DECAY), 'sleep', events, B)
+  else setTilt(draft, Math.max(0, draft.tilt - sleepTiltDecay(B)), 'sleep', events, B)
 
   // N6. Бросок события сна (в ночь с дня 1 на 2 — нет)
   const eventRolled = rollSleepEvent(draft, ctx)
@@ -118,10 +130,23 @@ export function runNight(draft: RunState, ctx: DayCtx, events: GameEvent[]): voi
   const cleanWeek = draft.day % 7 === 0 && draft.spinsThisWeek === 0
   const noSpins = draft.today.spins === 0
   draft.casinoNightPending = false
+  if (B.FEATURE_EVENING_FIX) {
+    // quick-fix-evening §3.1, §3.2, §3.5: вечер и работа — на день; серия семьи рвётся днём без помощи
+    if (draft.familyHelpsToday === 0) delete draft.familyStreak
+    delete draft.eveningUsed
+    delete draft.workToday
+  }
   draft.familyHelpsToday = 0
   draft.borrowedToday = 0
   draft.maxTiltToday = draft.tilt
-  draft.location = 'life'
+  if (B.FEATURE_EVENING_FIX && casinoNight) {
+    // §3.4: после «Ночи в казино» просыпаешься там же
+    draft.location = 'casino'
+    draft.wokeInCasino = true
+  } else {
+    draft.location = 'life'
+    delete draft.wokeInCasino
+  }
   draft.forcedEnd = false
 
   // N8. Итог дня
@@ -204,8 +229,12 @@ export function wake(draft: RunState, ctx: DayCtx, events: GameEvent[]): void {
     return false
   })
 
-  // M4. Энергия (не копится)
+  // M4. Энергия (не копится; сверху — бонус раннего сна, quick-fix-evening §3.3)
   draft.energy = Math.min(B.ENERGY_PER_DAY, Math.max(0, B.ENERGY_PER_DAY + draft.energyModNextMorning))
+  if (B.FEATURE_EVENING_FIX) {
+    draft.energy += draft.earlyCarry ?? 0
+    delete draft.earlyCarry
+  }
   draft.energyModNextMorning = 0
   draft.withdrewToday = false
   draft.jackpotToday = false
@@ -226,6 +255,11 @@ export function wake(draft: RunState, ctx: DayCtx, events: GameEvent[]): void {
 
 /** M6–M8: «Минимализм» (после вывода и события), затем день. */
 export function finishMorning(draft: RunState, ctx: DayCtx, _events: GameEvent[]): void {
+  // quick-fix-evening §3.4: мама поставила блокировку — роутер выключен, утро в «Жизни»
+  if (draft.wokeInCasino && casinoBlocked(draft)) {
+    draft.location = 'life'
+    delete draft.wokeInCasino
+  }
   if (draft.endingId) return
   if (isMinimalism(draft, ctx.config.balance)) {
     proposeEnding(draft, 'minimalism')
@@ -375,7 +409,11 @@ export function applySleepEventOption(
 
   if (e.rep) changeRep(draft, e.rep, events, B)
   if (e.tilt) addTilt(draft, e.tilt, 'event', events, B)
-  if (e.energyToday) draft.energy = Math.min(B.ENERGY_PER_DAY, Math.max(0, draft.energy + e.energyToday))
+  if (e.energyToday) {
+    // quick-fix-evening §3.3: не срезать бонус раннего сна (110)
+    const cap = B.FEATURE_EVENING_FIX ? Math.max(B.ENERGY_PER_DAY, draft.energy) : B.ENERGY_PER_DAY
+    draft.energy = Math.min(cap, Math.max(0, draft.energy + e.energyToday))
+  }
   if (e.energyNextMorning) draft.energyModNextMorning += e.energyNextMorning
   if (e.enterCasino && draft.location !== 'casino') {
     draft.location = 'casino'

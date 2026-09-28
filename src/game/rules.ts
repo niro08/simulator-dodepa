@@ -49,6 +49,42 @@ export function needEnergy(run: RunState, cost: number): Rejection | null {
   return run.energy < cost ? { reason: 'no_energy', min: cost } : null
 }
 
+// ─── Пакет «Быстрый фикс» (design/quick-fix-evening.md) ─────────────────────
+
+/** Команда пакета недоступна при выключенном флаге. */
+export function needEveningFeature(B: BalanceV1): Rejection | null {
+  return B.FEATURE_EVENING_FIX ? null : { reason: 'feature_disabled' }
+}
+
+/** Вечер уже занят (§3.1). При флаге false не проверяется. */
+export function needEvening(run: RunState, B: BalanceV1): Rejection | null {
+  return B.FEATURE_EVENING_FIX && run.eveningUsed ? { reason: 'evening_used', evening: run.eveningUsed } : null
+}
+
+/** Сегодня уже работал (§3.2). При флаге false не проверяется. */
+export function needWork(run: RunState, B: BalanceV1): Rejection | null {
+  return B.FEATURE_EVENING_FIX && run.workToday ? { reason: 'work_done' } : null
+}
+
+/** Ночной спад тильта: 30 при флаге, 50 без (§3.4). */
+export function sleepTiltDecay(B: BalanceV1): number {
+  return B.FEATURE_EVENING_FIX ? B.TILT_SLEEP_DECAY_FIX : B.TILT_SLEEP_DECAY
+}
+
+/** Потолок ⚡ с учётом бонуса раннего сна (110 при флаге). */
+export function energyCap(B: BalanceV1): number {
+  return B.ENERGY_PER_DAY + (B.FEATURE_EVENING_FIX ? B.EARLY_CARRY_MAX : 0)
+}
+
+/** Превью «Лечь пораньше» (§3.3): 🔥 −tilt сейчас, +energy⚡ завтра. */
+export function earlyBedPreview(run: Pick<RunState, 'energy'>, B: BalanceV1): { tilt: number; energy: number } {
+  const unspent = Math.max(0, run.energy)
+  return {
+    tilt: Math.min(B.EARLY_TILT_MAX, Math.floor(unspent * B.EARLY_TILT_PER_ENERGY)),
+    energy: Math.min(B.EARLY_CARRY_MAX, Math.floor(unspent * B.EARLY_CARRY_PER_ENERGY))
+  }
+}
+
 /** Нормализация суммы из ввода: конечное целое > 0 или null. */
 export function normalizeAmount(raw: number): number | null {
   if (!Number.isFinite(raw)) return null
@@ -267,6 +303,16 @@ export function shiftPayNet(run: RunState, B: BalanceV1): number {
 /** Оплата следующей смены: 630…2048₽ при ❤️ ∈ [−15; 40] (регресс B-05). */
 export function shiftPay(run: RunState, B: BalanceV1): number {
   return Math.round(B.SHIFT_PAY * (1 + B.SHIFT_PROMO_STEP * shiftPromos(run, B)) * repMult(run.rep, B))
+}
+
+/** Оплата полсмены (§3.2): без вычетов карточек сна. */
+export function halfShiftPay(run: RunState, B: BalanceV1): number {
+  return Math.round(shiftPay(run, B) * B.HALF_SHIFT_PAY_MULT)
+}
+
+/** Оплата переработки (§3.2) за вычетом первого вычета карточки сна, ≥ 0. */
+export function overtimePay(run: RunState, B: BalanceV1): number {
+  return Math.max(0, Math.round(shiftPay(run, B) * B.OVERTIME_PAY_MULT) - (run.eventState.shiftDeductions[0] ?? 0))
 }
 
 /** Сумма займа у друзей: {0} ∪ [50; 800]. 0 — занять нельзя (блок, нет телефона, «самим не хватает»). */

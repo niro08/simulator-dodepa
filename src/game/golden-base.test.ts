@@ -9,22 +9,34 @@
  * Поля будущего режима `mode` и `streamer` (GDD-S §3.1) из хэша выкидываются, если они есть: их появление
  * со значениями 'base'/null — ожидаемая правка, а не дрейф базового рана. Всё остальное должно совпасть бит в бит.
  *
+ * GOLD-01 гоняется с FEATURE_EVENING_FIX=false (design/quick-fix-evening.md §7.3): при выключенном флаге
+ * пакета «Быстрый фикс» базовый ран обязан совпасть со старым golden-файлом без перегенерации.
+ * GOLD-02 — те же 20 сидов × 3 бота с флагом true, свой файл golden-evening.fixture.json.
+ *
  * Перегенерация golden-файла (только осознанно: изменение базового рана = изменение баланса/поведения):
- *   GOLDEN_UPDATE=1 npx vitest run src/game/golden-base.test.ts
- * Затем закоммитить src/game/golden-base.fixture.json и объяснить в PR, почему базовый ран поменялся.
+ *   GOLDEN_UPDATE=1 npx vitest run src/game/golden-base.test.ts        — GOLD-01 (golden-base.fixture.json)
+ *   GOLDEN_UPDATE=evening npx vitest run src/game/golden-base.test.ts  — GOLD-02 (golden-evening.fixture.json)
+ * Затем закоммитить фикстуру и объяснить в PR, почему ран поменялся.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { ITEM_IDS } from './config'
+import { defaultConfig, ITEM_IDS, type GameConfig } from './config'
 import { findSleepEvent } from './day'
 import { createRng } from './rng'
 import { casinoSession, playRun, STRATEGIES, type Strategy } from './strategies'
 import { tryExec, type Session } from './testing'
 
 const FIXTURE_PATH = fileURLToPath(new URL('./golden-base.fixture.json', import.meta.url))
-const UPDATE = process.env.GOLDEN_UPDATE === '1'
+const EVENING_FIXTURE_PATH = fileURLToPath(new URL('./golden-evening.fixture.json', import.meta.url))
+const UPDATE_BASE = process.env.GOLDEN_UPDATE === '1'
+const UPDATE_EVENING = process.env.GOLDEN_UPDATE === 'evening'
+
+/** GOLD-01: пакет «Быстрый фикс» выключен — ядро байт-в-байт старое. */
+const BASE_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: false } }
+/** GOLD-02: пакет включён. */
+const EVENING_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: true } }
 
 /** Сиды 1…20. Меняются только вместе с перегенерацией golden-файла. */
 const SEEDS = Array.from({ length: 20 }, (_, i) => i + 1)
@@ -68,7 +80,7 @@ function hashEvents(events: readonly unknown[]): string {
 const RANDOM_BOT_SALT = 0x9e3779b9
 const RANDOM_BETS = [50, 100, 200, 500, 1000]
 
-function randomStrategy(seed: number): Strategy {
+function randomStrategy(seed: number, evening: boolean): Strategy {
   const rng = createRng((seed ^ RANDOM_BOT_SALT) >>> 0)
   const actions: ((s: Session) => void)[] = [
     (s) => void tryExec(s, { type: 'work/shift' }),
@@ -89,6 +101,14 @@ function randomStrategy(seed: number): Strategy {
         maxSpins: rng.int(1, 30)
       })
   ]
+  // Команды пакета «Быстрый фикс» — только при флаге: иначе поменяется потребление RNG бота (GOLD-01)
+  if (evening) {
+    actions.push(
+      (s) => void tryExec(s, { type: 'work/half' }),
+      (s) => void tryExec(s, { type: 'work/overtime' }),
+      (s) => void tryExec(s, { type: 'day/early' })
+    )
+  }
   return {
     day(s) {
       // Смена почти всегда: иначе бот умирает от коллекторов к 8-му дню и не доходит до поздних недель
@@ -103,7 +123,7 @@ function randomStrategy(seed: number): Strategy {
   }
 }
 
-const BOTS: Record<string, (seed: number) => Strategy> = {
+const BOTS: Record<string, (seed: number, evening: boolean) => Strategy> = {
   honest: () => STRATEGIES.honest,
   ludoman: () => STRATEGIES.ludoman,
   random: randomStrategy
@@ -119,9 +139,9 @@ interface GoldenEntry {
   eventsHash: string
 }
 
-function snapshot(bot: string, seed: number): GoldenEntry {
+function snapshot(bot: string, seed: number, config: GameConfig = BASE_CONFIG): GoldenEntry {
   // progress=true: события идут через applyProgress, как в сторе (статистика, ачивки, timeTracked)
-  const { outcome, session } = playRun(BOTS[bot]!(seed), seed, undefined, true)
+  const { outcome, session } = playRun(BOTS[bot]!(seed, config.balance.FEATURE_EVENING_FIX), seed, config, true)
   return {
     outcome,
     day: session.run.day,
@@ -132,9 +152,9 @@ function snapshot(bot: string, seed: number): GoldenEntry {
   }
 }
 
-function computeAll(): Record<string, GoldenEntry> {
+function computeAll(config: GameConfig = BASE_CONFIG): Record<string, GoldenEntry> {
   const out: Record<string, GoldenEntry> = {}
-  for (const bot of Object.keys(BOTS)) for (const seed of SEEDS) out[`${bot}#${seed}`] = snapshot(bot, seed)
+  for (const bot of Object.keys(BOTS)) for (const seed of SEEDS) out[`${bot}#${seed}`] = snapshot(bot, seed, config)
   return out
 }
 
@@ -152,7 +172,7 @@ describe('GOLD-01: golden-снимок базового рана (AC-F1)', () =>
 
   it('20 сидов × 3 бота совпадают с golden-файлом', () => {
     const actual = computeAll()
-    if (UPDATE) {
+    if (UPDATE_BASE) {
       writeFileSync(FIXTURE_PATH, JSON.stringify(actual, null, 2) + '\n', 'utf-8')
       return
     }
@@ -170,5 +190,29 @@ describe('GOLD-01: golden-снимок базового рана (AC-F1)', () =>
       : computeAll()
     const outcomes = new Set(Object.values(expected).map((e) => e.outcome))
     expect(outcomes.size).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('GOLD-02: golden-снимок рана с пакетом «Быстрый фикс» (quick-fix-evening §7.3)', () => {
+  it('прогон детерминирован: повтор даёт те же хэши', () => {
+    expect(snapshot('random', 7, EVENING_CONFIG)).toEqual(snapshot('random', 7, EVENING_CONFIG))
+  })
+
+  it('20 сидов × 3 бота совпадают с golden-evening.fixture.json', () => {
+    const actual = computeAll(EVENING_CONFIG)
+    if (UPDATE_EVENING) {
+      writeFileSync(EVENING_FIXTURE_PATH, JSON.stringify(actual, null, 2) + '\n', 'utf-8')
+      return
+    }
+    expect(existsSync(EVENING_FIXTURE_PATH), 'нет golden-файла: GOLDEN_UPDATE=evening npx vitest run src/game/golden-base.test.ts').toBe(true)
+    const expected = JSON.parse(readFileSync(EVENING_FIXTURE_PATH, 'utf-8')) as Record<string, GoldenEntry>
+    expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort())
+    for (const key of Object.keys(expected)) {
+      expect(actual[key], `ран ${key} с пакетом разошёлся с golden-файлом`).toEqual(expected[key])
+    }
+  })
+
+  it('флаг реально меняет ран: GOLD-02 отличается от GOLD-01', () => {
+    expect(snapshot('honest', 3, EVENING_CONFIG)).not.toEqual(snapshot('honest', 3, BASE_CONFIG))
   })
 })

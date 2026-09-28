@@ -15,6 +15,8 @@ const run = (patch: Partial<RunState> = {}): RunState => ({ ...newSession(1, con
 const act = (state: RunState, cmd: Command, seed = 1, cfg: GameConfig = config) =>
   dispatch(state, cmd, { rng: createRng(seed), config: cfg, now: 0 })
 const types = (events: readonly GameEvent[]) => events.map((e) => e.type)
+/** Пакет «Быстрый фикс» выключен: проверки прежнего поведения ядра. */
+const legacy: GameConfig = { ...config, balance: { ...B, FEATURE_EVENING_FIX: false } }
 
 /** Проспать до утра дня `day` сменами (бот платит счета). */
 function liveUntil(s: Session, day: number): void {
@@ -59,7 +61,7 @@ describe('старт рана (GDD §3.1, AC 1)', () => {
 describe('сон N1–N9 и утро M1–M8 (AC 2)', () => {
   it('фиксированные входы → фиксированный снимок после ночи', () => {
     const state = run({ day: 3, wallet: 200, debtMfo: 1000, debtBank: 2000, tilt: 80, maxTiltToday: 90, familyHelpsToday: 1, borrowedToday: 3000, location: 'casino' })
-    const result = act(state, { type: 'day/sleep' })
+    const result = act(state, { type: 'day/sleep' }, 1, legacy)
     // N2: 300 при 200 в кошельке → недостача 100 в МФО; N4: проценты на 1100 и 2000
     expect(result.state).toMatchObject({
       wallet: 0, debtMfo: Math.ceil(1100 * 1.01), debtBank: Math.ceil(2000 * 1.003), tilt: 30,
@@ -305,7 +307,7 @@ describe('полный ран честным ботом и перезагруз�
   })
 
   it('честный бот проходит 28 дней: все счета оплачены, долг 0, «Завязал»', () => {
-    const { outcome, session } = playRun(STRATEGIES.honest, 11, config, true)
+    const { outcome, session } = playRun(STRATEGIES.honest, 11, legacy, true)
     expect(outcome).toBe('quit')
     expect(session.run.day).toBe(28)
     expect(session.run.bills.every((b) => b.status === 'paid')).toBe(true)

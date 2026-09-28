@@ -15,6 +15,7 @@ import { depositHandler, enterHandler, leaveHandler, withdrawHandler } from './c
 import {
   chooseEventHandler,
   deferBillHandler,
+  earlyHandler,
   extendHandler,
   payBillHandler,
   quitHandler,
@@ -27,7 +28,7 @@ import { borrowHandler, familyHandler } from './friends'
 import { pawnHandler, redeemHandler } from './pawn'
 import { setBetHandler, spinHandler } from './slot'
 import type { CommandHandler } from './types'
-import { shadyHandler, shiftHandler } from './work'
+import { halfShiftHandler, overtimeHandler, shadyHandler, shiftHandler } from './work'
 
 type HandlerMap = { [K in CommandType]: CommandHandler<Extract<Command, { type: K }>> }
 
@@ -35,6 +36,7 @@ export const HANDLERS: HandlerMap = {
   'day/wake': wakeHandler,
   'day/sleep': sleepHandler,
   'day/resume': resumeHandler,
+  'day/early': earlyHandler,
   'event/choose': chooseEventHandler,
   'bills/pay': payBillHandler,
   'bills/defer': deferBillHandler,
@@ -49,6 +51,8 @@ export const HANDLERS: HandlerMap = {
   'slot/spin': spinHandler,
   'work/shift': shiftHandler,
   'work/shady': shadyHandler,
+  'work/half': halfShiftHandler,
+  'work/overtime': overtimeHandler,
   'family/help': familyHandler,
   'friends/borrow': borrowHandler,
   'bank/loan': bankLoanHandler,

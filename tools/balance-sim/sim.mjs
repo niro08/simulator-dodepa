@@ -37,7 +37,16 @@ export const CFG = {
   REP_MIN: -15, REP_MAX: 40, REP_FAMILY_LEAVES: -15,
   EVENT_CHANCE_PER_NIGHT: 0.40, EVENT_COOLDOWN_DAYS: 7,
   MINIMALISM_MONEY: 50, REFERRAL_CASINO: 100000, QUIT_GRADE_A_REP: 20,
+  // Пакет «Быстрый фикс» (design/quick-fix-evening.md §9)
+  FEATURE_EVENING_FIX: true,
+  HALF_SHIFT_ENERGY: 30, HALF_SHIFT_PAY_MULT: 0.45, TILT_HALF_SHIFT: 5,
+  OVERTIME_ENERGY: 80, OVERTIME_PAY_MULT: 1.2, TILT_OVERTIME: 5,
+  EARLY_MIN_ENERGY: 10, EARLY_TILT_PER_ENERGY: 0.5, EARLY_TILT_MAX: 30,
+  EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
+  TILT_SLEEP_DECAY_FIX: 30, WAKE_CASINO_LEAVE_ENERGY: 10,
+  FAMILY_REP_STREAK: [2, 1, 0],
 }
+const FIX = () => CFG.FEATURE_EVENING_FIX
 
 // ───────────────────────────── SLOT (зеркало slot.ts) ─────────────────────────────
 // 3 одинаковых независимых барабана, 90 виртуальных позиций. Порядок символов = SYMBOL_IDS.
@@ -104,6 +113,7 @@ function newRun(rng) {
     energyModNextMorning: 0, pendingEvent: null, cooldowns: {}, onceUsed: {}, casinoBlockedDay: 0,
     spinsToday: 0, lastSpinDay: 0, withdrewToday: false, maxTiltToday: 0, dayEnded: false, flags: {},
     ending: null, grade: null,
+    evening: null, work: null, familyStreak: 0, earlyBed: false, earlyCarry: 0, inCasino: false,
     st: { spins: 0, wagered: 0, paid: 0, ldw: 0, nearMiss: 0, shifts: 0, shady: 0, shadyOk: 0, family: 0, friends: 0, friendMoney: 0,
       bankLoans: 0, mfoLoans: 0, interest: 0, forcedMfo: 0, pawned: 0, redeemed: 0, tiltDays70: 0, deposits: 0, withdrawn: 0,
       bonusTaken: false, bonusDone: false, freespins: 0, nightLoss: 0, actions: 0, events: 0, bills: 0, weekSpins: 0,
@@ -134,15 +144,34 @@ function shiftPayPreview(s) {
   const repMult = s.rep < 0 ? CFG.SHIFT_REP_PENALTY_MULT : 1 + Math.min(CFG.SHIFT_REP_BONUS_CAP, Math.max(0, s.rep - 10) * CFG.SHIFT_REP_BONUS_STEP)
   return Math.round(CFG.SHIFT_PAY * (1 + CFG.SHIFT_PROMO_STEP * promos) * repMult)
 }
+// quick-fix-evening: «Жизнь» из казино недоступна; один вечер и одна работа в день
+const lifeBlocked = (s) => s.inCasino
+const eveningBusy = (s) => FIX() && !!s.evening
+const workBusy = (s) => FIX() && !!s.work
 const A = {
-  shift(s) {
-    if (s.energy < CFG.SHIFT_ENERGY) return false
-    s.energy -= CFG.SHIFT_ENERGY; let pay = shiftPayPreview(s)
+  shift(s, overtime = false) {
+    const cost = overtime ? CFG.OVERTIME_ENERGY : CFG.SHIFT_ENERGY
+    if (lifeBlocked(s) || workBusy(s) || (overtime && eveningBusy(s)) || s.energy < cost) return false
+    s.energy -= cost; let pay = overtime ? Math.round(shiftPayPreview(s) * CFG.OVERTIME_PAY_MULT) : shiftPayPreview(s)
     if (s.shiftPenalty) { pay = Math.max(0, pay - s.shiftPenalty.amount); s.shiftPenalty.n--; if (!s.shiftPenalty.n) s.shiftPenalty = 0 }
-    s.wallet += pay; s.st.earnShift = (s.st.earnShift || 0) + pay; s.shiftsDone++; s.shiftsThisWeek++; s.st.shifts++; addTilt(s, -CFG.TILT_SHIFT); s.st.actions++; return true
+    s.wallet += pay; s.st.earnShift = (s.st.earnShift || 0) + pay; s.shiftsDone++; s.shiftsThisWeek++; s.st.shifts++; addTilt(s, -(overtime ? CFG.TILT_OVERTIME : CFG.TILT_SHIFT)); s.st.actions++
+    if (FIX()) s.work = overtime ? 'overtime' : 'shift'
+    if (overtime) { s.evening = 'overtime'; s.st.overtime = (s.st.overtime || 0) + 1 }
+    return true
   },
+  overtime(s) { return FIX() && A.shift(s, true) },
+  half(s) {
+    if (!FIX() || lifeBlocked(s) || workBusy(s) || s.energy < CFG.HALF_SHIFT_ENERGY) return false
+    s.energy -= CFG.HALF_SHIFT_ENERGY; const pay = Math.round(shiftPayPreview(s) * CFG.HALF_SHIFT_PAY_MULT)
+    s.wallet += pay; s.work = 'half'; s.st.half = (s.st.half || 0) + 1; addTilt(s, -CFG.TILT_HALF_SHIFT); s.st.actions++; return true
+  },
+  // «Лечь пораньше»: применяется ночью (sleep), после процентов
+  early(s) { if (!FIX() || lifeBlocked(s) || s.energy < CFG.EARLY_MIN_ENERGY) return false; s.earlyBed = true; return true },
+  // Выход из казино после пробуждения там: min(10, ⚡)
+  leave(s) { if (!s.inCasino) return false; s.energy -= Math.min(CFG.WAKE_CASINO_LEAVE_ENERGY, Math.max(0, s.energy)); s.inCasino = false; return true },
   shady(s) {
-    if (s.energy < CFG.SHADY_ENERGY) return false
+    if (lifeBlocked(s) || eveningBusy(s) || s.energy < CFG.SHADY_ENERGY) return false
+    if (FIX()) s.evening = 'shady'
     s.energy -= CFG.SHADY_ENERGY; s.st.shady++; s.st.actions++; setRep(s, CFG.SHADY_REP)
     if (s.rng.next() < CFG.SHADY_SUCCESS) { s.wallet += 100 * s.rng.int(CFG.SHADY_REWARD_MIN / 100, CFG.SHADY_REWARD_MAX / 100); s.st.shadyOk++ }
     else {
@@ -152,8 +181,10 @@ const A = {
     return true
   },
   family(s) {
-    if (s.energy < CFG.FAMILY_ENERGY || s.familyHelpsToday >= CFG.FAMILY_HELP_DAILY) return false
-    s.energy -= CFG.FAMILY_ENERGY; s.familyHelpsToday++; setRep(s, CFG.FAMILY_REP); addTilt(s, -CFG.TILT_FAMILY); s.st.family++; s.st.actions++; return true
+    if (lifeBlocked(s) || s.familyHelpsToday >= CFG.FAMILY_HELP_DAILY || eveningBusy(s) || s.energy < CFG.FAMILY_ENERGY) return false
+    let gain = CFG.FAMILY_REP
+    if (FIX()) { gain = CFG.FAMILY_REP_STREAK[Math.min(s.familyStreak, 2)]; s.familyStreak++; s.evening = 'family' }
+    s.energy -= CFG.FAMILY_ENERGY; s.familyHelpsToday++; if (gain) setRep(s, gain); addTilt(s, -CFG.TILT_FAMILY); s.st.family++; s.st.actions++; return true
   },
   friendAmount(s) {
     if (s.friendsBlocked || s.items.phone !== 'owned' || s.rep <= 0) return 0
@@ -161,7 +192,8 @@ const A = {
     return a < 50 ? 0 : a
   },
   borrow(s) {
-    const a = A.friendAmount(s); if (!a || s.energy < CFG.FRIEND_ENERGY) return false
+    const a = A.friendAmount(s); if (lifeBlocked(s) || !a || eveningBusy(s) || s.energy < CFG.FRIEND_ENERGY) return false
+    if (FIX()) s.evening = 'friends'
     s.energy -= CFG.FRIEND_ENERGY; s.wallet += a; s.friendLoansThisWeek++; s.friendDebtRun += a; setRep(s, CFG.FRIEND_REP)
     s.st.friends++; s.st.friendMoney += a; s.st.actions++; return true
   },
@@ -279,15 +311,18 @@ function deferBill(s, b) {
 function wake(s, strat) {
   if (s.day % 7 === 1 && s.day > 1) { s.friendLoansThisWeek = 0; s.shiftsThisWeek = 0; s.flags.weekLoss = 0; s.st.weekSpins = 0 }
   s.withdrawals = s.withdrawals.filter((w) => { if (w.arriveDay <= s.day) { s.wallet += w.net; return false } return true })
-  s.energy = Math.max(0, CFG.ENERGY_PER_DAY + s.energyModNextMorning); s.energyModNextMorning = 0
+  s.energy = Math.min(CFG.ENERGY_PER_DAY, Math.max(0, CFG.ENERGY_PER_DAY + s.energyModNextMorning)); s.energyModNextMorning = 0
+  if (FIX()) { s.energy += s.earlyCarry; s.earlyCarry = 0 }
   s.dayEnded = false; s.spinsToday = 0; s.withdrewToday = false; s.flags.spunOnShiftDay = false; s.flags.nearMiss3 = false
   if (s.pendingEvent) {
     const ev = s.pendingEvent; s.pendingEvent = null; s.st.events++
     const canA = s.wallet >= eventCost(s, ev.a)
     let pick = canA ? strat.event(s, ev) : 'b'; if (pick === 'a' && !canA) pick = 'b'
+    const hi = FIX() ? Math.max(CFG.ENERGY_PER_DAY, s.energy) : CFG.ENERGY_PER_DAY
     const opt = ev[pick]; const c = eventCost(s, opt); if (c) { s.wallet -= c; s.st.eventSpent = (s.st.eventSpent || 0) + c } opt.apply(s)
-    s.energy = clamp(s.energy, 0, CFG.ENERGY_PER_DAY)
+    s.energy = clamp(s.energy, 0, hi)
   }
+  if (s.inCasino && s.casinoBlockedDay === s.day) s.inCasino = false // мама выключила роутер
   if (s.ending) return
   const noItems = ITEMS.every((i) => s.items[i] !== 'owned')
   if (s.wallet + s.casino < CFG.MINIMALISM_MONEY && noItems && !A.canBank(s) && !A.canMfo(s)) end(s, 'minimalism')
@@ -303,13 +338,23 @@ function sleep(s) {
   const before = debt(s)
   s.debtMfo = Math.ceil(s.debtMfo * (1 + CFG.MFO_RATE_DAY)); s.debtBank = Math.ceil(s.debtBank * (1 + CFG.BANK_RATE_DAY))
   s.st.interest += debt(s) - before; s.st.maxDebt = Math.max(s.st.maxDebt, debt(s))
+  if (s.earlyBed) {
+    const cut = Math.min(CFG.EARLY_TILT_MAX, Math.floor(s.energy * CFG.EARLY_TILT_PER_ENERGY))
+    s.earlyCarry = Math.min(CFG.EARLY_CARRY_MAX, Math.floor(s.energy * CFG.EARLY_CARRY_PER_ENERGY))
+    s.tilt = Math.max(0, s.tilt - cut); s.earlyBed = false; s.st.early = (s.st.early || 0) + 1
+  }
   s.flags.sleptTilt70 = s.tilt >= CFG.TILT_T2
-  s.tilt = s.casinoNightPending ? CFG.TILT_AFTER_CASINO_NIGHT : Math.max(0, s.tilt - CFG.TILT_SLEEP_DECAY)
+  s.tilt = s.casinoNightPending ? CFG.TILT_AFTER_CASINO_NIGHT : Math.max(0, s.tilt - (FIX() ? CFG.TILT_SLEEP_DECAY_FIX : CFG.TILT_SLEEP_DECAY))
   if (s.tilt === 0) s.st.spinsSinceZero = 0
   if (s.day >= 2 && s.rng.next() < CFG.EVENT_CHANCE_PER_NIGHT) {
     const pool = EVENTS.filter((e) => !(e.once && s.onceUsed[e.id]) && !(s.cooldowns[e.id] && s.day + 1 - s.cooldowns[e.id] < CFG.EVENT_COOLDOWN_DAYS) && e.when(s))
     const W = pool.reduce((a, e) => a + e.w, 0); let x = s.rng.next() * W
     for (const e of pool) { x -= e.w; if (x < 0) { s.pendingEvent = e; s.cooldowns[e.id] = s.day + 1; if (e.once) s.onceUsed[e.id] = true; break } }
+  }
+  if (FIX()) {
+    if (s.familyHelpsToday === 0) s.familyStreak = 0
+    s.evening = null; s.work = null
+    s.inCasino = s.casinoNightPending // после «Ночи в казино» просыпаешься там же
   }
   s.casinoNightPending = false; s.familyHelpsToday = 0; s.borrowedToday = 0; s.maxTiltToday = s.tilt
   s.day++
@@ -330,6 +375,7 @@ export function simulateRun(strat, seed) {
         if (!payBill(s, b) && !deferBill(s, b)) { end(s, 'collectors'); break }
       }
     }
+    if (FIX() && strat.early && s.day !== forkDay(s) && strat.early(s)) A.early(s)
     if (s.day === forkDay(s) && s.bills[3].status === 'paid') {
       if (debt(s) > 0 && s.wallet > 0) A.repay(s, s.wallet)
       if (debt(s) === 0 && strat.fork) strat.fork(s)
@@ -397,9 +443,23 @@ function casinoSession(s, { bet, budget, takeBonus = false, stopAtTilt = 101, al
 
 export const STRATEGIES = {
   // Смена + семья каждый день, без казино/темок/друзей. Кассовые разрывы — банк/МФО, вещи не трогает.
+  // При FEATURE_EVENING_FIX — чередование «мама / переработка» + ранний сон (quick-fix-evening §7.1).
   honest: {
     label: 'Честный работник (без ломбарда)', event: eventHonest,
-    day(s) { A.shift(s); A.family(s); repaySurplus(s) },
+    day(s) {
+      if (!FIX()) { A.shift(s); A.family(s); repaySurplus(s); return }
+      A.leave(s)
+      if (s.familyStreak >= 1 && s.energy >= CFG.OVERTIME_ENERGY) A.overtime(s)
+      else { if (!A.shift(s)) A.half(s); A.family(s) }
+      repaySurplus(s)
+    },
+    early: (s) => s.energy >= CFG.EARLY_MIN_ENERGY,
+    bill(s, b) { const t = billTotal(s, b) + (b.week === 4 ? debt(s) : 0); if (s.wallet < t && b.week < 4) coverWithLoans(s, billTotal(s, b)) },
+  },
+  // Старая рутина «смена + мама каждый день» (только для проверки пакета «Быстрый фикс»).
+  honest_formal: {
+    label: 'Честный «формальный» (смена + мама каждый день)', event: eventHonest,
+    day(s) { A.leave(s); A.shift(s); A.family(s); repaySurplus(s) },
     bill(s, b) { const t = billTotal(s, b) + (b.week === 4 ? debt(s) : 0); if (s.wallet < t && b.week < 4) coverWithLoans(s, billTotal(s, b)) },
   },
   // То же, но при нехватке закладывает вещи (сначала мелкие), выкупает, когда есть запас.
@@ -419,7 +479,7 @@ export const STRATEGIES = {
   casino_daily: {
     label: 'Казино каждый день (ставка 100)', event: eventGambler,
     day(s) {
-      A.shift(s)
+      A.leave(s); A.shift(s)
       casinoSession(s, { bet: 100, budget: 1000, takeBonus: false })
       if (s.casino >= 2000 && s.bonus.state !== 'active') A.withdraw(s, s.casino)
       if (debt(s) > 0) repayAll(s, 0)
@@ -445,7 +505,7 @@ export const STRATEGIES = {
   // CD-02: «темка каждый день» — смена + темка, без семьи и ломбарда.
   temshik: {
     label: 'Темщик (смена + темка каждый день)', event: eventHonest,
-    day(s) { A.shift(s); A.shady(s); if (debt(s) > 0) repayAll(s, 0) },
+    day(s) { A.leave(s); A.shift(s); A.shady(s); if (debt(s) > 0) repayAll(s, 0) },
     bill(s, b) { if (s.wallet < billTotal(s, b) && b.week < 4) coverWithLoans(s, billTotal(s, b)) },
   },
   // «Умный темщик»: темка только при ❤️ ≥ 4, иначе семья. Проверка, что темка не доминирует.

@@ -112,7 +112,7 @@ describe('invariants (TD-15)', () => {
       debtMfo: 12.9,
       bet: '75' as unknown as number
     }
-    expect(applyInvariants(broken, config)).toMatchObject({ wallet: 1000, casino: 0, energy: 100, rep: 40, tilt: 100, debtMfo: 12, bet: 75 })
+    expect(applyInvariants(broken, config)).toMatchObject({ wallet: 1000, casino: 0, energy: 110, rep: 40, tilt: 100, debtMfo: 12, bet: 75 })
     expect(applyInvariants({ ...broken, rep: -3 }, config).friendsBlocked).toBe(true)
   })
 

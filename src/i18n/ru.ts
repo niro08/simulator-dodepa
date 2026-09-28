@@ -1,8 +1,9 @@
-import { slotMetrics } from '@/game'
+import { sleepTiltDecay, slotMetrics } from '@/game'
 import type {
   CollectorsCause,
   CommandType,
   EndingId,
+  EveningSlot,
   EventOf,
   GameConfig,
   GameEvent,
@@ -571,6 +572,24 @@ export function cosmeticRewardLine(id: string): string {
   return k ? `${k.icon} ${k.verb} ${k.label}: ${name}` : name
 }
 
+// ─── Пакет «Быстрый фикс» (design/quick-fix-evening.md §8) ────────────────
+
+/** Подпись превью/итога раннего сна: «🔥 −X, завтра +Y⚡». */
+export function earlyBedLine(tilt: number, energy: number): string {
+  return `🔥 −${tilt}, завтра +${energy}⚡`
+}
+
+/** Отказ evening_used по тому, чем занят вечер (§8.2). */
+export const EVENING_USED_TEXTS: Record<EveningSlot, string> = {
+  family: 'Вечер ушёл на маму. В пакете с собой котлеты, в голове тишина.',
+  friends: 'Вечер ушёл на Серёгу. Второй раз за день он трубку не возьмёт.',
+  shady: 'Вечер уже был. Я его провёл у гаражей, оглядываясь.',
+  overtime: 'Вечер остался на складе. Вместе со спиной.'
+}
+
+/** Строка «Итога дня» после «Ночи в казино» при пробуждении в казино (§8.3). */
+export const WOKE_IN_CASINO_LINE = 'Проснулся в 6:40 лицом в клавиатуру. Вкладка открыта, телефон на 3%.'
+
 // ─── Хроника ───────────────────────────────────────────────────────────────
 
 function spinText(e: EventOf<'spin'>, variant: number): string {
@@ -626,6 +645,9 @@ export function formatEvent(event: GameEvent, variant = 0): string {
     case 'casinoEntered':
       return 'Открыл сайт «просто глянуть, что там с бонусом».'
     case 'casinoLeft':
+      if (event.woke) {
+        return `Закрыл вкладку. Умылся, нашёл второй носок. ${event.energy ?? 0}⚡ ушло на то, чтобы стать человеком.`
+      }
       return pick(
         [
           'Закрыл вкладку. Через минуту проверил, точно ли закрыл.',
@@ -658,6 +680,16 @@ export function formatEvent(event: GameEvent, variant = 0): string {
         variant
       )
     case 'shiftWorked':
+      if (event.overtime) {
+        const base = pick(
+          [
+            `Переработка: +${money(event.pay)}₽. Домой пришёл, когда в подъезде уже выключили свет.`,
+            `+${money(event.pay)}₽ за переработку. Руки пахнут солидолом, телефон ни разу не открывал.`
+          ],
+          variant
+        )
+        return event.deducted ? `${base} Минус ${money(event.deducted)}₽ — начальник всё помнит.` : base
+      }
       if (event.deducted) return `Смена: +${money(event.pay)}₽. Минус ${money(event.deducted)}₽ — начальник всё помнит.`
       if (event.promoted) return `Повышение! Смена: +${money(event.pay)}₽. Мама спросила, когда отмечать.`
       if (event.repPenalty) return `Смена: +${money(event.pay)}₽. Коллеги замолкают, когда ты входишь: оплата меньше.`
@@ -669,6 +701,16 @@ export function formatEvent(event: GameEvent, variant = 0): string {
         ],
         variant
       )
+    case 'halfShiftWorked':
+      return pick(
+        [
+          `Полсмены: +${money(event.pay)}₽. Бригадир сказал "ну иди" таким тоном, что лучше бы уволил.`,
+          `Ушёл после обеда. +${money(event.pay)}₽ и чувство, что меня посчитали.`
+        ],
+        variant
+      )
+    case 'earlyBed':
+      return `Лёг пораньше. Лежал в темноте и не открывал телефон. Почти час. ${earlyBedLine(event.tilt, event.energy)}`
     case 'schemeResolved':
       if (event.jailed) return 'Темка не зашла. В этот раз — совсем.'
       if (event.success) {
@@ -688,6 +730,8 @@ export function formatEvent(event: GameEvent, variant = 0): string {
     case 'friendsBlocked':
       return '«Вы заблокированы». Коротко и понятно.'
     case 'familyHelped':
+      if (event.rep === 1) return 'Помог маме. Она налила чаю и спросила, всё ли у меня нормально. Второй вечер подряд спросила.'
+      if (event.rep === 0) return '— Ты опять просто посидеть? Посидел. Мама смотрела сериал, я смотрел на маму.'
       return pick(
         [
           'Помог маме с рассадой. Три часа без мыслей о барабанах.',
@@ -862,7 +906,9 @@ const REJECT_DEFAULT: Record<RejectReason, RejectText> = {
   feature_disabled: 'Недоступно',
   no_event: 'Карточки нет',
   option_unaffordable: (r) => `Не хватает: нужно ${money(r.min ?? 0)}₽`,
-  blocked_by_mama: 'Сайт недоступен. Мама поставила блокировку — на сегодня'
+  blocked_by_mama: 'Сайт недоступен. Мама поставила блокировку — на сегодня',
+  evening_used: (r) => (r.evening ? EVENING_USED_TEXTS[r.evening] : 'Вечер один. Он уже прошёл'),
+  work_done: 'Сегодня я уже работал. Больше начальник меня не вынесет.'
 }
 
 /** Тексты отказов, специфичные для команды (перекрывают REJECT_DEFAULT). */
@@ -881,6 +927,11 @@ const REJECT_BY_COMMAND: Partial<Record<CommandType, Partial<Record<RejectReason
   },
   'work/shift': { no_energy: (r) => `Смена — ${r.min ?? 0}⚡. Сил нет` },
   'work/shady': { no_energy: (r) => `На темку нужно ${r.min ?? 0}⚡` },
+  'work/overtime': { no_energy: (r) => `На переработку нужно ${r.min ?? 0}⚡. Есть только желание.` },
+  'day/early': {
+    no_energy: 'Рано ложиться уже поздно.',
+    in_casino: 'Отсюда спать не ложатся. Сначала закрыть вкладку.'
+  },
   'family/help': { no_energy: 'Сил не осталось даже на семью' },
   'friends/borrow': { no_energy: (r) => `Выпрашивать деньги тоже тяжело. Нужно ${r.min ?? 0}⚡` },
   'debt/repay': { no_money: 'В кошельке не хватает. Долг подождёт. Проценты — нет' },
@@ -944,7 +995,7 @@ export function howToPlay(config: GameConfig): { title: string; lines: string[];
       `Слот честно случайный: RTP ${pct(rtp)}. На каждые 100₽ ставок в среднем −${Math.round(100 * (1 - rtp))}₽. Как ни крути.`,
       `Тильт 🔥 растёт от проигрышей. На ${B.TILT_T2} время летит незаметно, на ${B.TILT_MAX} ты ночуешь в казино.`,
       'Быстрые деньги — темка, МФО, ломбард, друзья — всегда оставляют след. Смотри, какой.',
-      `Сон: −${B.LIVING_COST}₽ на жизнь, проценты по долгу, тильт −${B.TILT_SLEEP_DECAY}. Иногда ночью что-то случается.`,
+      `Сон: −${B.LIVING_COST}₽ на жизнь, проценты по долгу, тильт −${sleepTiltDecay(B)}. Иногда ночью что-то случается.`,
       '👓 «Снять очки» — показывает, что на самом деле происходит на экране.',
       'В конце придёт Выписка: сколько ушло в слот, сколько — в проценты и что осталось у Гоши.'
     ],

@@ -44,8 +44,11 @@ export const STAT_KEYS = [
   'casinoBalanceForfeited',
   'withdrawalsForfeited',
   // Жизнь
-  'shifts', // ач. SHIFTS_20_RUN
+  'shifts', // ач. SHIFTS_20_RUN (переработка — тоже смена)
   'shiftEarned',
+  'halfShifts', // полсмены — отдельно (quick-fix-evening §6)
+  'halfShiftEarned',
+  'earlyBeds',
   'promotions',
   'schemes',
   'schemesSucceeded', // ач. SCHEMES_10
@@ -154,6 +157,13 @@ export function applyStatEvent(stats: PlayerStats, event: GameEvent): void {
       add(stats, 'shifts', 1)
       add(stats, 'shiftEarned', event.pay)
       if (event.promoted) add(stats, 'promotions', 1)
+      break
+    case 'halfShiftWorked':
+      add(stats, 'halfShifts', 1)
+      add(stats, 'halfShiftEarned', event.pay)
+      break
+    case 'earlyBed':
+      add(stats, 'earlyBeds', 1)
       break
     case 'schemeResolved':
       add(stats, 'schemes', 1)
