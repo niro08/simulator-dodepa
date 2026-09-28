@@ -301,6 +301,13 @@ export function shiftPayNet(run: RunState, B: BalanceV1): number {
 }
 
 /** Оплата следующей смены: 630…2048₽ при ❤️ ∈ [−15; 40] (регресс B-05). */
+/** ❤️ за визит к маме при FEATURE_EVENING_FIX (quick-fix-evening §3.5): «после разлуки» или повтор. */
+export function familyRepGain(run: Pick<RunState, 'day' | 'lastFamilyDay'>, B: BalanceV1): number {
+  if (!B.FEATURE_EVENING_FIX) return B.FAMILY_REP
+  const last = run.lastFamilyDay
+  return last === undefined || run.day - last >= B.FAMILY_FRESH_GAP_DAYS ? B.FAMILY_REP_FRESH : B.FAMILY_REP_REPEAT
+}
+
 export function shiftPay(run: RunState, B: BalanceV1): number {
   return Math.round(B.SHIFT_PAY * (1 + B.SHIFT_PROMO_STEP * shiftPromos(run, B)) * repMult(run.rep, B))
 }

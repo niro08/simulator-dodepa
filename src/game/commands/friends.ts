@@ -1,4 +1,4 @@
-import { addTilt, changeRep, friendAmount, needEnergy, needEvening, needLife, needPhase } from '../rules'
+import { addTilt, changeRep, familyRepGain, friendAmount, needEnergy, needEvening, needLife, needPhase } from '../rules'
 import type { CommandOf, GameEvent } from '../types'
 import type { CommandHandler } from './types'
 
@@ -62,8 +62,7 @@ export const familyHandler: CommandHandler<CommandOf<'family/help'>> = {
       return events
     }
     const last = draft.lastFamilyDay
-    const fresh = last === undefined || draft.day - last >= B.FAMILY_FRESH_GAP_DAYS
-    const gain = fresh ? B.FAMILY_REP_FRESH : B.FAMILY_REP_REPEAT
+    const gain = familyRepGain(draft, B)
     const events: GameEvent[] = [{ type: 'familyHelped', rep: gain, ...(last === draft.day - 1 ? { yesterday: true as const } : {}) }]
     draft.energy -= B.FAMILY_ENERGY
     draft.familyHelpsToday += 1

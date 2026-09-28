@@ -43,6 +43,7 @@ function netOf(e: GameEvent): number | null {
     case 'spin':
       return e.payout - e.bet
     case 'shiftWorked':
+    case 'halfShiftWorked':
       return e.pay
     case 'schemeResolved':
       return e.success ? e.amount : -e.fine

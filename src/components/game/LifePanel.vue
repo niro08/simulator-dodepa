@@ -11,8 +11,9 @@
     <template v-if="hud">
       <div class="life__meter">
         <span class="life__meter-label">⚡ {{ LIFE.energy }}</span>
-        <div class="life__bar" role="meter" :aria-valuenow="hud.energy" aria-valuemin="0" :aria-valuemax="hud.energyMax" :aria-label="LIFE.energy">
-          <span :style="{ width: `${(hud.energy / hud.energyMax) * 100}%` }" />
+        <div class="life__bar" role="meter" :aria-valuenow="hud.energy" aria-valuemin="0" :aria-valuemax="energyScale" :aria-label="LIFE.energy">
+          <span :style="{ width: `${Math.min(100, (hud.energy / energyScale) * 100)}%` }" />
+          <i v-if="energyScale > hud.energyMax" :style="{ left: `${(hud.energyMax / energyScale) * 100}%` }" aria-hidden="true" />
         </div>
         <span class="life__meter-val tabular">{{ hud.energy }}/{{ hud.energyMax }}</span>
       </div>
@@ -99,8 +100,28 @@
         </span>
       </div>
 
-      <p v-if="shell.inCasino.value && game.phase === 'day'" class="life__casino-note">🎰 {{ LIFE.inCasino }}</p>
+      <p v-if="shell.inCasino.value && game.phase === 'day'" class="life__casino-note">
+        🎰 {{ LIFE.inCasino }}<template v-if="leaveCost > 0"><br />{{ EVENING.wokeLeave(leaveCost) }}</template>
+      </p>
       <p v-if="hud.energy === 0 && game.phase === 'day'" class="life__casino-note">{{ LIFE.noEnergy }}</p>
+
+      <section v-if="eveningOn && game.phase === 'day'" class="life__evening" :class="{ 'life__evening--spent': !!eveningUsed }" aria-labelledby="life-evening-title">
+        <p id="life-evening-title" class="life__evening-title">
+          🌙 {{ EVENING.title }}: <strong>{{ eveningUsed ? EVENING.spent : EVENING.free }}</strong>
+        </p>
+        <ul class="life__evening-slots">
+          <li
+            v-for="slot in EVENING_SLOT_IDS"
+            :key="slot"
+            class="life__evening-slot"
+            :class="{ 'life__evening-slot--used': eveningUsed === slot, 'life__evening-slot--off': !!eveningUsed && eveningUsed !== slot }"
+            :aria-current="eveningUsed === slot || undefined"
+          >
+            {{ EVENING.slots[slot] }}<span v-if="eveningUsed === slot" class="sr-only"> — {{ EVENING.slotUsed }}</span>
+          </li>
+        </ul>
+        <p class="life__small" role="status">{{ eveningUsed ? EVENING_USED_TEXTS[eveningUsed] : EVENING.hint }}</p>
+      </section>
 
       <div class="life__tabs" role="tablist" :aria-label="'Разделы Жизни'" @keydown="onTabKey">
         <button
@@ -132,12 +153,37 @@
             :flash="flashes.shift"
             @act="act('shift', { type: 'work/shift' })"
           />
+          <template v-if="eveningOn">
+            <ActionCard
+              :title="EVENING.halfTitle"
+              :verb="EVENING.half(B.HALF_SHIFT_ENERGY, halfPay)"
+              :cost="`−${B.HALF_SHIFT_ENERGY}⚡`"
+              :gains="[LIFE.shiftGain(halfPay, B.TILT_HALF_SHIFT)]"
+              :note="EVENING.halfNote"
+              :reason="reasonOf('work/half')"
+              :busy="busy"
+              :flash="flashes.half"
+              @act="act('half', { type: 'work/half' })"
+            />
+            <ActionCard
+              :title="EVENING.overtimeTitle"
+              :verb="EVENING.overtime(B.OVERTIME_ENERGY, overtimeCash)"
+              :cost="`−${B.OVERTIME_ENERGY}⚡`"
+              :gains="[LIFE.shiftGain(overtimeCash, B.TILT_OVERTIME)]"
+              :note="`${EVENING.eveningTag} ${EVENING.overtimeNote}`"
+              :reason="reasonOf('work/overtime')"
+              :busy="busy"
+              :flash="flashes.overtime"
+              @act="act('overtime', { type: 'work/overtime' })"
+            />
+          </template>
           <ActionCard
             :title="LIFE.shady.title"
             :verb="LIFE.shady.verb"
             :cost="`−${B.SHADY_ENERGY}⚡ · ❤️${B.SHADY_REP}`"
             :gains="[LIFE.shadyGain(pct(B.SHADY_SUCCESS), B.SHADY_REWARD_MIN, B.SHADY_REWARD_MAX)]"
             :risks="shadyRisks"
+            :note="eveningOn ? EVENING.eveningTag : ''"
             :reason="reasonOf('work/shady')"
             :busy="busy"
             :flash="flashes.shady"
@@ -150,7 +196,8 @@
             :title="LIFE.family.title"
             :verb="LIFE.family.verb"
             :cost="`−${B.FAMILY_ENERGY}⚡`"
-            :gains="[LIFE.familyGain(B.FAMILY_REP, B.TILT_FAMILY)]"
+            :gains="[LIFE.familyGain(familyRep, B.TILT_FAMILY)]"
+            :note="eveningOn ? EVENING.eveningTag : ''"
             :reason="reasonOf('family/help')"
             :busy="busy"
             :flash="flashes.family"
@@ -161,7 +208,7 @@
             :verb="LIFE.friend.verb"
             :cost="`−${B.FRIEND_ENERGY}⚡ · ❤️${B.FRIEND_REP}`"
             :gains="[LIFE.friendGain(hud.friendAmount)]"
-            :note="LIFE.friendNote"
+            :note="eveningOn ? `${EVENING.eveningTag} ${LIFE.friendNote}` : LIFE.friendNote"
             :reason="reasonOf('friends/borrow')"
             :busy="busy"
             :flash="flashes.friend"
@@ -281,7 +328,21 @@
         >
           {{ LIFE.sleep }} <kbd>N</kbd>
         </button>
-        <p class="life__small">{{ LIFE.sleepHonest(hud.livingCost, B.TILT_SLEEP_DECAY) }}</p>
+        <p class="life__small">{{ LIFE.sleepHonest(hud.livingCost, sleepTiltDecay(B)) }}</p>
+        <template v-if="eveningOn && game.phase === 'day'">
+          <button
+            type="button"
+            class="paper-btn life__early-btn"
+            :aria-disabled="!!earlyReason || busy || undefined"
+            :aria-describedby="earlyReason ? 'early-reason' : 'early-preview'"
+            @click="!earlyReason && act('early', { type: 'day/early' })"
+          >
+            {{ EVENING.early }}
+          </button>
+          <p v-if="earlyReason" id="early-reason" class="paper-reason">⚠ {{ earlyReason }}</p>
+          <p v-else id="early-preview" class="life__small">{{ EVENING.earlyPreview(earlyPreview.tilt, earlyPreview.energy) }}</p>
+          <p v-if="flashes.early" class="life__flash" role="status">{{ flashes.early }}</p>
+        </template>
       </div>
     </template>
   </aside>
@@ -291,18 +352,26 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import {
   canExecute,
+  earlyBedPreview,
+  energyCap,
+  familyRepGain,
+  halfShiftPay,
   isRejection,
   ITEM_IDS,
   minRepayAmount,
+  overtimePay,
   planRepay,
   redeemCost,
+  sleepTiltDecay,
+  type EveningSlot,
   type ActionResult,
   type Command,
   type ItemId,
-  type Rejection
+  type Rejection,
+  type RunState
 } from '@/game'
-import { formatEvent, formatRejection, ITEM_NAMES, money, TILT_STAGE_LABELS } from '@/i18n'
-import { BILLS, ITEM_DESC, LIFE, pct } from '@/i18n/ui'
+import { EVENING_USED_TEXTS, formatEvent, formatRejection, ITEM_NAMES, money, TILT_STAGE_LABELS } from '@/i18n'
+import { BILLS, EVENING, ITEM_DESC, LIFE, pct } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import ActionCard from './ActionCard.vue'
@@ -332,12 +401,31 @@ function onTabKey(event: KeyboardEvent) {
   event.preventDefault()
 }
 
+// ─── Пакет «Быстрый фикс» (quick-fix-evening.md): при FEATURE_EVENING_FIX=false всё ниже скрыто ───
+const eveningOn = B.FEATURE_EVENING_FIX
+const EVENING_SLOT_IDS = ['family', 'friends', 'shady', 'overtime'] as const satisfies readonly EveningSlot[]
+const eveningUsed = computed<EveningSlot | undefined>(() => (eveningOn ? game.run?.eveningUsed : undefined))
+/** Шкала ⚡: при флаге потолок 110 (ранний сон), отметка на обычном максимуме. */
+const energyScale = computed(() => Math.max(energyCap(B), hud.value?.energy ?? 0))
+/** Цена первого выхода после пробуждения в казино (§3.4) — её же спишет клик по действию Жизни. */
+const leaveCost = computed(() => {
+  const run = game.run
+  return run?.location === 'casino' && run.wokeInCasino ? Math.min(B.WAKE_CASINO_LEAVE_ENERGY, Math.max(0, run.energy)) : 0
+})
+
+/** Состояние «как если бы уже вышел из казино» (с ценой выхода после пробуждения). */
+function lifeState(run: RunState): RunState {
+  if (run.location !== 'casino') return run
+  const state: RunState = { ...run, location: 'life', energy: run.energy - leaveCost.value }
+  delete state.wokeInCasino
+  return state
+}
+
 /** Причина недоступности команды Жизни с учётом того, что клик сам выведет из казино. */
 function lifeRejection(cmd: Command): Rejection | null {
   const run = game.run
   if (!run) return { reason: 'wrong_phase' }
-  const state = run.location === 'casino' ? { ...run, location: 'life' as const } : run
-  return canExecute(state, cmd, game.config)
+  return canExecute(lifeState(run), cmd, game.config)
 }
 function reasonOf(cmd: Command | Command['type']): string | null {
   const command = typeof cmd === 'string' ? ({ type: cmd } as Command) : cmd
@@ -351,6 +439,12 @@ const walletShort = computed(() => (hud.value?.bill ? Math.max(0, hud.value.bill
 const ownedCount = computed(() => (hud.value ? ITEM_IDS.filter((id) => hud.value?.items[id] === 'owned').length : 0))
 const mfoApr = computed(() => (1 + B.MFO_RATE_DAY) ** 365 - 1)
 const mfoAfter28 = computed(() => Math.round(B.MFO_LOAN * (1 + B.MFO_RATE_DAY) ** B.RUN_DAYS))
+const halfPay = computed(() => (game.run ? halfShiftPay(game.run, B) : 0))
+const overtimeCash = computed(() => (game.run ? overtimePay(game.run, B) : 0))
+const earlyPreview = computed(() => earlyBedPreview({ energy: game.run ? lifeState(game.run).energy : 0 }, B))
+const earlyReason = computed(() => (eveningOn ? reasonOf('day/early') : null))
+/** ❤️ за визит к маме — из ядра (rules.familyRepGain). */
+const familyRep = computed(() => (game.run ? familyRepGain(game.run, B) : B.FAMILY_REP))
 const shadyRisks = computed(() => {
   const lines = [LIFE.shadyRisk(pct(1 - B.SHADY_SUCCESS), B.SHADY_FINE)]
   if ((hud.value?.rep ?? 0) <= B.SHADY_JAIL_REP) lines.push(LIFE.shadyJail(pct(B.SHADY_JAIL_CHANCE)))
@@ -401,7 +495,7 @@ const repayDraft = ref<number>(B.REPAY_MIN)
 const repayMin = computed(() => minRepayAmount(hud.value?.debt ?? 0, game.config))
 const repayPlan = computed(() =>
   game.run
-    ? planRepay(game.run.location === 'casino' ? { ...game.run, location: 'life' } : game.run, repayDraft.value, game.config)
+    ? planRepay(lifeState(game.run), repayDraft.value, game.config)
     : ({ reason: 'no_debt' } as Rejection)
 )
 const repayLabel = computed(() => {
@@ -604,6 +698,42 @@ defineExpose({ focusHeading })
   font-weight: 700;
 }
 
+.life__evening {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border: 2px dashed var(--ink);
+  background: var(--paper-white);
+}
+.life__evening--spent {
+  border-style: solid;
+}
+.life__evening-title {
+  font-weight: 700;
+}
+.life__evening-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.life__evening-slot {
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--ink);
+  font-size: var(--fs-xs);
+}
+.life__evening-slot--used {
+  background: var(--highlighter);
+  font-weight: 700;
+}
+.life__evening-slot--off {
+  border-style: dashed;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
 .life__tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -698,6 +828,10 @@ defineExpose({ focusHeading })
   gap: var(--sp-1);
   padding-top: var(--sp-2);
   border-top: 2px dashed var(--ink);
+}
+.life__early-btn {
+  width: 100%;
+  min-height: var(--tap-min);
 }
 .life__sleep-btn {
   width: 100%;

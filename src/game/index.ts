@@ -19,6 +19,7 @@ export {
   ENDING_PRIORITY,
   forfeitOnEnd,
   friendAmount,
+  familyRepGain,
   halfShiftPay,
   needEvening,
   needWork,
