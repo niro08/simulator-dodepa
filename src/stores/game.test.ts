@@ -327,4 +327,22 @@ describe('game store', () => {
     game.execute({ type: 'mfo/loan' })
     expect(game.hud?.bill).toMatchObject({ debtPart: 300, total: 3500 + 300, deferredFixed: 5250 })
   })
+
+  it('контакты: contacts из ядра, offer(id) = work/offer, доступность через canExecute', async () => {
+    const game = setup()
+    await game.load()
+    game.newGame()
+    const view = game.contacts
+    expect(view).not.toBeNull()
+    const first = view!.offers[0]!
+    const cmd = { type: 'work/offer', offerId: first.offerId } as const
+    expect(game.canExecute(cmd)).toEqual(first.rejection)
+    expect(game.canExecute({ type: 'work/offer', offerId: 'nope' })).toEqual({ reason: 'no_offer' })
+    const result = game.offer(first.offerId)
+    expect(result?.ok).toBe(first.rejection === null)
+    if (result?.ok) {
+      expect(game.contacts!.offers.some((o) => o.offerId === first.offerId)).toBe(false)
+      expect(game.run?.eveningUsed).toBe('shady')
+    }
+  })
 })
