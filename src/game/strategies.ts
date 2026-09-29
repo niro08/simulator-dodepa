@@ -15,6 +15,11 @@ export interface Strategy {
   bill?(s: Session): void
   /** Выбор в карточке события (индекс варианта). */
   event?(s: Session): number
+  /**
+   * «Лечь пораньше» вместо «Лечь спать» (quick-fix-evening §7.1). Спрашивает playRun после bill(),
+   * поэтому из day() ранний сон не шлют. Учитывается только при FEATURE_EVENING_FIX.
+   */
+  early?(s: Session): boolean
 }
 
 export type RunOutcome = EndingId | 'extend_in_debt' | 'timeout'
@@ -63,6 +68,13 @@ function repaySurplus(s: Session, buffer = 0): void {
 function repayAll(s: Session): void {
   const amount = Math.min(debtOf(s.run), s.run.wallet)
   if (amount > 0) tryExec(s, { type: 'debt/repay', amount })
+}
+
+const eveningFix = (s: Session): boolean => s.config.balance.FEATURE_EVENING_FIX
+
+/** Проснулся в казино после «Ночи» — выйти (quick-fix-evening §7.1). Лудоман не вызывает: крутит дальше. */
+function leaveIfWoke(s: Session): void {
+  if (eveningFix(s) && s.run.location === 'casino') tryExec(s, { type: 'casino/leave' })
 }
 
 function todayBillTotal(s: Session): number {
@@ -182,13 +194,28 @@ function ludomanDay(s: Session): void {
 }
 
 export const STRATEGIES = {
-  /** Смена + семья каждый день; разрывы — банк/МФО; вещи не трогает. */
+  /**
+   * Смена + семья каждый день; разрывы — банк/МФО; вещи не трогает.
+   * При FEATURE_EVENING_FIX — чередование «мама / переработка» и ранний сон (quick-fix-evening §7.1).
+   */
   honest: {
     day(s) {
-      tryExec(s, { type: 'work/shift' })
-      tryExec(s, { type: 'family/help' })
+      if (!eveningFix(s)) {
+        tryExec(s, { type: 'work/shift' })
+        tryExec(s, { type: 'family/help' })
+        repaySurplus(s)
+        return
+      }
+      leaveIfWoke(s)
+      if (s.run.lastFamilyDay === s.run.day - 1 && s.run.energy >= s.config.balance.OVERTIME_ENERGY) {
+        tryExec(s, { type: 'work/overtime' })
+      } else {
+        if (!tryExec(s, { type: 'work/shift' })) tryExec(s, { type: 'work/half' })
+        tryExec(s, { type: 'family/help' })
+      }
       repaySurplus(s)
     },
+    early: (s) => s.run.energy >= s.config.balance.EARLY_MIN_ENERGY,
     bill(s) {
       const bill = s.run.bills.find((b) => b.dueDay === s.run.day && b.status !== 'paid')
       if (!bill) return
@@ -200,6 +227,7 @@ export const STRATEGIES = {
   /** Казино каждый день: смена + спины по 100, депозит ≤ 1000/день, без бонуса и ломбарда. */
   casinoDaily: {
     day(s) {
+      leaveIfWoke(s)
       tryExec(s, { type: 'work/shift' })
       casinoSession(s, { bet: 100, budget: 1000 })
       if (s.run.phase !== 'day') return
@@ -227,6 +255,7 @@ export const STRATEGIES = {
   /** Темщик: смена + темка каждый день. */
   shady: {
     day(s) {
+      leaveIfWoke(s)
       tryExec(s, { type: 'work/shift' })
       tryExec(s, { type: 'work/shady' })
       if (debtOf(s.run) > 0) repayAll(s)
@@ -235,6 +264,37 @@ export const STRATEGIES = {
       const bill = s.run.bills.find((b) => b.dueDay === s.run.day && b.status !== 'paid')
       const total = todayBillTotal(s)
       if (bill && s.run.wallet < total && bill.week < 4) coverWithLoans(s, total)
+    },
+    event: honestEventChoice
+  },
+  /** Темщик осторожный (порт temshik_smart из sim.mjs): смена; темка при ❤️ ≥ 4 и почти хватает к счёту, иначе семья. */
+  shadyCautious: {
+    day(s) {
+      tryExec(s, { type: 'work/shift' })
+      if (s.run.rep >= 4 && reserveNeeded(s.run, s.config) > -2000) tryExec(s, { type: 'work/shady' })
+      else tryExec(s, { type: 'family/help' })
+      if (debtOf(s.run) > 0) repayAll(s)
+    },
+    bill(s) {
+      const bill = s.run.bills.find((b) => b.dueDay === s.run.day && b.status !== 'paid')
+      const total = todayBillTotal(s)
+      if (bill && s.run.wallet < total && bill.week < 4) coverWithLoans(s, total)
+    },
+    event: honestEventChoice
+  },
+  /** Честный «формальный» (только для проверки quick-fix-evening §7.2): старая рутина «смена + мама» каждый день. */
+  honestFormal: {
+    day(s) {
+      leaveIfWoke(s)
+      tryExec(s, { type: 'work/shift' })
+      tryExec(s, { type: 'family/help' })
+      repaySurplus(s)
+    },
+    bill(s) {
+      const bill = s.run.bills.find((b) => b.dueDay === s.run.day && b.status !== 'paid')
+      if (!bill) return
+      const total = todayBillTotal(s)
+      if (s.run.wallet < total + (bill.week === 4 ? debtOf(s.run) : 0) && bill.week < 4) coverWithLoans(s, total)
     },
     event: honestEventChoice
   }
@@ -280,6 +340,7 @@ export function playRun(
           if (!tryExec(s, { type: 'run/quit' })) return { outcome: 'extend_in_debt', session: s }
           break
         }
+        if (s.config.balance.FEATURE_EVENING_FIX && strategy.early?.(s) && tryExec(s, { type: 'day/early' })) break
         exec(s, { type: 'day/sleep' })
         break
       }

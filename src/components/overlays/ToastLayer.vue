@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from 'vue'
 import type { GameEvent } from '@/game'
-import { achievementText, cosmeticRewardLine, formatRejection } from '@/i18n'
+import { achievementText, cosmeticRewardLine, formatEvent, formatRejection } from '@/i18n'
 import { TOASTS } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
@@ -105,6 +105,10 @@ function present(events: readonly GameEvent[]) {
         })
         break
       }
+      case 'casinoLeft':
+        // Первый выход после пробуждения в казино стоит ⚡ (quick-fix-evening §3.4) — цену показываем
+        if (e.woke) toasts.push({ kind: 'system', name: formatEvent(e), icon: '🪥' })
+        break
       case 'forcedMfo':
         toasts.push({ kind: 'error', name: TOASTS.forcedMfo(e.amount) })
         break

@@ -486,6 +486,14 @@ export interface BalanceV1 {
   REP_MIN: number; REP_MAX: number; REP_FAMILY_LEAVES: number
   EVENT_CHANCE_PER_NIGHT: number; EVENT_COOLDOWN_DAYS: number
   MINIMALISM_MONEY: number; REFERRAL_CASINO: number; QUIT_GRADE_A_REP: number
+  // Пакет «Быстрый фикс» (design/quick-fix-evening.md §9)
+  FEATURE_EVENING_FIX: boolean
+  HALF_SHIFT_ENERGY: number; HALF_SHIFT_PAY_MULT: number; TILT_HALF_SHIFT: number
+  OVERTIME_ENERGY: number; OVERTIME_PAY_MULT: number; TILT_OVERTIME: number
+  EARLY_MIN_ENERGY: number; EARLY_TILT_PER_ENERGY: number; EARLY_TILT_MAX: number
+  EARLY_CARRY_PER_ENERGY: number; EARLY_CARRY_MAX: number
+  TILT_SLEEP_DECAY_FIX: number; TILT_AFTER_CASINO_NIGHT_FIX: number; WAKE_CASINO_LEAVE_ENERGY: number
+  FAMILY_REP_FRESH: number; FAMILY_REP_REPEAT: number; FAMILY_FRESH_GAP_DAYS: number
 }
 
 export const BALANCE_V1 = {
@@ -527,6 +535,13 @@ export const BALANCE_V1 = {
   REP_MIN: -15, REP_MAX: 40, REP_FAMILY_LEAVES: -15,
   EVENT_CHANCE_PER_NIGHT: 0.40, EVENT_COOLDOWN_DAYS: 7,
   MINIMALISM_MONEY: 50, REFERRAL_CASINO: 100000, QUIT_GRADE_A_REP: 20,
+  FEATURE_EVENING_FIX: true,
+  HALF_SHIFT_ENERGY: 30, HALF_SHIFT_PAY_MULT: 0.45, TILT_HALF_SHIFT: 5,
+  OVERTIME_ENERGY: 80, OVERTIME_PAY_MULT: 1.2, TILT_OVERTIME: 5,
+  EARLY_MIN_ENERGY: 10, EARLY_TILT_PER_ENERGY: 0.5, EARLY_TILT_MAX: 30,
+  EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
+  TILT_SLEEP_DECAY_FIX: 40, TILT_AFTER_CASINO_NIGHT_FIX: 35, WAKE_CASINO_LEAVE_ENERGY: 10, // 35 — из набора B (quick-fix-evening §11)
+  FAMILY_REP_FRESH: 2, FAMILY_REP_REPEAT: 1, FAMILY_FRESH_GAP_DAYS: 7,
 } as const satisfies BalanceV1
 
 /** Числа карточек событий (ключи — design/content-pack.md §2; + бытовые life_* из economy-v1 §9.2). */
@@ -562,6 +577,26 @@ export const EVENTS_BALANCE = {
   EVT_LIFE_FINE_COST: 1500, EVT_LIFE_FINE_DEBT: 2000,
 } as const satisfies Record<string, number>
 ```
+
+#### 14.1a Пакет «Быстрый фикс» (quick-fix-evening.md): прогоны 2026-09-28
+Ядро — `winRate`, 2000 ранов, seed 1…2000, полный пул событий. sim.mjs — 20 000 ранов, seed 1 (набор B: `SIM_CFG='{"OVERTIME_PAY_MULT":1.15,"TILT_AFTER_CASINO_NIGHT_FIX":35}'`).
+
+**Первый прогон** (серия семьи [2, 1, 0], спад 30, OT 1.2, ночь 50): честный 83.5%, формальный 6.3%, осторожный темщик 34.6%, казино каждый день 0% («Ночь ×3» 86%). Причины и ретюн — quick-fix-evening §7.2, §11.
+
+**Ретюн (§11): семья по окну** (+2, если визита не было ≥ 7 дней, иначе +1), спад 40, OT 1.2.
+
+| Бот | A (ночь 50) ядро / sim | B (OT 1.15, ночь 35) ядро / sim | **Итог** ядро / sim | Коридор §10 п.7 |
+|---|---|---|---|---|
+| Честный (чередование) | 57.6% / 58.0% | 48.9% / 47.2% | **57.6% / 58.0%** | 55–66% |
+| Честный «формальный» | 32.5% / 31.5% | 32.5% / 31.5% | **32.5% / 31.5%** | 30–45%, < честного |
+| Темщик осторожный | 39.6% / 40.4% | 39.6% / 40.4% | **39.6% / 40.4%** | ≤ честный − 8 п.п. |
+| Казино каждый день: победы | 3.8% / 5.1% | 5.7% / 7.6% | **5.7% / 7.6%** | ≤ 10% |
+| Казино каждый день: «Ночь ×3» | **55.1% / 54.3%** | 37.4% / 32.6% | **37.4% / 32.6%** | ≤ 50% |
+| Лудоман | 0% / 0% | 0% / 0% | **0% / 0%** | ≤ 2% |
+| Темщик каждый день | 0% / 0% | 0% / 0% | **0% / 0%** | ≤ 5% |
+| Честный + ломбард | — / 100% | — / 100% | **— / 100%** | ≥ 95% |
+
+Выбор по правилам §11: набор A держит всё, кроме «Ночь ×3» (55% > 50%), поэтому берётся `TILT_AFTER_CASINO_NIGHT_FIX` 35 из B. Остальное остаётся от A. Итоговые числа (они же в `balance.ts`): OT 1.2, спад 40, ночь 35, семья 2 / 1 / 7. Честный бот чувствителен только к OT, «Ночь» на него не влияет.
 
 ### 14.2 `src/game/config/slot.ts`
 

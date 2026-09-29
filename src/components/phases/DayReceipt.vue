@@ -7,6 +7,7 @@
         {{ RECEIPT.casinoNightCounter(hud?.casinoNights ?? 0, hud?.casinoNightsMax ?? 3) }}
         <template v-if="hud && hud.casinoNights === hud.casinoNightsMax - 1"> {{ RECEIPT.casinoNightLast }}</template>
       </p>
+      <p v-if="wokeInCasino" class="rc__night-woke">{{ WOKE_IN_CASINO_LINE }}</p>
     </article>
 
     <article class="rc__sheet paper fx-print">
@@ -84,7 +85,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import type { DaySummary } from '@/game'
-import { money, signed } from '@/i18n'
+import { money, signed, WOKE_IN_CASINO_LINE } from '@/i18n'
 import { LIFE, RECEIPT } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 import Stamp from '@/components/ui/Stamp.vue'
@@ -97,6 +98,8 @@ const props = defineProps<{ summary: DaySummary }>()
 const game = useGameStore()
 const hud = computed(() => game.hud)
 const s = computed(() => props.summary)
+/** После «Ночи в казино» при FEATURE_EVENING_FIX утро начнётся в казино (quick-fix-evening §3.4, §8.3). */
+const wokeInCasino = computed(() => game.config.balance.FEATURE_EVENING_FIX && s.value.casinoNight && !!game.run?.wokeInCasino)
 const casinoNet = computed(() => s.value.casinoPaidOut - s.value.casinoWagered)
 const signedMoney = (n: number) => (n > 0 ? `+${money(n)}` : money(n))
 
@@ -124,6 +127,9 @@ onMounted(async () => {
   padding: var(--sp-4);
   background: var(--paper-dark);
   color: var(--paper-dark-text);
+}
+.rc__night-woke {
+  font-style: italic;
 }
 .rc__night-title {
   font-family: var(--font-condensed);

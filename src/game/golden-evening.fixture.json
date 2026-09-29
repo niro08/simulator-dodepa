@@ -1,0 +1,482 @@
+{
+  "honest#1": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 191,
+    "runHash": "f789653028a31549b8d13622fa607d09f89754285f74bc76637f222940829d22",
+    "eventsHash": "dd59a4964a9c2a5e2ba6d2c4c181fc550078de8086ac8582c26e2b80204fb3ed"
+  },
+  "honest#2": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 205,
+    "runHash": "e899310325705c09c0338caff7eec3e26559da0b8e93c2ab8672b75ef9a9e1c7",
+    "eventsHash": "056b09daf3b8a672b5cf1c6cff80c22338e5ec1af64055914baa037e5234210f"
+  },
+  "honest#3": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 206,
+    "runHash": "6de8d8b747891798fb7afeac6ec02e6f9fd2523d84fd39e7a57f395ff1585967",
+    "eventsHash": "cc13da67fa4ef253d17e71da91df7fea1d7e58c85746b2f53115d02e319193a0"
+  },
+  "honest#4": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 196,
+    "runHash": "8de7defd5481ef87c15f664bb98239068fbae41906735b3da2fe6bbac0f98ae5",
+    "eventsHash": "a8d0c3cb4344c955a8bd8d21d6c2a265c6a6d8ea15ccda6a3e6247bb2b31ea14"
+  },
+  "honest#5": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 201,
+    "runHash": "67d032edef9ab8f6627381daa96513f0bc33e92a16d1c83e290f80750f8891ab",
+    "eventsHash": "66281f729bf2cb883dcf59a25662a80b98dd1b572d559d5add280458fe509815"
+  },
+  "honest#6": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 213,
+    "runHash": "f2c70d17c71255f678121e1f0a0cbc004a3c34600e2ea48bfe87f65dfd6453b7",
+    "eventsHash": "b292d4e2d5eb9b55493bf81fc0d910a7ed7e658c218e5b7f588b790707de5aeb"
+  },
+  "honest#7": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 193,
+    "runHash": "99b187e8bb182be1c92e3e9f1826ed0680841bcfabcb07b356e2b81ef4d55e41",
+    "eventsHash": "83f455a7f9ba5a9bbe1d872029181c2e79968069c68e6a12b8c3b0a9fcdb0f34"
+  },
+  "honest#8": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 209,
+    "runHash": "85ad54aca19b4224b201a544f3c36b4b23f4ad8d53d909bc644dc10ff90bc199",
+    "eventsHash": "8936de4cb297d974f7916cb0bc679c6f54eb1d2addcfefebb1d3cfb0e2076bf0"
+  },
+  "honest#9": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 230,
+    "runHash": "a407abc07904695ec9cd62d214883c7aae3d4356af438f72128793ca6aad514d",
+    "eventsHash": "accea7f1a002903c794e26e545c7a52331fd34e02edf9f385c584cc30ee15912"
+  },
+  "honest#10": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 200,
+    "runHash": "f5fa293066c952e2b58d3061856a91026bcddd80a3504fd828e703a4b4702b8e",
+    "eventsHash": "e83dfbf34f7041e34196e4a47c77b142d490640c1e96ee6b709c7024906752a6"
+  },
+  "honest#11": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 181,
+    "runHash": "351ccfe9ca7738e6097c42deb7a43359c8fe06afb351ee391fec0b7add6ee050",
+    "eventsHash": "99cd1d2fb58bad10f601405bcabf3e5f89e3f9707af115a8bc9bca1056450daa"
+  },
+  "honest#12": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 191,
+    "runHash": "bd0cd71f553507481a3613775bcc77cdfd7be492ec29773ff934a8904b3885e6",
+    "eventsHash": "de3073275b7f7aace4606c607e29df92daef5d28b6e62911921caae185d799b5"
+  },
+  "honest#13": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 219,
+    "runHash": "a44a64397118f9ba13adce4f3f92429435cffcd64a328205c5bac0118e2910a0",
+    "eventsHash": "6edba93af5c163c5a04f4706d4963cee986e34074270a1cbc1a6e4cffe2c1661"
+  },
+  "honest#14": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 206,
+    "runHash": "d193d4b38aaf661883f13e8b803e1e6eb4e435aa829a143545165b2399b4a7c9",
+    "eventsHash": "bd3db554aef1e0dafbd505b91d27854c2a7f99e2d8a01bdb0154edc75335bbfc"
+  },
+  "honest#15": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 223,
+    "runHash": "7067af2ec469e3f2013a5ea547017798dad9c43f69657e98de38df20ff058ce6",
+    "eventsHash": "5610bc9b9e81616cf6e6303b1583a0d72938509d0542e66c01c2701711c72ef7"
+  },
+  "honest#16": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 218,
+    "runHash": "3204fdaa1742424c5d160fa21c562206a47c115af2500edc58c8fc692ecddff8",
+    "eventsHash": "d7ee5ef150eb8dbc3ea86752a6820531d3615612f174f14106b3857c1d6feb9c"
+  },
+  "honest#17": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 197,
+    "runHash": "0d47eb835882e9778381c5cc36e358b3083daa6f383363d1746192c556994cf1",
+    "eventsHash": "cae49d8bcfa38f59f2a277b46c55ee9395eb2018de56a3394664d47fe5685c76"
+  },
+  "honest#18": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 220,
+    "runHash": "bac02fb3a780a770a70f3af20e7d43d87440cd595d3f48e4651d6949e533b79d",
+    "eventsHash": "72e64a597635784b7f14d6088844defd594175b4e938959c71b4d6f7a0de01c4"
+  },
+  "honest#19": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 195,
+    "runHash": "e5965330a312b2dddee144bfdf5b8578c38cfe743e28754ca1dedc9b66dde8b8",
+    "eventsHash": "b2948281848a1dc49ee7926ee2685b9d5a0bd19e5927791f2d23008d94efb3ef"
+  },
+  "honest#20": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 189,
+    "runHash": "a959d3940363c6ba2b3a78679b1c0fd02a0329e3250e086a0cdc211741552033",
+    "eventsHash": "d9c23442b1f4133f5f4da9bf9994b709cb6d964350cd126a75ad9fa0e945d940"
+  },
+  "ludoman#1": {
+    "outcome": "casino_nights",
+    "day": 6,
+    "phase": "ended",
+    "events": 438,
+    "runHash": "a0a01e174d71d219d2c10c5fa6f987d6a13f0aa42a3d39b5f678e6ecd6f95278",
+    "eventsHash": "4014afb2cf66d5df8f3615c1e15feba0200077bc99b75d80e191901cd7e61f7e"
+  },
+  "ludoman#2": {
+    "outcome": "casino_nights",
+    "day": 5,
+    "phase": "ended",
+    "events": 415,
+    "runHash": "bf6e42f14fa0c7a4a5a91164063b9d3c2a5c1b0efae48ed3efed19d3c4cbbe0c",
+    "eventsHash": "159b66870a191a883e87e52ff389eaf959913f6a4aa52ed84afc54101f132777"
+  },
+  "ludoman#3": {
+    "outcome": "casino_nights",
+    "day": 12,
+    "phase": "ended",
+    "events": 863,
+    "runHash": "7e5e768d0fda36774e2391629085feef011064849a62e6e67daa8e4b5ddf8d84",
+    "eventsHash": "0e7a952af085571a73a2502f0447a53ef0159cdd9ddeb9b24bca9ff737a046ed"
+  },
+  "ludoman#4": {
+    "outcome": "casino_nights",
+    "day": 3,
+    "phase": "ended",
+    "events": 298,
+    "runHash": "30fb3842183beaf932e3d93dd61434d42cc686edcbf26fe281a5c2bd381119e1",
+    "eventsHash": "43bdaf08a3ec1f66dfdd003f620da9735c9453337097a7565ac06ce3b7f3b83d"
+  },
+  "ludoman#5": {
+    "outcome": "casino_nights",
+    "day": 3,
+    "phase": "ended",
+    "events": 263,
+    "runHash": "79c25ebb42f1204c177e243dc58c6497d25462084fbaf174773e2bc4f07d92ed",
+    "eventsHash": "66a3664bad57499a97c1029eb017a5b861671db8eea7506f83f3f90a092a3347"
+  },
+  "ludoman#6": {
+    "outcome": "casino_nights",
+    "day": 9,
+    "phase": "ended",
+    "events": 733,
+    "runHash": "9dd67157567033add72e66fb73ee28bc472d7c8f991fde016c0a1c7282632423",
+    "eventsHash": "06b9f2b68234b503d259781a4d2330563995de452a37a68ed32cac8c4f9b1c0e"
+  },
+  "ludoman#7": {
+    "outcome": "casino_nights",
+    "day": 7,
+    "phase": "ended",
+    "events": 611,
+    "runHash": "188ddccc32a64a5a743b7f1d6c484c43ddf1cc4b3fedab6a72a0375c3649853f",
+    "eventsHash": "b934aa98d0ab8a41fab49a349dde25cd45c546478453ad6cd01b5c8447e8f29b"
+  },
+  "ludoman#8": {
+    "outcome": "casino_nights",
+    "day": 7,
+    "phase": "ended",
+    "events": 480,
+    "runHash": "55966df66d53c2749a49a6e73659967cd4dbd2117c3946d10ae390978264b420",
+    "eventsHash": "664edaee57c3bb6ddff31862ebc7e591623444826f84cf49ef2ba6d050528f62"
+  },
+  "ludoman#9": {
+    "outcome": "casino_nights",
+    "day": 5,
+    "phase": "ended",
+    "events": 469,
+    "runHash": "87c7251cf1e26f58919875c2ff6fa1b72bcdbd48d3e9c1acd0082bd6a93d3673",
+    "eventsHash": "f33973a396c4c277fa54d3ae535d6f5d51436747700f0e42d460d36cae7d83e1"
+  },
+  "ludoman#10": {
+    "outcome": "casino_nights",
+    "day": 4,
+    "phase": "ended",
+    "events": 283,
+    "runHash": "4bd039b853e92d9c80c9089d70b4024d8142bf4a117b616888d19b5f3f7cb64c",
+    "eventsHash": "304ddf8af477cd8658c5cf3509040a908654a84b161af745d038cc80d0313d03"
+  },
+  "ludoman#11": {
+    "outcome": "casino_nights",
+    "day": 11,
+    "phase": "ended",
+    "events": 801,
+    "runHash": "7b2ba5b4a3d7fe348ee7c88b325ef0d77dbe4d1ae6bc5828c0ad070b9b7ba3b0",
+    "eventsHash": "755d25005cd1546def16e7dfc29a9e07543302e1abbffb555f5937ae9a9d0d20"
+  },
+  "ludoman#12": {
+    "outcome": "casino_nights",
+    "day": 9,
+    "phase": "ended",
+    "events": 665,
+    "runHash": "0e9aeed43ea24e3406446a59a64b8b135f65ed471d4b16deb555a69829cfb846",
+    "eventsHash": "25f3de048bddc5229d56b689591a63bfab70f2c6307930e4fd64f84514111fb8"
+  },
+  "ludoman#13": {
+    "outcome": "collectors",
+    "day": 8,
+    "phase": "ended",
+    "events": 477,
+    "runHash": "4c933ea490f8aa7c73edce98d48324a016a10f88406eb1bd908ec112e920b6dd",
+    "eventsHash": "676987fb98e5fb1be94fbe0e8981ccd14d1b78572b64de7e292cf767c5e7e6c9"
+  },
+  "ludoman#14": {
+    "outcome": "casino_nights",
+    "day": 11,
+    "phase": "ended",
+    "events": 814,
+    "runHash": "1b07f7bff9c4c127146d7753e27208ac8eb0312b7a05c179fd71432fe80d7e34",
+    "eventsHash": "8eb41ff92785036e316250967eaccd5f3199838f7eb45d3e5be3cd4d1e4ca055"
+  },
+  "ludoman#15": {
+    "outcome": "casino_nights",
+    "day": 4,
+    "phase": "ended",
+    "events": 384,
+    "runHash": "04033662a0e7ce2c2192f6da8bd75f856b90e3910301c3b67569ea52cb4e804a",
+    "eventsHash": "33f387f51f4e3434f0eebe1ed869c6d5ade21e2a61dead7458ae18f5a6e61504"
+  },
+  "ludoman#16": {
+    "outcome": "casino_nights",
+    "day": 4,
+    "phase": "ended",
+    "events": 268,
+    "runHash": "dcad63d686e17a4d44e84c95c4a86c692e5f896b715da4bdd6e7c3bd474c7f00",
+    "eventsHash": "e73d70c6e45d509e3b85f60aa82e6dd51059d18a45256454b8ddab3747c9f572"
+  },
+  "ludoman#17": {
+    "outcome": "casino_nights",
+    "day": 5,
+    "phase": "ended",
+    "events": 415,
+    "runHash": "ae94167e8c87d3853b136222d81d5e493fb3f06998c997a8007aa30f1beb779b",
+    "eventsHash": "700f6e5a62b6cf7b3e450acd29936b126e15b2f09b0288909c31d7cc763ce461"
+  },
+  "ludoman#18": {
+    "outcome": "casino_nights",
+    "day": 6,
+    "phase": "ended",
+    "events": 451,
+    "runHash": "a3d64e222018b3a7a40968aa7b79c11dd4eba88713feb0a883840e793fa1ff4f",
+    "eventsHash": "2f0530921cb5dce80833750c86f86cc8139372bd9da5c33e83b759ec1e7c5782"
+  },
+  "ludoman#19": {
+    "outcome": "casino_nights",
+    "day": 6,
+    "phase": "ended",
+    "events": 415,
+    "runHash": "2982e432957824065517d5bee15f7ba8d5ce212adb421dcaac9c324a503f682e",
+    "eventsHash": "d594e12f1b479fdc184d8099850fc087971656a1dabb5a7af92d5ad41a71731e"
+  },
+  "ludoman#20": {
+    "outcome": "casino_nights",
+    "day": 11,
+    "phase": "ended",
+    "events": 789,
+    "runHash": "588b09d19f05677205fbc7eee7581e0740713dc4f44092aff5c7bf68ef213b6a",
+    "eventsHash": "7e59335564a069b7d35c9136e6931841c65e7138d92931200257f9523af139ab"
+  },
+  "random#1": {
+    "outcome": "collectors",
+    "day": 15,
+    "phase": "ended",
+    "events": 145,
+    "runHash": "46d1ddca1736b486677d50983da4434c825fa6ab9cc166ceab3ca83188721fd5",
+    "eventsHash": "f46706469faf175d73117efc4dbca2875db11c94970d815e525b167516f101e5"
+  },
+  "random#2": {
+    "outcome": "collectors",
+    "day": 15,
+    "phase": "ended",
+    "events": 141,
+    "runHash": "349bb8f1ff84dfffcb20b85e0990813c177b92cd3e3c06ed078d7c7728d598d4",
+    "eventsHash": "be42e5696f31d88d06bfa044ef6193ba6d1aa249a4d64449e966d8c900c724ce"
+  },
+  "random#3": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 318,
+    "runHash": "17d4899e93d92fcc26d1105ffb2e901bf593396cf11297453ccce0b15d33107a",
+    "eventsHash": "da0c6f90b874e2df4dabb1f4626e5301165131f18568f296b963dbdc4926be8c"
+  },
+  "random#4": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 239,
+    "runHash": "8aeedaeea4e814e6437da5fd72fdc5b7c03b4b530b89cbd49aa792b1c9899924",
+    "eventsHash": "c68e07849a967f92ca6da31a4ec5c0fbd168fd21038de16f8d8e69d3499f424c"
+  },
+  "random#5": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 442,
+    "runHash": "3973f9cdf803376ce470766a299d78dd93b24821c4b3004b3a2be676571163e3",
+    "eventsHash": "a0be1d0d598cc77daab508fc55b343008de89aaae8982cb1a7c18951a956982f"
+  },
+  "random#6": {
+    "outcome": "collectors",
+    "day": 22,
+    "phase": "ended",
+    "events": 229,
+    "runHash": "5f076558b6e0ca7109a91bd104ac84a5e668578cb651a9ac0a3df1fb2e22f2d4",
+    "eventsHash": "9b8a0a072b082d0520f88b58e5826d5f89690bbbd119ac7e560e36927e143c56"
+  },
+  "random#7": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "day",
+    "events": 254,
+    "runHash": "e3423c1316fe9297c16363011c508f029903792cf4871730213936dbd991ec0e",
+    "eventsHash": "0a22a772d5dc1e99d588eb5ed2d7874502629fe4366edff647886605fad452f0"
+  },
+  "random#8": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 240,
+    "runHash": "321ac72eb706eb506db86150ede93040f5bd81706ec849ad243963c903fddaf4",
+    "eventsHash": "f81b7ced9b2541d1f22ac8ce16a7bba46c25627ce8ee00c2ac42d21dbbf42c23"
+  },
+  "random#9": {
+    "outcome": "referral",
+    "day": 7,
+    "phase": "ended",
+    "events": 125,
+    "runHash": "991ee05d898e3ce2b8a4f80fdfef5f5abcb72fd689237f52b6b310719eb81d74",
+    "eventsHash": "273817ad2245784f4fe4635ae742f2dc86e08e9b8714ae0e627318efe8293c1e"
+  },
+  "random#10": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 259,
+    "runHash": "279018e01d821ae5d782f1bfde0b90f6b24c36de1119decb46f96d3235b0c82c",
+    "eventsHash": "b35a46f599ac2ab13d89a9f6ec08269ed3ec94fbb391586d21f478cbe36c2f9c"
+  },
+  "random#11": {
+    "outcome": "collectors",
+    "day": 21,
+    "phase": "ended",
+    "events": 222,
+    "runHash": "19ef2f1ee408fd2511160bd2be444ffa3d67d18e392d9f3a1cc665f68777fcd2",
+    "eventsHash": "25ee05861b2a4b8683dc829c2205cf76727d12af79bfb7cc090d012b4b11a8a4"
+  },
+  "random#12": {
+    "outcome": "collectors",
+    "day": 8,
+    "phase": "ended",
+    "events": 52,
+    "runHash": "f8bb01ca8a798d18fce7a43de1c47fbb00742670243ac47471aaa0eaf288e05c",
+    "eventsHash": "6e87981556ba2ea9c830014606cf96f613555a9ed14df5ba4fb87fb32439774a"
+  },
+  "random#13": {
+    "outcome": "collectors",
+    "day": 29,
+    "phase": "ended",
+    "events": 240,
+    "runHash": "bc84054ce9aa7615ca0bd08394f6e42cbf99d4f6c5ee107b4544acffa205895e",
+    "eventsHash": "3715628e42fd57641c5a8e6a9e00f607a92ed489c1e25680528b2504e4bcceb5"
+  },
+  "random#14": {
+    "outcome": "extend_in_debt",
+    "day": 28,
+    "phase": "fork",
+    "events": 429,
+    "runHash": "0dfe9f3817d4080a5e81c4dccb2a91ca9c0d80d046a81337e1f0f7af6cac0b76",
+    "eventsHash": "873022cf98d684b1b8a2f1e2986d6c83e1a5558609dd2df6e1241da4e5c323e2"
+  },
+  "random#15": {
+    "outcome": "collectors",
+    "day": 8,
+    "phase": "ended",
+    "events": 68,
+    "runHash": "9fb94566d89cd04a806801d3fc098c2ec4823d4bad04e4c9fe3afa7fabaab4a2",
+    "eventsHash": "8e79f7860ea07211e675f71281ed5e49ae5d9f68a4b4fd8f714a4d1dd56b0a99"
+  },
+  "random#16": {
+    "outcome": "collectors",
+    "day": 15,
+    "phase": "ended",
+    "events": 129,
+    "runHash": "792f4095e07313b3bbc34a489bd5062d34bc447076bc0f3f258b35913ad51aac",
+    "eventsHash": "ab88c54940e293ab4183d3e1a43392dbb862e8d7eca8ba4655dd720a5ba9dbb0"
+  },
+  "random#17": {
+    "outcome": "collectors",
+    "day": 8,
+    "phase": "ended",
+    "events": 133,
+    "runHash": "5fff06071f0539f7604d29ad7a4eeda9c48e3036ad8fdf8bf4379f2f74cb71ae",
+    "eventsHash": "183c7d5347a279bf0e7df6911d02d891a3754b15dfd4047016a718ef50da7406"
+  },
+  "random#18": {
+    "outcome": "quit",
+    "day": 28,
+    "phase": "ended",
+    "events": 323,
+    "runHash": "4c67955696bc43d66c808a6fcf15a5417286bdcd3bf00d10261dfd4f8f4f7dbb",
+    "eventsHash": "2fb24190296a168d3a62ea62d2b39d8b814a44167f2d89dd79a5fe4ed415a573"
+  },
+  "random#19": {
+    "outcome": "collectors",
+    "day": 8,
+    "phase": "ended",
+    "events": 106,
+    "runHash": "689c51d93c914ffcb58b0f49047c6d5456b08ca4a0e8622eacc3a691670fbdaf",
+    "eventsHash": "db8682e5ea1124bb0da8290797aa163b145bf653be83a6c7d8add217b36d97f9"
+  },
+  "random#20": {
+    "outcome": "collectors",
+    "day": 15,
+    "phase": "ended",
+    "events": 237,
+    "runHash": "1f1f431926ed29a0a74834c3a68d6d3460a05f27e72a6163eda4ded5fc436bb3",
+    "eventsHash": "854f0007de2b79dc88a53a046a4837098557dbe1a39fe6820ad55346705d3ef8"
+  }
+}

@@ -160,6 +160,11 @@ export function useShell() {
     sleepConfirm.value = false
     viaLife(() => game.execute({ type: 'day/sleep' }))
   }
+  /** «Лечь пораньше» из S40 (quick-fix-evening §3.3): из казино сначала выход, как у сна. */
+  function confirmEarly() {
+    sleepConfirm.value = false
+    viaLife(() => game.execute({ type: 'day/early' }))
+  }
 
   /**
    * «ЗАВЯЗАТЬ» (развилка S46 и блок развилки в «Жизни»). GDD §3.7 / E24: если на сайте остались деньги или вывод
@@ -227,6 +232,7 @@ export function useShell() {
     exitLeave,
     requestSleep,
     confirmSleep,
+    confirmEarly,
     requestQuit,
     confirmQuit,
     ensureCasino

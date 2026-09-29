@@ -6,7 +6,7 @@
         {{ EXIT_CONFIRM.stay }}
       </NeonButton>
       <button type="button" class="ex__leave" data-autofocus aria-keyshortcuts="Escape" @click="shell.exitLeave()">
-        {{ EXIT_CONFIRM.leave }} <kbd aria-hidden="true">Esc</kbd>
+        {{ EXIT_CONFIRM.leave }}<template v-if="leaveCost > 0"> · {{ EVENING.leaveCost(leaveCost) }}</template> <kbd aria-hidden="true">Esc</kbd>
       </button>
     </div>
     <!-- Разоблачение видно всегда, не только в режиме 👓 -->
@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { EXIT_CONFIRM } from '@/i18n/ui'
+import { EVENING, EXIT_CONFIRM } from '@/i18n/ui'
 import { useShell } from '@/composables/useShell'
 import { useGameStore } from '@/stores/game'
 import Modal from '@/components/ui/Modal.vue'
@@ -29,6 +29,11 @@ import NeonButton from '@/components/ui/NeonButton.vue'
 const shell = useShell()
 const game = useGameStore()
 // Реплика дня: у каждого дня своя, пара «Витрина/Изнанка» — по одному индексу
+/** Первый выход после пробуждения в казино стоит ⚡ (quick-fix-evening §3.4); при флаге false wokeInCasino не бывает. */
+const leaveCost = computed(() => {
+  const run = game.run
+  return run?.wokeInCasino ? Math.min(game.config.balance.WAKE_CASINO_LEAVE_ENERGY, Math.max(0, run.energy)) : 0
+})
 const idx = computed(() => (game.hud?.day ?? 0) % EXIT_CONFIRM.lines.length)
 </script>
 

@@ -67,6 +67,10 @@ export const ACTION_COMMANDS = {
   spin: { type: 'slot/spin' },
   shift: { type: 'work/shift' },
   shady: { type: 'work/shady' },
+  /** Пакет «Быстрый фикс»: при FEATURE_EVENING_FIX=false ядро отклоняет их feature_disabled. */
+  halfShift: { type: 'work/half' },
+  overtime: { type: 'work/overtime' },
+  early: { type: 'day/early' },
   family: { type: 'family/help' },
   borrow: { type: 'friends/borrow' },
   bankLoan: { type: 'bank/loan' },

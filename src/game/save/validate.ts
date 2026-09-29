@@ -7,6 +7,7 @@ import type {
   BonusState,
   DaySummary,
   EndingId,
+  EveningSlot,
   EventState,
   GameEvent,
   GameEventType,
@@ -20,7 +21,8 @@ import type {
   RunState,
   RunSummary,
   Settings,
-  Withdrawal
+  Withdrawal,
+  WorkSlot
 } from '../types'
 import type { SaveEnv, SaveFile } from './schema'
 import { CURRENT_SAVE_VERSION, createDefaultProfile, createDefaultSettings } from './schema'
@@ -95,6 +97,8 @@ const EVENT_TYPES = {
   withdrawRequested: true,
   withdrawPaid: true,
   shiftWorked: true,
+  halfShiftWorked: true,
+  earlyBed: true,
   schemeResolved: true,
   friendBorrowed: true,
   friendsBlocked: true,
@@ -137,6 +141,32 @@ function validateLog(x: unknown, limit: number): LogEntry[] {
     .filter((e): e is Json => isRecord(e) && isEvent(e.event) && Number.isInteger(e.id))
     .map((e) => ({ id: e.id as number, t: num(e.t, 0), event: e.event as GameEvent }))
     .slice(0, limit)
+}
+
+const EVENING_SLOTS: readonly EveningSlot[] = ['family', 'friends', 'shady', 'overtime']
+const WORK_SLOTS: readonly WorkSlot[] = ['shift', 'half', 'overtime']
+
+/**
+ * Поля пакета «Быстрый фикс» (quick-fix-evening §5): копируются, только если есть и валидны, иначе опускаются
+ * (старый сейв = «ничего не делал»).
+ */
+function validateEveningFix(x: Json, day: number, carryMax: number): Partial<RunState> {
+  const out: Partial<RunState> = {}
+  if (typeof x.eveningUsed === 'string' && (EVENING_SLOTS as readonly string[]).includes(x.eveningUsed)) {
+    out.eveningUsed = x.eveningUsed as EveningSlot
+  }
+  if (typeof x.workToday === 'string' && (WORK_SLOTS as readonly string[]).includes(x.workToday)) {
+    out.workToday = x.workToday as WorkSlot
+  }
+  if (Number.isInteger(x.lastFamilyDay) && (x.lastFamilyDay as number) >= 1 && (x.lastFamilyDay as number) <= day) {
+    out.lastFamilyDay = x.lastFamilyDay as number
+  }
+  if (Number.isInteger(x.earlyCarry) && (x.earlyCarry as number) >= 0 && (x.earlyCarry as number) <= carryMax) {
+    out.earlyCarry = x.earlyCarry as number
+  }
+  if (x.earlyBedPending === true) out.earlyBedPending = true
+  if (x.wokeInCasino === true) out.wokeInCasino = true
+  return out
 }
 
 const PHASES: readonly RunPhase[] = ['morning', 'event', 'day', 'bills', 'fork', 'daySummary', 'ended']
@@ -304,8 +334,9 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
     flags: boolMap(x.flags),
     stats: numberMap(x.stats) as PlayerStats,
     log,
-    nextLogId: Math.max(int(x.nextLogId, 1), maxLogId + 1)
+    nextLogId: Math.max(int(x.nextLogId, 1), maxLogId + 1),
   }
+  Object.assign(run, validateEveningFix(x, run.day, B.EARLY_CARRY_MAX))
   return applyInvariants(run, env.config)
 }
 

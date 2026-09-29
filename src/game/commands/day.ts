@@ -16,6 +16,9 @@ import {
   endlessBillFixed,
   forkBillToday,
   isForkOpen,
+  needEnergy,
+  needEveningFeature,
+  needLife,
   needPhase,
   nextUnpaidBill,
   proposeEnding,
@@ -46,11 +49,30 @@ export const sleepHandler: CommandHandler<CommandOf<'day/sleep'>> = {
   }
 }
 
-/** day/resume — «Назад» из экрана счёта/развилки (нельзя, если день закончен тильтом 100). */
+/**
+ * day/early — «Лечь пораньше» (quick-fix-evening §3.3): как day/sleep, но ночью остаток ⚡ превращается
+ * в −🔥 и немного ⚡ на завтра. Из казино нельзя; нужно ⚡ ≥ EARLY_MIN_ENERGY.
+ */
+export const earlyHandler: CommandHandler<CommandOf<'day/early'>> = {
+  check: (state, _cmd, config) =>
+    needEveningFeature(config.balance) ??
+    needPhase(state, 'day') ??
+    needLife(state) ??
+    needEnergy(state, config.balance.EARLY_MIN_ENERGY),
+  apply(draft, _cmd, ctx) {
+    const events: GameEvent[] = []
+    draft.earlyBedPending = true
+    endDay(draft, ctx, events, false)
+    return events
+  }
+}
+
+/** day/resume — «Назад» из экрана счёта/развилки (нельзя, если день закончен тильтом 100). Отменяет ранний сон. */
 export const resumeHandler: CommandHandler<CommandOf<'day/resume'>> = {
   check: (state) => needPhase(state, 'bills', 'fork') ?? (state.forcedEnd ? { reason: 'forced' } : null),
   apply(draft) {
     draft.phase = 'day'
+    delete draft.earlyBedPending
     return []
   }
 }

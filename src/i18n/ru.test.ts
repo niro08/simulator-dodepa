@@ -51,6 +51,8 @@ const EVENTS = {
   withdrawRequested: { type: 'withdrawRequested', gross: 1000, fee: 50, net: 950, arriveDay: 4 },
   withdrawPaid: { type: 'withdrawPaid', net: 950 },
   shiftWorked: { type: 'shiftWorked', pay: 900, promoted: false, repPenalty: false },
+  halfShiftWorked: { type: 'halfShiftWorked', pay: 405 },
+  earlyBed: { type: 'earlyBed', tilt: 25, energy: 10 },
   schemeResolved: { type: 'schemeResolved', success: true, amount: 2300, fine: 0, jailed: false },
   friendBorrowed: { type: 'friendBorrowed', amount: 350, diminished: false },
   friendsBlocked: { type: 'friendsBlocked' },
@@ -184,7 +186,7 @@ describe('i18n/ru', () => {
     const guide = howToPlay(defaultConfig)
     expect(guide.lines).toHaveLength(10)
     expect(guide.lines.join(' ')).toContain('RTP 90%')
-    expect(guide.lines.join(' ')).toContain('тильт −50')
+    expect(guide.lines.join(' ')).toContain('тильт −40')
     expect(money(1234567)).toBe('1 234 567')
     expect(money(-500)).toBe('−500')
   })

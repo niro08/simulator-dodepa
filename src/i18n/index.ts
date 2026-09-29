@@ -26,6 +26,9 @@ export {
   fillPlaceholders,
   formatAchievementToast,
   formatSleepEventCard,
+  earlyBedLine,
+  EVENING_USED_TEXTS,
+  WOKE_IN_CASINO_LINE,
   type AchievementText,
   type EventTone,
   type EndingText

@@ -52,7 +52,9 @@ describe('честная статистика (CD-10, systems-spec §3.1)', () =
   })
 
   it('счётчики для ачивок CD-13: смены, семья, дни, «Ночи», МФО, ломбард, чистая неделя', () => {
-    const { session } = playRun(STRATEGIES.honest, 3, config, true)
+    // Старая рутина «смена + мама каждый день» (FEATURE_EVENING_FIX=false): счётчики ачивок
+    const legacy = { ...config, balance: { ...B, FEATURE_EVENING_FIX: false } }
+    const { session } = playRun(STRATEGIES.honest, 3, legacy, true)
     const st = session.run.stats
     expect(st).toMatchObject({ shifts: 28, familyHelps: 28, daysPlayed: 27, cleanWeeks: 3, daysNoSpins: 27, billsPaid: 4, runsFinished: 1 })
     expect(session.profile.endings.quit).toMatchObject({ count: 1, bestGrade: 'A' })
