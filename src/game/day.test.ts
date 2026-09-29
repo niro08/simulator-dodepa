@@ -9,7 +9,8 @@ import { playRun, STRATEGIES } from './strategies'
 import { exec, newSession, tryExec, type Session } from './testing'
 import type { Command, EventOf, GameEvent, RunState } from './types'
 
-const config = noEventsConfig
+/** Концовка «Сел» через старую темку: контакты выключены (contacts-shady §4.3). */
+const config: GameConfig = { ...noEventsConfig, balance: { ...noEventsConfig.balance, FEATURE_CONTACTS: false } }
 const B = config.balance
 const run = (patch: Partial<RunState> = {}): RunState => ({ ...newSession(1, config, false).run, ...patch })
 const act = (state: RunState, cmd: Command, seed = 1, cfg: GameConfig = config) =>

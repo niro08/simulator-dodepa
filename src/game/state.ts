@@ -99,6 +99,9 @@ export function cloneRun(state: RunState): RunState {
       pawnedOn: { ...state.eventState.pawnedOn }
     },
     flags: { ...state.flags },
+    ...(state.contacts
+      ? { contacts: { ...state.contacts, offers: state.contacts.offers.map((o) => ({ ...o })), used: state.contacts.used.slice(), burned: state.contacts.burned.slice() } }
+      : {}),
     stats: { ...state.stats },
     log: state.log.slice()
   }

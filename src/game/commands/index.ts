@@ -28,7 +28,7 @@ import { borrowHandler, familyHandler } from './friends'
 import { pawnHandler, redeemHandler } from './pawn'
 import { setBetHandler, spinHandler } from './slot'
 import type { CommandHandler } from './types'
-import { halfShiftHandler, overtimeHandler, shadyHandler, shiftHandler } from './work'
+import { halfShiftHandler, offerHandler, overtimeHandler, shadyHandler, shiftHandler } from './work'
 
 type HandlerMap = { [K in CommandType]: CommandHandler<Extract<Command, { type: K }>> }
 
@@ -53,6 +53,7 @@ export const HANDLERS: HandlerMap = {
   'work/shady': shadyHandler,
   'work/half': halfShiftHandler,
   'work/overtime': overtimeHandler,
+  'work/offer': offerHandler,
   'family/help': familyHandler,
   'friends/borrow': borrowHandler,
   'bank/loan': bankLoanHandler,

@@ -7,7 +7,8 @@ import { newSession } from '../testing'
 import type { Command, RunState } from '../types'
 import { minRepayAmount, planRepay } from './bank'
 
-const config = defaultConfig
+/** Старая темка (CD-08) живёт при FEATURE_CONTACTS=false (contacts-shady §4.3); контакты — contacts.test.ts. */
+const config = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_CONTACTS: false } }
 const B = config.balance
 /** Ран в фазе day дня 1 («Жизнь»). */
 const run = (patch: Partial<RunState> = {}): RunState => ({ ...newSession(1, config, false).run, ...patch })

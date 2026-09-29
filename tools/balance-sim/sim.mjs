@@ -45,10 +45,78 @@ export const CFG = {
   EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
   TILT_SLEEP_DECAY_FIX: 40, TILT_AFTER_CASINO_NIGHT_FIX: 35, WAKE_CASINO_LEAVE_ENERGY: 10,
   FAMILY_REP_FRESH: 2, FAMILY_REP_REPEAT: 1, FAMILY_FRESH_GAP_DAYS: 7,
+  // Пакет 2 «Контакты» (design/contacts-shady.md §11)
+  FEATURE_CONTACTS: true,
+  CONTACT_SLOTS_WEEK1: 2, CONTACT_SLOTS: 3,
+  CONTACT_DEPTH2_DAY: 8, CONTACT_DEPTH2_BURNED: 2, CONTACT_DEPTH2_DEBT: 5000, CONTACT_DEPTH2_REP: 5,
+  CONTACT_DEPTH3_DAY: 15, CONTACT_DEPTH3_BURNED: 5, CONTACT_DEPTH3_DEBT: 15000, CONTACT_DEPTH3_REP: 0,
+  CONTACT_TIER_WEIGHTS: [[1, 0, 0], [2, 3, 0], [1, 2, 4]],
+  CONTACT_HEAT_PENALTY: 0.005, CONTACT_HEAT_DECAY_QUIET: 20, CONTACT_HEAT_JAIL: 60, CONTACT_HEAT_MAX: 100,
+  CONTACT_P_MIN: 0.05, CONTACT_P_MAX: 0.95, CONTACT_REWARD_STEP: 100,
 }
 // Прогон наборов (quick-fix-evening §11): SIM_CFG='{"OVERTIME_PAY_MULT":1.15}' node tools/balance-sim/sim.mjs
 if (typeof process !== 'undefined' && process.env.SIM_CFG) Object.assign(CFG, JSON.parse(process.env.SIM_CFG))
 const FIX = () => CFG.FEATURE_EVENING_FIX
+const CONTACTS_ON = () => CFG.FEATURE_CONTACTS && CFG.FEATURE_EVENING_FIX
+
+// ─────────── КОНТАКТЫ (зеркало src/game/content/contacts.ts, contacts-shady §5) ───────────
+// [id, contact, tier, ⚡, p, min, max, fine, rep, 🔥F, heat, jail, expiry, extra]
+const OFFER_ROWS = [
+  ['neighbor_boxes', 'neighbor', 1, 20, 0.85, 300, 500, 1500, -1, 10, 10, 0.1, 1],
+  ['valera_pallets', 'valera', 1, 20, 0.8, 400, 600, 1500, -1, 10, 10, 0.1, 1],
+  ['tolik_wash', 'tolik', 1, 30, 0.8, 700, 900, 2000, -1, 10, 10, 0.1, 1],
+  ['lyoha_courier', 'lyoha', 1, 30, 0.75, 800, 1000, 2000, -1, 10, 10, 0.1, 1, { requiresItem: 'bike' }],
+  ['vadik_truck', 'vadik', 1, 40, 0.8, 800, 1000, 2000, -2, 10, 10, 0.1, 1],
+  ['mentor_course', 'mentor', 1, 20, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 1500 } }],
+  ['dima_mirrors', 'dima', 2, 40, 0.6, 1800, 2400, 2500, -3, 15, 20, 0.25, 1, { requiresItem: 'laptop' }],
+  ['gosha_phones', 'gosha', 2, 30, 0.55, 1500, 2100, 2000, -2, 15, 20, 0.25, 1],
+  ['vadik_card', 'vadik', 2, 20, 0.6, 1450, 2050, 2500, -3, 15, 20, 0.25, 1],
+  ['tolik_car', 'tolik', 2, 40, 0.55, 2400, 3000, 3000, -3, 15, 20, 0.25, 1],
+  ['luck_boost', 'kirill', 2, 10, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 2000, fakeLuckDays: 3 } }],
+  ['mentor_pro', 'mentor', 2, 20, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 3000 }, afterOffer: 'mentor_course' }],
+  ['eduard_tv', 'eduard', 3, 40, 0.5, 2500, 3500, 3000, -5, 20, 10, 0.25, 0, { minDebt: 10000 }],
+  ['gosha_safe', 'gosha', 3, 50, 0.4, 5500, 6500, 4000, -4, 20, 30, 0.4, 0],
+  ['vadik_point', 'vadik', 3, 40, 0.45, 4000, 5000, 4000, -4, 20, 30, 0.4, 0],
+  ['kirill_match', 'kirill', 3, 10, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 5000 } }],
+]
+export const CONTACT_OFFERS = OFFER_ROWS.map(([id, contact, tier, energy, successChance, rewardMin, rewardMax, fine, rep, tiltFail, heat, jail, expiry, extra]) =>
+  ({ id, contact, tier, energy, successChance, rewardMin, rewardMax, fine, rep, tiltFail, heat, jail, expiry, ...(extra || {}) }))
+const OFFER_BY_ID = Object.fromEntries(CONTACT_OFFERS.map((o) => [o.id, o]))
+const CONTACT_SALT_GEN = 0xc0a7ac75, CONTACT_SALT_DEAL = 0x5ca1ab1e
+export function deriveSeed(seed, day, salt) { return (Math.imul((seed ^ salt) >>> 0, 0x9e3779b1) + Math.imul(day, 0x85ebca6b)) >>> 0 }
+export function fnv1a(t) { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 } return h >>> 0 }
+// Подпоток — как createRng ядра (int через ceil/floor ≡ lo + floor(next·n) для целых границ)
+const subRng = (seed) => mulberry32(seed)
+export const pEff = (o, heat) => clamp(o.successChance - heat * CFG.CONTACT_HEAT_PENALTY, CFG.CONTACT_P_MIN, CFG.CONTACT_P_MAX)
+export const offerEv = (o, heat, reward) => o.scam ? -o.scam.price : pEff(o, heat) * (reward ?? (o.rewardMin + o.rewardMax) / 2) - (1 - pEff(o, heat)) * o.fine
+function burnedCount(c) { return c.used.length + CONTACT_OFFERS.filter((o) => c.burned.includes(o.contact) && !c.used.includes(o.id)).length }
+function contactDepth(s) {
+  const b = burnedCount(s.contacts), d = s.debtBank + s.debtMfo
+  if (s.day >= CFG.CONTACT_DEPTH3_DAY || b >= CFG.CONTACT_DEPTH3_BURNED || d >= CFG.CONTACT_DEPTH3_DEBT || s.rep <= CFG.CONTACT_DEPTH3_REP) return 3
+  if (s.day >= CFG.CONTACT_DEPTH2_DAY || b >= CFG.CONTACT_DEPTH2_BURNED || d >= CFG.CONTACT_DEPTH2_DEBT || s.rep <= CFG.CONTACT_DEPTH2_REP) return 2
+  return 1
+}
+const itemOk = (s, o) => !o.requiresItem || s.items[o.requiresItem] === 'owned'
+function refreshContacts(s) {
+  if (!CONTACTS_ON()) return
+  const c = (s.contacts ||= { offers: [], used: [], burned: [], heat: 0, lastDealDay: null })
+  const sub = subRng(deriveSeed(s.seed, s.day, CONTACT_SALT_GEN))
+  const debtNow = s.debtBank + s.debtMfo
+  c.offers = c.offers.filter((h) => { const o = OFFER_BY_ID[h.id]; return o && h.expiresDay >= s.day && !c.burned.includes(o.contact) && itemOk(s, o) && !(o.minDebt !== undefined && debtNow < o.minDebt) })
+  const slots = s.day <= 7 ? CFG.CONTACT_SLOTS_WEEK1 : CFG.CONTACT_SLOTS
+  while (c.offers.length < slots) {
+    const depth = contactDepth(s)
+    const pool = CONTACT_OFFERS.filter((o) => !c.used.includes(o.id) && !c.offers.some((h) => h.id === o.id) && !c.burned.includes(o.contact) && itemOk(s, o) &&
+      !(o.minDebt !== undefined && debtNow < o.minDebt) && !(o.afterOffer !== undefined && !c.used.includes(o.afterOffer)))
+      .map((o) => ({ o, w: (CFG.CONTACT_TIER_WEIGHTS[depth - 1][o.tier - 1] || 0) * (o.weight ?? 1) })).filter((x) => x.w > 0)
+    const W = pool.reduce((a, x) => a + x.w, 0); if (W <= 0) break
+    let x = sub.next() * W, pick = pool[pool.length - 1].o
+    for (const p of pool) { x -= p.w; if (x < 0) { pick = p.o; break } }
+    const st = CFG.CONTACT_REWARD_STEP
+    c.offers.push({ id: pick.id, reward: st * sub.int(pick.rewardMin / st, pick.rewardMax / st), expiresDay: s.day + pick.expiry })
+  }
+}
+const jailOpen = (s) => s.rep <= CFG.SHADY_JAIL_REP || (s.contacts ? s.contacts.heat : 0) >= CFG.CONTACT_HEAT_JAIL
 
 // ───────────────────────────── SLOT (зеркало slot.ts) ─────────────────────────────
 // 3 одинаковых независимых барабана, 90 виртуальных позиций. Порядок символов = SYMBOL_IDS.
@@ -171,7 +239,32 @@ const A = {
   early(s) { if (!FIX() || lifeBlocked(s) || s.energy < CFG.EARLY_MIN_ENERGY) return false; s.earlyBed = true; return true },
   // Выход из казино после пробуждения там: min(10, ⚡)
   leave(s) { if (!s.inCasino) return false; s.energy -= Math.min(CFG.WAKE_CASINO_LEAVE_ENERGY, Math.max(0, s.energy)); s.inCasino = false; return true },
+  canOffer(s, id) {
+    const c = s.contacts, o = OFFER_BY_ID[id]
+    if (!CONTACTS_ON() || !c || !o || lifeBlocked(s) || !c.offers.some((h) => h.id === id) || !itemOk(s, o) || eveningBusy(s) || s.energy < o.energy) return false
+    return !(o.scam && s.wallet < o.scam.price)
+  },
+  // contacts-shady §4.3: ❤️ первым делом; развод — цена; иначе бросок из подпотока сделки, провал сжигает контакт
+  offer(s, id) {
+    if (!A.canOffer(s, id)) return false
+    const c = s.contacts, o = OFFER_BY_ID[id], h = c.offers.find((x) => x.id === id)
+    s.evening = 'shady'; s.energy -= o.energy; s.st.actions++; setRep(s, o.rep)
+    c.offers = c.offers.filter((x) => x.id !== id); c.used.push(id)
+    if (o.scam) { s.wallet -= o.scam.price; if (o.scam.fakeLuckDays) c.fakeLuckUntil = s.day + o.scam.fakeLuckDays; s.st.scams = (s.st.scams || 0) + 1; return true }
+    s.st.shady++
+    const deal = subRng(deriveSeed(s.seed, s.day, (CONTACT_SALT_DEAL ^ fnv1a(id)) >>> 0))
+    if (deal.next() < pEff(o, c.heat)) { s.wallet += h.reward; s.st.shadyOk++ }
+    else {
+      const jailed = jailOpen(s) && deal.next() < o.jail
+      forcedPay(s, o.fine); addTilt(s, o.tiltFail)
+      if (!c.burned.includes(o.contact)) c.burned.push(o.contact)
+      if (jailed) { s.ending = null; end(s, 'jailed') }
+    }
+    c.heat = Math.min(CFG.CONTACT_HEAT_MAX, c.heat + o.heat); c.lastDealDay = s.day
+    return true
+  },
   shady(s) {
+    if (CONTACTS_ON()) return false
     if (lifeBlocked(s) || eveningBusy(s) || s.energy < CFG.SHADY_ENERGY) return false
     if (FIX()) s.evening = 'shady'
     s.energy -= CFG.SHADY_ENERGY; s.st.shady++; s.st.actions++; setRep(s, CFG.SHADY_REP)
@@ -318,6 +411,7 @@ function wake(s, strat) {
   s.withdrawals = s.withdrawals.filter((w) => { if (w.arriveDay <= s.day) { s.wallet += w.net; return false } return true })
   s.energy = Math.min(CFG.ENERGY_PER_DAY, Math.max(0, CFG.ENERGY_PER_DAY + s.energyModNextMorning)); s.energyModNextMorning = 0
   if (FIX()) { s.energy += s.earlyCarry; s.earlyCarry = 0 }
+  refreshContacts(s) // M4½ (contacts-shady §4.2)
   s.dayEnded = false; s.spinsToday = 0; s.withdrewToday = false; s.flags.spunOnShiftDay = false; s.flags.nearMiss3 = false
   if (s.pendingEvent) {
     const ev = s.pendingEvent; s.pendingEvent = null; s.st.events++
@@ -357,6 +451,7 @@ function sleep(s) {
     for (const e of pool) { x -= e.w; if (x < 0) { s.pendingEvent = e; s.cooldowns[e.id] = s.day + 1; if (e.once) s.onceUsed[e.id] = true; break } }
   }
   if (FIX()) {
+    if (CONTACTS_ON() && s.contacts && s.contacts.lastDealDay !== s.day) s.contacts.heat = Math.max(0, s.contacts.heat - CFG.CONTACT_HEAT_DECAY_QUIET)
     s.evening = null; s.work = null
     s.inCasino = s.casinoNightPending // после «Ночи в казино» просыпаешься там же
   }
@@ -365,7 +460,7 @@ function sleep(s) {
 }
 const forkDay = (s) => s.bills[3].dueDay
 export function simulateRun(strat, seed) {
-  const s = newRun(mulberry32(seed)); strat.init && strat.init(s)
+  const s = newRun(mulberry32(seed)); s.seed = seed >>> 0; strat.init && strat.init(s)
   for (;;) {
     wake(s, strat); if (s.ending) break
     strat.day(s)
@@ -430,6 +525,17 @@ const eventHonest = (s, ev) => {
   if (ev.id.startsWith('life_')) return reserveNeeded({ ...s, wallet: s.wallet - c }) <= 0 ? 'a' : 'b'
   if (c > 0) return reserveNeeded({ ...s, wallet: s.wallet - c }) <= -500 ? 'a' : 'b'
   return 'a'
+}
+// bestOffer (contacts-shady §7): без разводов, доступные; max EV₽(pEff); при равенстве меньший ярус, потом порядок контента
+export function bestOffer(s) {
+  if (!s.contacts) return null
+  let best = null
+  for (const h of s.contacts.offers) {
+    const o = OFFER_BY_ID[h.id]; if (!o || o.scam || !A.canOffer(s, h.id)) continue
+    const ev = offerEv(o, s.contacts.heat, h.reward), order = CONTACT_OFFERS.indexOf(o)
+    if (!best || ev > best.ev || (ev === best.ev && (o.tier < best.o.tier || (o.tier === best.o.tier && order < best.order)))) best = { o, ev, p: pEff(o, s.contacts.heat), order }
+  }
+  return best
 }
 const eventGambler = (s, ev) => (['push_we_miss_you', 'anzhelika_bonus', 'dream_777', 'stream_clip', 'insomnia_spin', 'sms_preapproved', 'mama_worried'].includes(ev.id) ? 'a' : ev.id.startsWith('life_') ? (s.wallet > 3000 ? 'a' : 'b') : eventCost(s, ev.a) > 0 ? 'b' : 'a')
 
@@ -509,13 +615,24 @@ export const STRATEGIES = {
   // CD-02: «темка каждый день» — смена + темка, без семьи и ломбарда.
   temshik: {
     label: 'Темщик (смена + темка каждый день)', event: eventHonest,
-    day(s) { A.leave(s); A.shift(s); A.shady(s); if (debt(s) > 0) repayAll(s, 0) },
+    day(s) {
+      A.leave(s); A.shift(s)
+      if (CONTACTS_ON()) { const b = bestOffer(s); if (b) A.offer(s, b.o.id) } else A.shady(s)
+      if (debt(s) > 0) repayAll(s, 0)
+    },
     bill(s, b) { if (s.wallet < billTotal(s, b) && b.week < 4) coverWithLoans(s, billTotal(s, b)) },
   },
   // «Умный темщик»: темка только при ❤️ ≥ 4, иначе семья. Проверка, что темка не доминирует.
   temshik_smart: {
     label: 'Темщик осторожный (темка при ❤️≥4)', event: eventHonest,
-    day(s) { A.shift(s); if (s.rep >= 4 && reserveNeeded(s) > -2000) A.shady(s); else A.family(s); if (debt(s) > 0) repayAll(s, 0) },
+    day(s) {
+      A.shift(s)
+      if (CONTACTS_ON()) {
+        const b = bestOffer(s)
+        if (!(s.rep >= 4 && reserveNeeded(s) > -2000 && b && b.ev > 0 && b.p >= 0.5 && !jailOpen(s) && A.offer(s, b.o.id))) A.family(s)
+      } else if (s.rep >= 4 && reserveNeeded(s) > -2000) A.shady(s); else A.family(s)
+      if (debt(s) > 0) repayAll(s, 0)
+    },
     bill(s, b) { if (s.wallet < billTotal(s, b) && b.week < 4) coverWithLoans(s, billTotal(s, b)) },
   },
   // Смешанная: смена; семья при 🔥≥40 или ❤️<20, иначе 10 спинов по 50 (бюджет 500/неделю); темка/друзья при нехватке; ломбард — последний шанс.

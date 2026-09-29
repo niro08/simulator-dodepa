@@ -16,6 +16,8 @@ import {
   shiftPromos
 } from '../rules'
 import type { BalanceV1 } from '../config'
+import { CONTACT_SALT_DEAL, contactsOn, findOffer, heldOffer, jailRiskOpen, needContactsFeature, offerItemOk, pEff } from '../contacts'
+import { createRng, deriveSeed, fnv1a } from '../rng'
 import type { CommandOf, GameEvent, RunState } from '../types'
 import type { CommandHandler } from './types'
 
@@ -114,6 +116,8 @@ export const overtimeHandler: CommandHandler<CommandOf<'work/overtime'>> = {
  */
 export const shadyHandler: CommandHandler<CommandOf<'work/shady'>> = {
   check: (state, _cmd, config) =>
+    // contacts-shady §4.3: при контактах кнопка «Темка» заменена предложениями
+    (contactsOn(config.balance) ? { reason: 'feature_disabled' as const } : null) ??
     needPhase(state, 'day') ??
     needLife(state) ??
     needEvening(state, config.balance) ??
@@ -137,6 +141,67 @@ export const shadyHandler: CommandHandler<CommandOf<'work/shady'>> = {
     forcedPay(draft, B.SHADY_FINE, 'shady_fine', events)
     addTilt(draft, B.TILT_SHADY_FAIL, 'scheme_fail', events, B)
     if (jailed) proposeEnding(draft, 'jail')
+    return events
+  }
+}
+
+/**
+ * work/offer — сделка по предложению контакта (design/contacts-shady.md §4.3), вечерняя.
+ * ❤️ списывается всегда и первым делом; развод просто забирает цену; иначе бросок успеха из подпотока
+ * deriveSeed(seed, day, CONTACT_SALT_DEAL ^ fnv1a(id)) с шансом pEff от засвета ДО сделки, при провале —
+ * штраф, 🔥, контакт сгорает и (если риск открыт) бросок ареста. Затем засвет растёт.
+ */
+export const offerHandler: CommandHandler<CommandOf<'work/offer'>> = {
+  check(state, cmd, config) {
+    const B = config.balance
+    const base = needContactsFeature(B) ?? needPhase(state, 'day') ?? needLife(state)
+    if (base) return base
+    const def = heldOffer(state, cmd.offerId) ? findOffer(config, cmd.offerId) : undefined
+    if (!def) return { reason: 'no_offer' }
+    if (!offerItemOk(state, def)) return { reason: 'item_not_owned' }
+    const rest = needEvening(state, B) ?? needEnergy(state, def.energy)
+    if (rest) return rest
+    if (def.scam && state.wallet < def.scam.price) return { reason: 'no_money', min: def.scam.price }
+    return null
+  },
+  apply(draft, cmd, ctx) {
+    const B = ctx.config.balance
+    const events: GameEvent[] = []
+    const c = draft.contacts
+    const held = heldOffer(draft, cmd.offerId)
+    const def = findOffer(ctx.config, cmd.offerId)
+    if (!c || !held || !def) return events
+    // 1. Вечер, ⚡, ❤️, предложение гаснет навсегда
+    draft.eveningUsed = 'shady'
+    draft.energy -= def.energy
+    changeRep(draft, def.rep, events, B)
+    c.offers = c.offers.filter((o) => o.id !== def.id)
+    c.used.push(def.id)
+    // 2. Развод: только цена. Засвет не растёт, lastDealDay не ставится
+    if (def.scam) {
+      draft.wallet -= def.scam.price
+      if (def.scam.fakeLuckDays) c.fakeLuckUntil = draft.day + def.scam.fakeLuckDays
+      events.push({ type: 'scamPaid', offerId: def.id, price: def.scam.price })
+      return events
+    }
+    // 3. Бросок: успех, потом арест (порядок фиксирован)
+    const deal = createRng(deriveSeed(draft.seed, draft.day, (CONTACT_SALT_DEAL ^ fnv1a(def.id)) >>> 0))
+    const p = pEff(def, c.heat, B)
+    if (deal.next() < p) {
+      draft.wallet += held.reward
+      draft.today.earned += held.reward
+      events.push({ type: 'schemeResolved', success: true, amount: held.reward, fine: 0, jailed: false, offerId: def.id })
+    } else {
+      const jailed = jailRiskOpen(draft, B) && deal.next() < def.jail
+      events.push({ type: 'schemeResolved', success: false, amount: 0, fine: def.fine, jailed, offerId: def.id })
+      forcedPay(draft, def.fine, 'shady_fine', events)
+      addTilt(draft, def.tiltFail, 'scheme_fail', events, B)
+      if (!c.burned.includes(def.contact)) c.burned.push(def.contact)
+      if (jailed) proposeEnding(draft, 'jail')
+    }
+    // 4. Засвет после броска
+    c.heat = Math.min(B.CONTACT_HEAT_MAX, c.heat + def.heat)
+    c.lastDealDay = draft.day
     return events
   }
 }

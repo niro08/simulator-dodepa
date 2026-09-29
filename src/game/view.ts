@@ -7,6 +7,9 @@ import { ITEM_IDS, slotMetrics, type GameConfig, type ItemId } from './config'
 import { betCap, betLimit, effectiveBet } from './commands/slot'
 import { wagerLeft } from './commands/casino'
 import { checkQuit } from './commands/day'
+import { offerHandler } from './commands/work'
+import { contactDepth, contactsOn, findOffer, jailRiskOpen, offerEv, pEff } from './contacts'
+import type { ContactId } from './content/contacts'
 import { findSleepEvent, optionCost, optionRejection } from './day'
 import { cashbackAmount, oldestPawned } from './content/events'
 import {
@@ -341,5 +344,85 @@ export function buildUnderbelly(run: RunState, config: GameConfig): UnderbellyVi
     casinoNights: { n: run.casinoNights, max: B.CASINO_NIGHTS_FOR_ENDING, lost: stat(s, 'casinoNightLoss') },
     time: casinoHours(s, config),
     recentSpins
+  }
+}
+
+/** Карточка предложения контакта (contacts-shady §9). */
+export interface OfferView {
+  offerId: string
+  contact: ContactId
+  tier: 1 | 2 | 3
+  energy: number
+  /** Шанс до засвета и с засветом (на карточке; при засвете базовый — зачёркнут рядом). У развода 0. */
+  chanceBase: number
+  chance: number
+  reward: number
+  fine: number
+  rep: number
+  /** Шанс «Сел» при провале; показывать строку ⚠, только если jailRisk (ContactsView). */
+  jail: number
+  /** Дней до конца срока: 0 «только сегодня», 1 «до завтра», n «ещё n дн.». */
+  expiresIn: number
+  requiresItem: ItemId | null
+  /** Развод: цена (Витрина — обещание claim, Изнанка — honest + «Ожидаемая ценность: −price₽»). */
+  scamPrice: number | null
+  /** EV₽ по §5 с текущим засветом и брошенной суммой (для Изнанки). */
+  ev: number
+  /** null — можно; иначе причина серого состояния → formatRejection('work/offer', …). */
+  rejection: Rejection | null
+}
+
+/** Блок «Контакты» на вкладке «Работа» (contacts-shady §9). null — пакет выключен или ран без контактов. */
+export interface ContactsView {
+  heat: number
+  /** Сколько п.п. засвет режет с шансов: heat × CONTACT_HEAT_PENALTY × 100. */
+  heatPenaltyPct: number
+  /** «День без дел — минус {decay}». */
+  heatDecay: number
+  /** Открыт риск ареста (❤️ ≤ −10 или засвет ≥ 60). */
+  jailRisk: boolean
+  depth: 1 | 2 | 3
+  /** «🍀 Удача прокачана» (Витрина) / «🍀 +0%» (Изнанка). */
+  fakeLuck: boolean
+  offers: OfferView[]
+  /** Сгоревшие контакты («{name}: абонент недоступен»). */
+  burned: ContactId[]
+}
+
+export function buildContacts(run: RunState, config: GameConfig): ContactsView | null {
+  const B = config.balance
+  const c = run.contacts
+  if (!contactsOn(B) || !c) return null
+  const offers: OfferView[] = []
+  for (const held of c.offers) {
+    const def = findOffer(config, held.id)
+    if (!def) continue
+    offers.push({
+      offerId: def.id,
+      contact: def.contact,
+      tier: def.tier,
+      energy: def.energy,
+      chanceBase: def.scam ? 0 : def.successChance,
+      chance: def.scam ? 0 : pEff(def, c.heat, B),
+      reward: held.reward,
+      fine: def.fine,
+      rep: def.rep,
+      jail: def.jail,
+      expiresIn: Math.max(0, held.expiresDay - run.day),
+      requiresItem: def.requiresItem ?? null,
+      scamPrice: def.scam?.price ?? null,
+      ev: Math.round(offerEv(def, c.heat, B, held.reward)),
+      rejection: run.phase === 'ended' ? { reason: 'wrong_phase' } : offerHandler.check(run, { type: 'work/offer', offerId: def.id }, config)
+    })
+  }
+  return {
+    heat: c.heat,
+    heatPenaltyPct: Math.round(c.heat * B.CONTACT_HEAT_PENALTY * 1000) / 10,
+    heatDecay: B.CONTACT_HEAT_DECAY_QUIET,
+    jailRisk: jailRiskOpen(run, B),
+    depth: contactDepth(run, config),
+    fakeLuck: c.fakeLuckUntil !== undefined && c.fakeLuckUntil >= run.day,
+    offers,
+    burned: c.burned.slice()
   }
 }

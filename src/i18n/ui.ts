@@ -626,6 +626,30 @@ export const EVENING = {
   leaveCost: (energy: number) => `−${energy}⚡`
 } as const
 
+/**
+ * Пакет 2 «Контакты» (design/contacts-shady.md §9): блок вместо карточки «Темка».
+ * Тексты предложений и имена — CONTACT_TEXTS / CONTACT_NAMES (ru.ts), ярус — CONTACT_TIER_LABELS,
+ * срок — contactExpiryLabel, сгоревшие — contactBurnedLine, Изнанка развода — scamHonestLine.
+ */
+export const CONTACTS = {
+  title: '📞 Контакты',
+  eveningSlot: '📞 Контакты',
+  heat: (heat: number, penaltyPct: number) => `Засвет: ${heat} · −${penaltyPct}% к шансам`,
+  heatDecay: (decay: number) => `День без дел — минус ${decay}`,
+  empty: 'Телефон молчит. Даже Вадик не пишет.',
+  fakeLuckShowcase: '🍀 Удача прокачана',
+  fakeLuckHonest: '🍀 +0%',
+  cost: (energy: number) => `${energy}⚡ · вечер`,
+  chance: (pct: number) => `Шанс ${pct}%`,
+  money: (reward: number, fine: number) => `+${money(reward)}₽ / штраф −${money(fine)}₽`,
+  rep: (rep: number) => `❤️ ${rep}`,
+  jailWarn: (pct: number) => `⚠ При провале ${pct}% — «Сел»`,
+  itemPawned: (item: string) => `${item} в ломбарде`,
+  scamFrom: (name: string) => `со слов ${name}`,
+  scamPrice: (price: number) => `−${money(price)}₽`,
+  take: 'Взяться'
+} as const
+
 export const ITEM_DESC: Record<string, { desc: string; note?: string }> = {
   phone: { desc: 'Через него звонит мама. И казино.', note: 'Без телефона нельзя занимать у друзей.' },
   bike: { desc: 'Летом возил тебя на смену. Бесплатно и с ветерком.' },

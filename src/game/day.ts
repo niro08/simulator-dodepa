@@ -3,6 +3,7 @@
  * Всё здесь вызывается внутри dispatch на draft; события пишутся в events, концовки — через proposeEnding.
  */
 import type { GameConfig, ItemId } from './config'
+import { decayContactHeat, refreshContacts } from './contacts'
 import { cashbackAmount, oldestPawned } from './content/events'
 import {
   addTilt,
@@ -133,6 +134,8 @@ export function runNight(draft: RunState, ctx: DayCtx, events: GameEvent[]): voi
   const noSpins = draft.today.spins === 0
   draft.casinoNightPending = false
   if (B.FEATURE_EVENING_FIX) {
+    // contacts-shady §4.4: день без сделки — засвет спадает (до удаления eveningUsed)
+    decayContactHeat(draft, B)
     // quick-fix-evening §3.1, §3.2: вечер и работа — на день
     delete draft.eveningUsed
     delete draft.workToday
@@ -240,6 +243,8 @@ export function wake(draft: RunState, ctx: DayCtx, events: GameEvent[]): void {
   draft.withdrewToday = false
   draft.jackpotToday = false
   draft.today = freshDayCounters(draft)
+  // M4½. Контакты (contacts-shady §4.2): после энергии, до события сна; свой подпоток RNG
+  refreshContacts(draft, ctx.config)
   events.push({ type: 'dayStarted', day: draft.day, week: weekOf(draft.day) })
 
   // M5. Событие сна

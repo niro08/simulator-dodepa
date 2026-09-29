@@ -54,14 +54,14 @@ const EVENTS = sampleEvents()
 
 const COMMANDS: CommandType[] = [
   'day/wake', 'day/sleep', 'day/resume', 'event/choose', 'bills/pay', 'bills/defer', 'bills/refuse', 'run/quit', 'run/extend',
-  'casino/enter', 'casino/leave', 'casino/deposit', 'casino/withdraw', 'bet/set', 'slot/spin', 'work/shift', 'work/shady',
+  'casino/enter', 'casino/leave', 'casino/deposit', 'casino/withdraw', 'bet/set', 'slot/spin', 'work/shift', 'work/shady', 'work/offer',
   'family/help', 'friends/borrow', 'bank/loan', 'mfo/loan', 'debt/repay', 'pawn/pawn', 'pawn/redeem'
 ]
 const REASONS: RejectReason[] = [
   'wrong_phase', 'in_casino', 'not_in_casino', 'no_energy', 'no_money', 'bet_below_min', 'amount_below_min', 'invalid_amount',
   'bonus_locked', 'daily_limit', 'friends_blocked', 'no_phone', 'friends_broke', 'rep_too_low', 'debt_limit', 'no_debt',
   'item_not_owned', 'item_not_pawned', 'no_bill', 'not_due', 'grace_used', 'not_fork_day', 'bill_unpaid', 'has_debt', 'forced',
-  'feature_disabled', 'no_event', 'option_unaffordable', 'blocked_by_mama' as RejectReason
+  'feature_disabled', 'no_event', 'option_unaffordable', 'blocked_by_mama' as RejectReason, 'no_offer'
 ]
 
 const IDS = [...Object.keys(ru.ACHIEVEMENT_TEXTS), ...Object.keys(ru.COSMETIC_NAMES), 'unknown:id']

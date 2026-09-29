@@ -1,3 +1,4 @@
+import { CONTACT_OFFERS, type OfferDef } from '../content/contacts'
 import { SLEEP_EVENTS } from '../content/events'
 import type { SleepEventDef } from '../types'
 import { ACHIEVEMENTS, type AchievementDef } from './achievements'
@@ -29,6 +30,8 @@ export interface GameConfig {
   achievements: readonly AchievementDef[]
   /** Каталог косметики (CD-19 логика, systems-spec §5). */
   cosmetics: CosmeticsCatalog
+  /** Контакты: пул предложений (design/contacts-shady.md §3.1; контент — src/game/content/contacts.ts). */
+  contacts: { offers: readonly OfferDef[] }
 }
 
 export const defaultConfig: GameConfig = {
@@ -38,7 +41,8 @@ export const defaultConfig: GameConfig = {
   // Полный пул CD-12: 26 карточек content-pack + 3 бытовые (economy-v1 §9, «Изменения после CD-12»)
   events: { pool: SLEEP_EVENTS, balance: EVENTS_BALANCE },
   achievements: ACHIEVEMENTS,
-  cosmetics: COSMETICS
+  cosmetics: COSMETICS,
+  contacts: { offers: CONTACT_OFFERS }
 }
 
 /** Конфиг без событий сна — для детерминированных тестов и сверки с эталонным симулятором. */
