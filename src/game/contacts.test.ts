@@ -139,8 +139,8 @@ describe('утро: генерация (§4.1–4.2, §12 п.4–5)', () => {
     const r = withOffer('tolik_wash', { used: ['neighbor_boxes', 'valera_pallets'] })
     expect(burnedCount(r, on)).toBe(2)
     expect(contactDepth(r, on)).toBe(2)
-    // сгоревший Вадик: + его непотраченные предложения (4 шт.)
-    expect(burnedCount(withOffer('tolik_wash', { burned: ['vadik'] }), on)).toBe(4)
+    // сгоревший Вадик: + его непотраченные предложения (truck, card, point)
+    expect(burnedCount(withOffer('tolik_wash', { burned: ['vadik'] }), on)).toBe(3)
   })
 
   it('срок: «до завтра» живёт один день, ярус 3 «только сегодня»; eduard_tv — только при долге ≥ 10 000', () => {
@@ -148,7 +148,8 @@ describe('утро: генерация (§4.1–4.2, §12 п.4–5)', () => {
     const d2 = nextDay(s)
     expect(d2.contacts!.offers.some((o) => o.id === 'tolik_wash')).toBe(true)
     const d3 = nextDay(d2)
-    expect(d3.contacts!.offers.some((o) => o.id === 'tolik_wash')).toBe(false)
+    // держимое предложение (срок — день 2) выкинуто; не взятое — может выпасть снова новым броском
+    expect(d3.contacts!.offers.some((o) => o.id === 'tolik_wash' && o.expiresDay === s.day + 1)).toBe(false)
     expect(d3.contacts!.used).not.toContain('tolik_wash')
     const safe = nextDay(withOffer('gosha_safe'))
     expect(safe.contacts!.offers.some((o) => o.id === 'gosha_safe')).toBe(false)
@@ -227,7 +228,7 @@ describe('команда work/offer (§4.3, §12 п.6)', () => {
       if (find(r.events, 'schemeResolved')!.success) continue
       let st = r.state
       for (let i = 0; i < 12; i++) {
-        st = nextDay(st)
+        st = nextDay({ ...st, bills: st.bills.map((b) => ({ ...b, status: 'paid' as const })) })
         expect(st.contacts!.offers.every((o) => def(o.id).contact !== 'tolik')).toBe(true)
         if (st.phase !== 'day') break
       }

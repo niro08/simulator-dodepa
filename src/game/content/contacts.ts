@@ -80,7 +80,8 @@ export const CONTACT_OFFERS: readonly OfferDef[] = [
   // Ярус 2 — «мутный»
   t2('dima_mirrors', 'dima', { energy: 40, successChance: 0.6, rewardMin: 1800, rewardMax: 2400, fine: 2500, rep: -3, requiresItem: 'laptop' }),
   t2('gosha_phones', 'gosha', { energy: 30, successChance: 0.55, rewardMin: 1500, rewardMax: 2100, fine: 2000, rep: -2 }),
-  t2('vadik_card', 'vadik', { energy: 20, successChance: 0.6, rewardMin: 1450, rewardMax: 2050, fine: 2500, rep: -3 }),
+  // Спека §5: R̄ 1750 ± 300 = 1450–2050 не кратно шагу 100 → 1400–2100 (R̄ и EV те же)
+  t2('vadik_card', 'vadik', { energy: 20, successChance: 0.6, rewardMin: 1400, rewardMax: 2100, fine: 2500, rep: -3 }),
   t2('tolik_car', 'tolik', { energy: 40, successChance: 0.55, rewardMin: 2400, rewardMax: 3000, fine: 3000, rep: -3 }),
   { ...scam('luck_boost', 'kirill', 2, 10, 2000), scam: { price: 2000, fakeLuckDays: 3 } },
   scam('mentor_pro', 'mentor', 2, 20, 3000, { afterOffer: 'mentor_course' }),

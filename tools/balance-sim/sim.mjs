@@ -70,7 +70,7 @@ const OFFER_ROWS = [
   ['mentor_course', 'mentor', 1, 20, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 1500 } }],
   ['dima_mirrors', 'dima', 2, 40, 0.6, 1800, 2400, 2500, -3, 15, 20, 0.25, 1, { requiresItem: 'laptop' }],
   ['gosha_phones', 'gosha', 2, 30, 0.55, 1500, 2100, 2000, -2, 15, 20, 0.25, 1],
-  ['vadik_card', 'vadik', 2, 20, 0.6, 1450, 2050, 2500, -3, 15, 20, 0.25, 1],
+  ['vadik_card', 'vadik', 2, 20, 0.6, 1400, 2100, 2500, -3, 15, 20, 0.25, 1],
   ['tolik_car', 'tolik', 2, 40, 0.55, 2400, 3000, 3000, -3, 15, 20, 0.25, 1],
   ['luck_boost', 'kirill', 2, 10, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 2000, fakeLuckDays: 3 } }],
   ['mentor_pro', 'mentor', 2, 20, 0, 0, 0, 0, 0, 0, 0, 0, 2, { scam: { price: 3000 }, afterOffer: 'mentor_course' }],
