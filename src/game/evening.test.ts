@@ -11,7 +11,8 @@ import { validateRun } from './save/validate'
 import { newSession } from './testing'
 import type { Command, EventOf, GameEvent, RunState } from './types'
 
-const on: GameConfig = { ...noEventsConfig, balance: { ...noEventsConfig.balance, FEATURE_EVENING_FIX: true } }
+/** Пакет 1 проверяется со старой темкой (FEATURE_CONTACTS=false); контакты — contacts.test.ts. */
+const on: GameConfig = { ...noEventsConfig, balance: { ...noEventsConfig.balance, FEATURE_EVENING_FIX: true, FEATURE_CONTACTS: false } }
 const off: GameConfig = { ...noEventsConfig, balance: { ...noEventsConfig.balance, FEATURE_EVENING_FIX: false } }
 const B = on.balance
 /** Ран в фазе day дня 1, «Жизнь». */

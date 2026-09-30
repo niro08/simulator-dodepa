@@ -1,4 +1,5 @@
 import type { GameConfig, ItemId, SlotOutcomeId, SymbolId } from './config'
+import type { ContactId } from './content/contacts'
 import type { Rng } from './rng'
 
 /**
@@ -200,6 +201,30 @@ export interface RunState {
   earlyCarry?: number
   /** После «Ночи в казино» проснулся в казино: первый выход стоит ⚡. */
   wokeInCasino?: true
+  // ─── Пакет 2 «Контакты» (design/contacts-shady.md §3.2). Только при contactsOn; иначе undefined. ───
+  contacts?: ContactsState
+}
+
+/** Предложение на руках: сумма уже брошена при генерации. */
+export interface HeldOffer {
+  id: string
+  reward: number
+  expiresDay: number
+}
+
+/** Состояние контактов (contacts-shady §3.2). Создаётся в первом `wake` при флаге. */
+export interface ContactsState {
+  offers: HeldOffer[]
+  /** id взятых предложений: больше не выпадают. */
+  used: string[]
+  /** Контакты, сгоревшие после провала. */
+  burned: ContactId[]
+  /** Засвет 0…CONTACT_HEAT_MAX. */
+  heat: number
+  /** День последней не-разводной сделки. */
+  lastDealDay?: number
+  /** «Прокачка удачи» (развод luck_boost): только значок в Витрине. */
+  fakeLuckUntil?: number
 }
 
 export interface LogEntry {
@@ -234,6 +259,8 @@ export type Command =
   | { type: 'work/half' }
   /** Переработка: смена + вечер (quick-fix-evening §3.2). */
   | { type: 'work/overtime' }
+  /** Сделка по предложению контакта (contacts-shady §4.3), вечерняя. */
+  | { type: 'work/offer'; offerId: string }
   /** «Лечь пораньше» (quick-fix-evening §3.3). */
   | { type: 'day/early' }
   | { type: 'family/help' }
@@ -283,6 +310,8 @@ export type RejectReason =
   | 'evening_used'
   /** Сегодня уже работал (quick-fix-evening §3.2). */
   | 'work_done'
+  /** Такого предложения нет на руках (contacts-shady §4.3). */
+  | 'no_offer'
 
 /** Отказ в выполнении команды. min — число для текста («Мин. 500₽», «Счёт через N дн.»). */
 export interface Rejection {
@@ -339,7 +368,10 @@ export type GameEvent =
   | { type: 'halfShiftWorked'; pay: number }
   /** «Лечь пораньше»: 🔥 снято, ⚡ перенесено на утро. */
   | { type: 'earlyBed'; tilt: number; energy: number }
-  | { type: 'schemeResolved'; success: boolean; amount: number; fine: number; jailed: boolean }
+  /** offerId — сделка контакта (contacts-shady §4.3); без него — старая темка. */
+  | { type: 'schemeResolved'; success: boolean; amount: number; fine: number; jailed: boolean; offerId?: string }
+  /** Развод контакта: деньги ушли, успеха не было и не могло быть (contacts-shady §4.3 п.2). */
+  | { type: 'scamPaid'; offerId: string; price: number }
   | { type: 'friendBorrowed'; amount: number; diminished: boolean }
   | { type: 'friendsBlocked' }
   /** rep/yesterday — только при FEATURE_EVENING_FIX (строка лога §8.3): yesterday — помогал и вчера. */

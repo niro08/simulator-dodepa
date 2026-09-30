@@ -29,6 +29,13 @@ export {
   earlyBedLine,
   EVENING_USED_TEXTS,
   WOKE_IN_CASINO_LINE,
+  CONTACT_NAMES,
+  CONTACT_TEXTS,
+  CONTACT_TIER_LABELS,
+  contactNameOf,
+  contactExpiryLabel,
+  contactBurnedLine,
+  scamHonestLine,
   type AchievementText,
   type EventTone,
   type EndingText

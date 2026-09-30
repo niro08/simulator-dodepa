@@ -2,6 +2,7 @@ import { sleepTiltDecay, slotMetrics } from '@/game'
 import type {
   CollectorsCause,
   CommandType,
+  ContactId,
   EndingId,
   EveningSlot,
   EventOf,
@@ -590,6 +591,88 @@ export const EVENING_USED_TEXTS: Record<EveningSlot, string> = {
 /** Строка «Итога дня» после «Ночи в казино» при пробуждении в казино (§8.3). */
 export const WOKE_IN_CASINO_LINE = 'Проснулся в 6:40 лицом в клавиатуру. Вкладка открыта, телефон на 3%.'
 
+// ─── Пакет 2 «Контакты» (design/contacts-shady.md §9–§10) ─────────────────
+
+/** Кто это (карточка) и как его зовут в хронике. */
+export const CONTACT_NAMES: Record<ContactId, { card: string; name: string }> = {
+  neighbor: { card: 'Сосед Виктор (тот, с дрелью)', name: 'Сосед Виктор' },
+  tolik: { card: 'Толик с автомойки', name: 'Толик' },
+  vadik: { card: 'Вадик — кум Серёги', name: 'Вадик' },
+  lyoha: { card: 'Лёха-курьер', name: 'Лёха' },
+  valera: { card: 'Валерий Петрович', name: 'Валерий Петрович' },
+  mentor: { card: '«Наставник» Артём', name: 'Артём' },
+  dima: { card: 'Дима-айтишник', name: 'Дима' },
+  gosha: { card: 'Гоша (ломбард)', name: 'Гоша' },
+  kirill: { card: 'Кирилл («через знакомого»)', name: 'Кирилл' },
+  eduard: { card: 'Эдуард', name: 'Эдуард' }
+}
+
+/** Тексты предложений (§10): name — кто пишет; у разводов claim (Витрина) и honest (Изнанка). */
+export const CONTACT_TEXTS: Record<string, { name: string; text: string; claim?: string; honest?: string }> = {
+  neighbor_boxes: { name: 'Сосед Виктор', text: 'Подержи у себя пять коробок до пятницы. Там провода. Не открывай, провода этого не любят.' },
+  valera_pallets: { name: 'Валерий Петрович', text: 'Двенадцать поддонов спишем как бой. Половина твоя. Никому не говори, даже мне.' },
+  tolik_wash: { name: 'Толик', text: 'Машину привезут ночью, без номеров. Помыть снаружи, внутри особенно.' },
+  lyoha_courier: { name: 'Лёха', text: 'Курьерка на твоём велике. Пакеты не взвешивать, в подъезд не заходить, в пакет не смотреть.' },
+  vadik_truck: { name: 'Вадик', text: 'Разгрузить фуру без накладных. Платят сразу. Серёге не говори, он нервный.' },
+  mentor_course: {
+    name: 'Артём',
+    text: 'Курс "Как обыграть слоты". 7 уроков и закрытый чат. Окупается с первого вечера.',
+    claim: 'Курс "Как обыграть слоты". 7 уроков и закрытый чат. Окупается с первого вечера.',
+    honest: 'Курс продаёт тот, кому слоты не платят, а ученики платят.'
+  },
+  dima_mirrors: { name: 'Дима', text: 'Поднять пару зеркал для одной игровой площадки. Не той, где ты играешь. Наверное, не той.' },
+  gosha_phones: { name: 'Гоша', text: 'Возьми на реализацию телефоны. Коробок нет, зарядок нет. Владельцев тоже нет.' },
+  vadik_card: { name: 'Вадик', text: 'Оформи карту на себя и дай её на недельку. Вернут. Карту точно вернут.' },
+  tolik_car: { name: 'Толик', text: 'Перегнать машину в Заречный. Номера в бардачке, прикрутишь на месте. Отвёртку свою.' },
+  luck_boost: {
+    name: 'Кирилл',
+    text: 'У друга доступ к техподдержке казино. Прокачаю удачу на аккаунте, +30% на три дня.',
+    claim: 'У друга доступ к техподдержке казино. Прокачаю удачу на аккаунте, +30% на три дня.',
+    honest: 'Удачу не прокачать. RTP 90% не знает, как тебя зовут.'
+  },
+  mentor_pro: {
+    name: 'Артём',
+    text: 'Базовый курс не сработал, потому что он базовый. Продвинутый: личный разбор твоих спинов.',
+    claim: 'Базовый курс не сработал, потому что он базовый. Продвинутый: личный разбор твоих спинов.',
+    honest: 'Второй курс продают тем, кто купил первый. Других покупателей нет.'
+  },
+  eduard_tv: { name: 'Эдуард', text: 'Есть подработка в отделе. Забрать у должника телевизор. Должник живёт с мамой, мама открывает.' },
+  gosha_safe: { name: 'Гоша', text: 'Сейф в гараже. Сейф наш, гараж не наш. Вскрыть до шести утра.' },
+  vadik_point: { name: 'Вадик', text: 'Постоять на точке до утра. Если подъедут, ты просто стоял. Ты же умеешь просто стоять.' },
+  kirill_match: {
+    name: 'Кирилл',
+    text: 'Договорной матч, третья лига, счёт уже известен. Ставишь 5000, забираешь двадцать.',
+    claim: 'Договорной матч, третья лига, счёт уже известен. Ставишь 5000, забираешь двадцать.',
+    honest: 'Если счёт известен, зачем ему твои 5000?'
+  }
+}
+
+/** Ярус на карточке. */
+export const CONTACT_TIER_LABELS: Record<1 | 2 | 3, string> = { 1: 'знакомый', 2: 'мутный', 3: 'совсем' }
+
+/** Имя в хронике по id предложения (неизвестный id — нейтрально). */
+export function contactNameOf(offerId: string): string {
+  return CONTACT_TEXTS[offerId]?.name ?? 'Контакт'
+}
+
+/** Срок предложения: «только сегодня» / «до завтра» / «ещё {n} дн.». */
+export function contactExpiryLabel(daysLeft: number): string {
+  if (daysLeft <= 0) return 'только сегодня'
+  if (daysLeft === 1) return 'до завтра'
+  return `ещё ${daysLeft} дн.`
+}
+
+/** Сгоревший контакт в списке. */
+export function contactBurnedLine(contact: ContactId): string {
+  return `${CONTACT_NAMES[contact]?.name ?? 'Контакт'}: абонент недоступен`
+}
+
+/** Изнанка вместо обещания развода (§9). */
+export function scamHonestLine(offerId: string, price: number): string {
+  const honest = CONTACT_TEXTS[offerId]?.honest
+  return `Развод. Ожидаемая ценность: −${money(price)}₽.${honest ? ` ${honest}` : ''}`
+}
+
 // ─── Хроника ───────────────────────────────────────────────────────────────
 
 function spinText(e: EventOf<'spin'>, variant: number): string {
@@ -713,6 +796,16 @@ export function formatEvent(event: GameEvent, variant = 0): string {
       return `Лёг пораньше. Лежал в темноте и не открывал телефон. Почти час. ${earlyBedLine(event.tilt, event.energy)}`
     case 'schemeResolved':
       if (event.jailed) return 'Темка не зашла. В этот раз — совсем.'
+      if (event.offerId !== undefined) {
+        const name = contactNameOf(event.offerId)
+        if (event.success) {
+          return pick(
+            [`+${money(event.amount)}₽ от ${name}. Вопросов не задавал, ответов не получил.`, `+${money(event.amount)}₽. Руки помыл дважды.`],
+            variant
+          )
+        }
+        return `−${money(event.fine)}₽. ${name} больше не звонит. Номер тот же, просто не звонит.`
+      }
       if (event.success) {
         return pick(
           [`Темка зашла: +${money(event.amount)}₽. Ты не спрашивал, что было в коробке.`, `Зашло: +${money(event.amount)}₽. Никто не пострадал. Наверное.`],
@@ -723,6 +816,8 @@ export function formatEvent(event: GameEvent, variant = 0): string {
         [`Темка не зашла: штраф −${money(event.fine)}₽. «Верняк» оказался одноразовым.`, `Провал. −${money(event.fine)}₽ и неловкий разговор в отделении.`],
         variant
       )
+    case 'scamPaid':
+      return `−${money(event.price)}₽. ${contactNameOf(event.offerId)} прислал голосовое на 11 минут. Главное из него: "ты сам недостаточно веришь".`
     case 'friendBorrowed':
       return event.diminished
         ? pick([`Серёга перевёл ${money(event.amount)}₽. Меньше, чем в прошлый раз. И без смайлика.`, `${money(event.amount)}₽. «Больше нет, бро».`], variant)
@@ -865,6 +960,8 @@ export function formatEventHonest(event: GameEvent): string | null {
       return `Ночь в казино: списано ${money(event.lost)}₽. 8 часов, которых ты не помнишь.`
     case 'casinoCredited':
       return `Зачислено ${money(event.amount)}₽ под оборот ${money(event.wagerRequired)}₽. Весь баланс казино снова заблокирован.`
+    case 'scamPaid':
+      return scamHonestLine(event.offerId, event.price)
     case 'itemSold':
       return `Доплата ${money(event.amount)}₽ за то, что вещь не вернётся никогда. Выкуп отменён.`
     case 'achievementUnlocked':
@@ -909,7 +1006,8 @@ const REJECT_DEFAULT: Record<RejectReason, RejectText> = {
   option_unaffordable: (r) => `Не хватает: нужно ${money(r.min ?? 0)}₽`,
   blocked_by_mama: 'Сайт недоступен. Мама поставила блокировку — на сегодня',
   evening_used: (r) => (r.evening ? EVENING_USED_TEXTS[r.evening] : 'Вечер один. Он уже прошёл'),
-  work_done: 'Сегодня я уже работал. Больше начальник меня не вынесет.'
+  work_done: 'Сегодня я уже работал. Больше начальник меня не вынесет.',
+  no_offer: 'Этого предложения уже нет. Номер не отвечает.'
 }
 
 /** Тексты отказов, специфичные для команды (перекрывают REJECT_DEFAULT). */
@@ -928,6 +1026,11 @@ const REJECT_BY_COMMAND: Partial<Record<CommandType, Partial<Record<RejectReason
   },
   'work/shift': { no_energy: (r) => `Смена — ${r.min ?? 0}⚡. Сил нет` },
   'work/shady': { no_energy: (r) => `На темку нужно ${r.min ?? 0}⚡` },
+  'work/offer': {
+    no_energy: (r) => `На это нужно ${r.min ?? 0}⚡. Даже на сомнительное нужны силы.`,
+    item_not_owned: 'Нужная вещь в ломбарде',
+    no_money: (r) => `Нужно ${money(r.min ?? 0)}₽ сразу. В долг такое не продают`
+  },
   'work/overtime': { no_energy: (r) => `На переработку нужно ${r.min ?? 0}⚡. Есть только желание.` },
   'day/early': {
     no_energy: 'Рано ложиться уже поздно.',

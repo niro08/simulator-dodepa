@@ -494,6 +494,14 @@ export interface BalanceV1 {
   EARLY_CARRY_PER_ENERGY: number; EARLY_CARRY_MAX: number
   TILT_SLEEP_DECAY_FIX: number; TILT_AFTER_CASINO_NIGHT_FIX: number; WAKE_CASINO_LEAVE_ENERGY: number
   FAMILY_REP_FRESH: number; FAMILY_REP_REPEAT: number; FAMILY_FRESH_GAP_DAYS: number
+  // Пакет 2 «Контакты» (design/contacts-shady.md §11), см. §14.1b
+  FEATURE_CONTACTS: boolean
+  CONTACT_SLOTS_WEEK1: number; CONTACT_SLOTS: number
+  CONTACT_DEPTH2_DAY: number; CONTACT_DEPTH2_BURNED: number; CONTACT_DEPTH2_DEBT: number; CONTACT_DEPTH2_REP: number
+  CONTACT_DEPTH3_DAY: number; CONTACT_DEPTH3_BURNED: number; CONTACT_DEPTH3_DEBT: number; CONTACT_DEPTH3_REP: number
+  CONTACT_TIER_WEIGHTS: readonly (readonly number[])[]
+  CONTACT_HEAT_PENALTY: number; CONTACT_HEAT_DECAY_QUIET: number; CONTACT_HEAT_JAIL: number; CONTACT_HEAT_MAX: number
+  CONTACT_P_MIN: number; CONTACT_P_MAX: number; CONTACT_REWARD_STEP: number; CONTACT_EV_PER_ENERGY_MAX: number
 }
 
 export const BALANCE_V1 = {
@@ -542,6 +550,14 @@ export const BALANCE_V1 = {
   EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
   TILT_SLEEP_DECAY_FIX: 40, TILT_AFTER_CASINO_NIGHT_FIX: 35, WAKE_CASINO_LEAVE_ENERGY: 10, // 35 — из набора B (quick-fix-evening §11)
   FAMILY_REP_FRESH: 2, FAMILY_REP_REPEAT: 1, FAMILY_FRESH_GAP_DAYS: 7,
+  FEATURE_CONTACTS: true,
+  CONTACT_SLOTS_WEEK1: 2, CONTACT_SLOTS: 3,
+  CONTACT_DEPTH2_DAY: 8, CONTACT_DEPTH2_BURNED: 2, CONTACT_DEPTH2_DEBT: 5000, CONTACT_DEPTH2_REP: 5,
+  CONTACT_DEPTH3_DAY: 15, CONTACT_DEPTH3_BURNED: 5, CONTACT_DEPTH3_DEBT: 15000, CONTACT_DEPTH3_REP: 0,
+  CONTACT_TIER_WEIGHTS: [[1, 0, 0], [2, 3, 0], [1, 2, 4]],
+  CONTACT_HEAT_PENALTY: 0.005, CONTACT_HEAT_DECAY_QUIET: 20, CONTACT_HEAT_JAIL: 60, CONTACT_HEAT_MAX: 100,
+  CONTACT_P_MIN: 0.05, CONTACT_P_MAX: 0.95, CONTACT_REWARD_STEP: 100,
+  CONTACT_EV_PER_ENERGY_MAX: 8,
 } as const satisfies BalanceV1
 
 /** Числа карточек событий (ключи — design/content-pack.md §2; + бытовые life_* из economy-v1 §9.2). */
@@ -597,6 +613,22 @@ export const EVENTS_BALANCE = {
 | Честный + ломбард | — / 100% | — / 100% | **— / 100%** | ≥ 95% |
 
 Выбор по правилам §11: набор A держит всё, кроме «Ночь ×3» (55% > 50%), поэтому берётся `TILT_AFTER_CASINO_NIGHT_FIX` 35 из B. Остальное остаётся от A. Итоговые числа (они же в `balance.ts`): OT 1.2, спад 40, ночь 35, семья 2 / 1 / 7. Честный бот чувствителен только к OT, «Ночь» на него не влияет.
+
+#### 14.1b Пакет 2 «Контакты» (contacts-shady.md): прогон 2026-09-29
+Константы (`BALANCE_V1`, contacts-shady §11): `FEATURE_CONTACTS: true` (работает только при `FEATURE_EVENING_FIX`), `CONTACT_SLOTS_WEEK1` 2 / `CONTACT_SLOTS` 3, глубина 2 — день 8 / сожжено 2 / долг 5000 / ❤️ ≤ 5, глубина 3 — день 15 / 5 / 15000 / ❤️ ≤ 0, `CONTACT_TIER_WEIGHTS` [[1,0,0],[2,3,0],[1,2,4]], `CONTACT_HEAT_PENALTY` 0.005, `CONTACT_HEAT_DECAY_QUIET` 20, `CONTACT_HEAT_JAIL` 60, `CONTACT_HEAT_MAX` 100, `CONTACT_P_MIN`/`MAX` 0.05/0.95, `CONTACT_REWARD_STEP` 100, `CONTACT_EV_PER_ENERGY_MAX` 8 (только тест). Предложения — `src/game/content/contacts.ts` (таблица §5; `vadik_card` 1400–2100 вместо 1450–2050: кратность шагу, R̄ 1750 и EV те же). Зеркало — `tools/balance-sim/sim.mjs` (`CONTACT_OFFERS`, `refreshContacts`, `A.offer`, `bestOffer`).
+
+Ядро — `winRate`, 2000 ранов (лудоман 1000), seed 1…, полный пул событий, оба флага true; sim.mjs — 20 000 ранов, seed 1.
+
+| Бот | Пакет 1 (§14.1a, ядро) | Контакты, ядро | Контакты, sim.mjs 20 000 | Коридор contacts-shady §7 / §12 п.11 |
+|---|---|---|---|---|
+| Честный | 57.6% | 57.6% (исходы по сидам те же) | 58.0% | 55–66% ✓ |
+| Честный «формальный» | 32.5% | 32.5% | 31.5% | — |
+| Темщик осторожный | 39.6% | 31.9% | 31.8% | ≤ честный − 8 п.п. (49.6%) ✓; ожидание спеки 40–47% — ниже |
+| Темщик каждый день | 0% | 0.5% (jail 27%) | 0.8% (jailed 25%) | ≤ 5% ✓ |
+| Казино каждый день | 5.7% | 5.7% | 7.6% | ≤ 10% ✓ |
+| Лудоман | 0% | 0% | 0% | ≤ 2% ✓ |
+
+B-06 (старая темка, контакты выкл.) и B-06c («спины по 50 на остаток ⚡ → `bestOffer`») — оба ≤ +150₽/день (−456 и −645₽/день на 1000 сидах). Ручки §7 (❤️ яруса 1, R̄ tolik_wash/vadik_truck) не понадобились.
 
 ### 14.2 `src/game/config/slot.ts`
 

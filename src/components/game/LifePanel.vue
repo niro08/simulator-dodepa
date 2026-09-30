@@ -117,7 +117,10 @@
             :class="{ 'life__evening-slot--used': eveningUsed === slot, 'life__evening-slot--off': !!eveningUsed && eveningUsed !== slot }"
             :aria-current="eveningUsed === slot || undefined"
           >
-            {{ EVENING.slots[slot] }}<span v-if="eveningUsed === slot" class="sr-only"> — {{ EVENING.slotUsed }}</span>
+            <button v-if="slot === 'shady' && contacts" type="button" class="life__evening-link" @click="goContacts">
+              {{ CONTACTS.eveningSlot }}
+            </button>
+            <template v-else>{{ EVENING.slots[slot] }}</template><span v-if="eveningUsed === slot" class="sr-only"> — {{ EVENING.slotUsed }}</span>
           </li>
         </ul>
         <p class="life__small" role="status">{{ eveningUsed ? EVENING_USED_TEXTS[eveningUsed] : EVENING.hint }}</p>
@@ -178,6 +181,7 @@
             />
           </template>
           <ActionCard
+            v-if="!contacts"
             :title="LIFE.shady.title"
             :verb="LIFE.shady.verb"
             :cost="`−${B.SHADY_ENERGY}⚡ · ❤️${B.SHADY_REP}`"
@@ -189,6 +193,83 @@
             :flash="flashes.shady"
             @act="act('shady', { type: 'work/shady' })"
           />
+          <section v-else class="contacts" aria-labelledby="contacts-title">
+            <h3 id="contacts-title" ref="contactsHeading" class="contacts__title" tabindex="-1">{{ CONTACTS.title }}</h3>
+            <p class="contacts__heat-label" :class="{ minus: contacts.jailRisk }">
+              {{ CONTACTS.heat(contacts.heat, contacts.heatPenaltyPct) }}
+            </p>
+            <div
+              class="life__bar contacts__bar"
+              :class="{ 'contacts__bar--hot': contacts.jailRisk }"
+              role="meter"
+              :aria-valuenow="contacts.heat"
+              aria-valuemin="0"
+              :aria-valuemax="B.CONTACT_HEAT_MAX"
+              :aria-valuetext="CONTACTS.heat(contacts.heat, contacts.heatPenaltyPct)"
+              aria-labelledby="contacts-title"
+            >
+              <span :style="{ width: `${Math.min(100, (contacts.heat / B.CONTACT_HEAT_MAX) * 100)}%` }" />
+              <i :style="{ left: `${(B.CONTACT_HEAT_JAIL / B.CONTACT_HEAT_MAX) * 100}%` }" aria-hidden="true" />
+            </div>
+            <p class="life__small">{{ CONTACTS.heatDecay(contacts.heatDecay) }}</p>
+            <p v-if="contacts.fakeLuck" class="contacts__luck">
+              <span class="vitrina-only">{{ CONTACTS.fakeLuckShowcase }}</span>
+              <span class="honest honest-inline">{{ CONTACTS.fakeLuckHonest }}</span>
+            </p>
+
+            <p v-if="!contacts.offers.length" class="contacts__empty">{{ CONTACTS.empty }}</p>
+            <ul v-else class="contacts__list">
+              <li
+                v-for="o in contacts.offers"
+                :key="o.offerId"
+                class="offer"
+                :class="{ 'offer--off': !!offerReasons[o.offerId], 'offer--scam': o.scamPrice !== null }"
+              >
+                <header class="offer__head">
+                  <h4 :id="`offer-${o.offerId}`" class="offer__name">{{ CONTACT_NAMES[o.contact].card }}</h4>
+                  <span class="offer__tier" :class="`offer__tier--${o.tier}`">{{ CONTACT_TIER_LABELS[o.tier] }}</span>
+                </header>
+                <template v-if="o.scamPrice === null">
+                  <p class="offer__text">{{ CONTACT_TEXTS[o.offerId]?.text }}</p>
+                  <p class="offer__chance">
+                    <s v-if="o.chance !== o.chanceBase" class="offer__base">{{ pct(o.chanceBase) }}</s>
+                    {{ CONTACTS.chance(toPct(o.chance)) }}
+                  </p>
+                  <p class="offer__money tabular">{{ CONTACTS.money(o.reward, o.fine) }}</p>
+                  <p v-if="contacts.jailRisk" class="offer__risk">{{ CONTACTS.jailWarn(toPct(o.jail)) }}</p>
+                </template>
+                <template v-else>
+                  <p class="vitrina-only offer__from">{{ CONTACTS.scamFrom(CONTACT_NAMES[o.contact].name) }}</p>
+                  <p class="vitrina-only offer__text">{{ CONTACT_TEXTS[o.offerId]?.claim }}</p>
+                  <p class="honest offer__honest">{{ scamHonestLine(o.offerId, o.scamPrice) }}</p>
+                  <p class="offer__money offer__money--scam tabular">{{ CONTACTS.scamPrice(o.scamPrice) }}</p>
+                </template>
+                <p class="offer__meta">
+                  <span class="tabular">{{ CONTACTS.cost(o.energy) }}</span>
+                  <span v-if="o.rep !== 0">{{ CONTACTS.rep(o.rep) }}</span>
+                  <span>{{ contactExpiryLabel(o.expiresIn) }}</span>
+                  <span v-if="o.requiresItem" class="offer__item" :title="ITEM_NAMES[o.requiresItem]">
+                    {{ ITEM_NAMES[o.requiresItem].split(' ')[0] }}<span class="sr-only">{{ ITEM_NAMES[o.requiresItem] }}</span>
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  class="paper-btn offer__btn"
+                  :aria-disabled="!!offerReasons[o.offerId] || busy || undefined"
+                  :aria-describedby="offerReasons[o.offerId] ? `offer-r-${o.offerId}` : undefined"
+                  :aria-label="`${CONTACTS.take}: ${CONTACT_NAMES[o.contact].card}`"
+                  @click="takeOffer(o.offerId)"
+                >
+                  {{ CONTACTS.take }}
+                </button>
+                <p v-if="offerReasons[o.offerId]" :id="`offer-r-${o.offerId}`" class="paper-reason">⚠ {{ offerReasons[o.offerId] }}</p>
+              </li>
+            </ul>
+            <p v-if="flashes.offer" class="life__flash" role="status">{{ flashes.offer }}</p>
+            <ul v-if="contacts.burned.length" class="contacts__burned">
+              <li v-for="c in contacts.burned" :key="c" class="life__small">{{ contactBurnedLine(c) }}</li>
+            </ul>
+          </section>
         </template>
 
         <template v-else-if="tab === 'people'">
@@ -349,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import {
   canExecute,
   earlyBedPreview,
@@ -370,8 +451,21 @@ import {
   type Rejection,
   type RunState
 } from '@/game'
-import { EVENING_USED_TEXTS, formatEvent, formatRejection, ITEM_NAMES, money, TILT_STAGE_LABELS } from '@/i18n'
-import { BILLS, EVENING, ITEM_DESC, LIFE, pct } from '@/i18n/ui'
+import {
+  CONTACT_NAMES,
+  CONTACT_TEXTS,
+  CONTACT_TIER_LABELS,
+  contactBurnedLine,
+  contactExpiryLabel,
+  EVENING_USED_TEXTS,
+  formatEvent,
+  formatRejection,
+  ITEM_NAMES,
+  money,
+  scamHonestLine,
+  TILT_STAGE_LABELS
+} from '@/i18n'
+import { BILLS, CONTACTS, EVENING, ITEM_DESC, LIFE, pct } from '@/i18n/ui'
 import { useGameStore } from '@/stores/game'
 import { useShell } from '@/composables/useShell'
 import ActionCard from './ActionCard.vue'
@@ -451,19 +545,52 @@ const shadyRisks = computed(() => {
   return lines
 })
 
+// ─── Пакет 2 «Контакты» (contacts-shady §9): null — пакет выключен, показываем старую «Темку» ───
+const contacts = computed(() => game.contacts)
+const contactsHeading = ref<HTMLElement | null>(null)
+/** Доля 0…1 → целые проценты для строк CONTACTS. */
+const toPct = (x: number) => Math.round(x * 100)
+/** Причины серого состояния по id предложения (как у остальных карточек — «как если бы вышел из казино»). */
+const offerReasons = computed<Record<string, string | null>>(() => {
+  const out: Record<string, string | null> = {}
+  for (const o of contacts.value?.offers ?? []) {
+    const cmd: Command = { type: 'work/offer', offerId: o.offerId }
+    const r = lifeRejection(cmd)
+    out[o.offerId] =
+      r?.reason === 'item_not_owned' && o.requiresItem && hud.value?.items[o.requiresItem] === 'pawned'
+        ? CONTACTS.itemPawned(ITEM_NAMES[o.requiresItem])
+        : r
+          ? formatRejection(cmd.type, r)
+          : null
+  }
+  return out
+})
+/** Слот вечера «📞 Контакты» ведёт к блоку на вкладке «Работа». */
+function goContacts() {
+  tab.value = 'work'
+  void nextTick(() => contactsHeading.value?.focus())
+}
+/** События исхода сделки — в строку результата (а не побочные «друзья отвернулись»). */
+const OFFER_OUTCOMES = new Set(['schemeResolved', 'scamPaid'])
+function takeOffer(offerId: string) {
+  if (busy.value || offerReasons.value[offerId]) return
+  const cmd: Command = { type: 'work/offer', offerId }
+  shell.viaLife(() => flash('offer', game.offer(offerId), cmd, OFFER_OUTCOMES))
+}
+
 // ─── Строка результата у карточки (1.5 с) — та же строка уходит в Хронику ───
 const flashes = reactive<Record<string, string>>({})
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
 const SKIP = new Set(['casinoLeft', 'tiltChanged', 'tiltStageChanged', 'rejected'])
 
-function flash(key: string, result: ActionResult | null, cmd: Command) {
+function flash(key: string, result: ActionResult | null, cmd: Command, prefer?: ReadonlySet<string>) {
   if (!result) return
   let text = ''
   if (!result.ok) {
     const rej = result.events.find((e) => e.type === 'rejected')
     text = rej && rej.type === 'rejected' ? `⚠ ${formatRejection(cmd.type, rej)}` : ''
   } else {
-    const ev = result.events.find((e) => !SKIP.has(e.type))
+    const ev = (prefer && result.events.find((e) => prefer.has(e.type))) || result.events.find((e) => !SKIP.has(e.type))
     text = ev ? formatEvent(ev, game.run?.nextLogId ?? 0) : ''
   }
   if (!text) return
@@ -760,6 +887,160 @@ defineExpose({ focusHeading })
 .life__panel {
   display: grid;
   gap: var(--sp-2);
+}
+
+.life__evening-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Пакет 2 «Контакты» — блок вместо карточки «Темка» */
+.contacts {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border: 1px solid var(--ink);
+  border-radius: var(--r-paper);
+  background: var(--paper-white);
+  min-width: 0;
+}
+.contacts__title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.contacts__title:focus-visible {
+  outline: 2px solid var(--stamp-blue);
+  outline-offset: 2px;
+}
+.contacts__heat-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.contacts__bar span {
+  background: #b36b00;
+}
+.contacts__bar--hot span {
+  background: var(--stamp-red);
+}
+.contacts__luck {
+  justify-self: start;
+  padding: 0 var(--sp-2);
+  background: var(--highlighter);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.contacts__empty {
+  padding: var(--sp-2);
+  border: 1px dashed var(--ink);
+  font-style: italic;
+}
+.contacts__list,
+.contacts__burned {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.contacts__burned {
+  gap: 0;
+  text-decoration: line-through;
+}
+.offer {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  overflow-wrap: anywhere;
+}
+.offer--off {
+  border-style: dashed;
+  opacity: 0.75;
+}
+.offer--scam {
+  border-color: var(--stamp-red);
+}
+.offer__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+}
+.offer__name {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.offer__tier {
+  flex: none;
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--ink);
+  font-size: var(--fs-xs);
+}
+.offer__tier--2 {
+  border-style: dashed;
+}
+.offer__tier--3 {
+  background: var(--ink);
+  color: var(--paper-white);
+}
+.offer__text,
+.offer__from {
+  font-size: var(--fs-xs);
+  font-style: italic;
+}
+.offer__from {
+  color: var(--ink-muted);
+}
+.offer__honest {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--stamp-red);
+}
+.offer__chance {
+  font-weight: 700;
+}
+.offer__base {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+.offer__money {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.offer__money--scam,
+.offer__risk {
+  color: var(--stamp-red);
+}
+.offer__risk {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.offer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-xs);
+}
+.offer__item {
+  font-family: var(--font-emoji);
+}
+.offer__btn {
+  justify-self: start;
+  min-height: var(--tap-min);
 }
 
 .life__repay {

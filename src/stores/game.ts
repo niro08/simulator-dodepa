@@ -11,6 +11,7 @@ import {
   buildPendingEvent,
   buildStatement,
   buildUnderbelly,
+  buildContacts,
   canExecute as coreCanExecute,
   createRun,
   defaultConfig,
@@ -20,6 +21,7 @@ import {
   reconcileAchievements,
   type AchievementView,
   type ActionResult,
+  type ContactsView,
   type CosmeticsView,
   type EndingCollectionEntry,
   type EquipRejectReason,
@@ -100,6 +102,7 @@ export type BetAdjust = 'half' | 'double' | 'min' | 'all'
  * - `pendingEvent` — карточка сна: `eventId`, варианты (`cost`, `affordable`, `rejection`) и `vars` для текста →
  *   i18n `formatSleepEventCard(pendingEvent)`; `daySummary` — «Итог дня»,
  *   `underbelly: UnderbellyView | null` — Изнанка (RTP, LDW, near-miss, прогноз бонуса, долг, вещи, часы),
+ *   `contacts: ContactsView | null` — блок «Контакты» (засвет, предложения; null — пакет выключен, старая «Темка»),
  *   `statement: Statement | null` — Выписка (когда ран закончен), `log` — хроника, `profile`, `settings`, `config`.
  * - Мета (CD-13/CD-19, переживает раны):
  *   `achievements: AchievementView[]` — 31 ачивка: `unlocked`, `secret` (скрытая закрытая → «???»), `progress`
@@ -112,6 +115,7 @@ export type BetAdjust = 'half' | 'double' | 'min' | 'all'
  *
  * Менять:
  * - `execute(cmd)` — единственный путь изменить ран; `canExecute(cmd)` — та же проверка, что в ядре.
+ * - `offer(offerId)` — сделка контакта ({ type: 'work/offer', offerId }); доступность — `canExecute`.
  * - `spin()` — спин: исход считается и сохраняется сразу, показ ждёт `revealPending()` после анимации.
  * - `setBet(value)`, `adjustBet('half' | 'double' | 'min' | 'all')` — ставка (нормализует ядро).
  * - `newGame()` — новый ран (активный засчитывается как брошенный); утро дня 1 наступает сразу.
@@ -168,6 +172,8 @@ export const useGameStore = defineStore('game', () => {
   const pendingEvent = computed<PendingEventView | null>(() => (run.value ? buildPendingEvent(run.value, config) : null))
   const daySummary = computed<DaySummary | null>(() => (run.value?.phase === 'daySummary' ? run.value.daySummary : null))
   const underbelly = computed<UnderbellyView | null>(() => (run.value ? buildUnderbelly(run.value, config) : null))
+  /** Блок «Контакты» (contacts-shady §9); null — пакет выключен (UI показывает старую «Темку»). */
+  const contacts = computed<ContactsView | null>(() => (run.value ? buildContacts(run.value, config) : null))
   const statement = computed<Statement | null>(() =>
     run.value?.phase === 'ended' ? buildStatement(run.value, profile.value, config) : null
   )
@@ -264,6 +270,11 @@ export const useGameStore = defineStore('game', () => {
     const all = applyResult(result)
     notify(presentListeners, all)
     return result
+  }
+
+  /** Сделка по предложению контакта (contacts-shady §4.3). Доступность — canExecute({ type: 'work/offer', offerId }). */
+  function offer(offerId: string): ActionResult | null {
+    return execute({ type: 'work/offer', offerId })
   }
 
   /** Причина, по которой команда сейчас недоступна, или null. */
@@ -415,6 +426,7 @@ export const useGameStore = defineStore('game', () => {
     pendingEvent,
     daySummary,
     underbelly,
+    contacts,
     statement,
     log,
     achievements,
@@ -424,6 +436,7 @@ export const useGameStore = defineStore('game', () => {
     load,
     execute,
     canExecute,
+    offer,
     spin,
     revealPending,
     setBet,

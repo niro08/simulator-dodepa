@@ -4,7 +4,7 @@
  */
 export * from './types'
 export * from './config'
-export { createRng, type Rng } from './rng'
+export { createRng, deriveSeed, fnv1a, type Rng } from './rng'
 export { canExecute, dispatch, executeCommand } from './reducer'
 export { createRun } from './state'
 export { applyInvariants } from './invariants'
@@ -78,9 +78,22 @@ export {
   buildHud,
   buildPendingEvent,
   buildUnderbelly,
+  buildContacts,
+  type ContactsView,
+  type OfferView,
   type BillView,
   type HudView,
   type PendingEventView,
   type UnderbellyView
 } from './view'
 export { LIFE_EVENTS, SLEEP_EVENTS } from './content/events'
+export { CONTACT_IDS, CONTACT_OFFERS, type ContactId, type OfferDef } from './content/contacts'
+export {
+  burnedCount,
+  contactDepth,
+  contactsOn,
+  findOffer,
+  jailRiskOpen,
+  offerEv,
+  pEff
+} from './contacts'

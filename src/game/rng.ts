@@ -42,3 +42,21 @@ export function createRng(seed: number): Rng {
     state: () => a
   }
 }
+
+/**
+ * Сид подпотока от (сид рана, день, соль) — design/contacts-shady.md §4.2 п.4.
+ * Подпоток не трогает основной rngState: результат зависит только от сида, дня и соли, перезагрузка ничего не меняет.
+ */
+export function deriveSeed(seed: number, day: number, salt: number): number {
+  return (Math.imul((seed ^ salt) >>> 0, 0x9e3779b1) + Math.imul(day, 0x85ebca6b)) >>> 0
+}
+
+/** FNV-1a 32 бита по кодам UTF-16 (соль сделки от id предложения, §4.3). */
+export function fnv1a(text: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h >>> 0
+}

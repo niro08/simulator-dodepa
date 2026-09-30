@@ -54,6 +54,8 @@ export const STAT_KEYS = [
   'schemesSucceeded', // ач. SCHEMES_10
   'schemeEarned',
   'schemeFines',
+  'scamsPaid', // разводы контактов (contacts-shady §4.3)
+  'scamLost',
   'friendLoans',
   'friendLoaned',
   'friendsBlocked', // ач. BLOCKED_BY_FRIENDS
@@ -171,6 +173,10 @@ export function applyStatEvent(stats: PlayerStats, event: GameEvent): void {
         add(stats, 'schemesSucceeded', 1)
         add(stats, 'schemeEarned', event.amount)
       } else add(stats, 'schemeFines', event.fine)
+      break
+    case 'scamPaid':
+      add(stats, 'scamsPaid', 1)
+      add(stats, 'scamLost', event.price)
       break
     case 'friendBorrowed':
       add(stats, 'friendLoans', 1)

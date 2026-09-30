@@ -56,6 +56,17 @@ export interface BalanceV1 {
   TILT_SLEEP_DECAY_FIX: number; TILT_AFTER_CASINO_NIGHT_FIX: number; WAKE_CASINO_LEAVE_ENERGY: number
   /** ❤️ за визит к маме «после разлуки» (первый или через ≥ FAMILY_FRESH_GAP_DAYS), иначе REPEAT. */
   FAMILY_REP_FRESH: number; FAMILY_REP_REPEAT: number; FAMILY_FRESH_GAP_DAYS: number
+  // Пакет 2 «Контакты» (design/contacts-shady.md §11). Работает только вместе с FEATURE_EVENING_FIX (contactsOn).
+  FEATURE_CONTACTS: boolean
+  CONTACT_SLOTS_WEEK1: number; CONTACT_SLOTS: number
+  CONTACT_DEPTH2_DAY: number; CONTACT_DEPTH2_BURNED: number; CONTACT_DEPTH2_DEBT: number; CONTACT_DEPTH2_REP: number
+  CONTACT_DEPTH3_DAY: number; CONTACT_DEPTH3_BURNED: number; CONTACT_DEPTH3_DEBT: number; CONTACT_DEPTH3_REP: number
+  /** Веса ярусов 1–3 по глубине круга 1–3 (§4.1). */
+  CONTACT_TIER_WEIGHTS: readonly (readonly number[])[]
+  CONTACT_HEAT_PENALTY: number; CONTACT_HEAT_DECAY_QUIET: number; CONTACT_HEAT_JAIL: number; CONTACT_HEAT_MAX: number
+  CONTACT_P_MIN: number; CONTACT_P_MAX: number; CONTACT_REWARD_STEP: number
+  /** Только тест контента (§5): EV₽/⚡ нормального предложения при засвете 0. */
+  CONTACT_EV_PER_ENERGY_MAX: number
   // Техническое (не экономика): сколько записей хроники хранит ран
   LOG_LIMIT: number
 }
@@ -107,6 +118,15 @@ export const BALANCE_V1 = {
   EARLY_CARRY_PER_ENERGY: 0.2, EARLY_CARRY_MAX: 10,
   TILT_SLEEP_DECAY_FIX: 40, TILT_AFTER_CASINO_NIGHT_FIX: 35, WAKE_CASINO_LEAVE_ENERGY: 10,
   FAMILY_REP_FRESH: 2, FAMILY_REP_REPEAT: 1, FAMILY_FRESH_GAP_DAYS: 7,
+
+  FEATURE_CONTACTS: true,
+  CONTACT_SLOTS_WEEK1: 2, CONTACT_SLOTS: 3,
+  CONTACT_DEPTH2_DAY: 8, CONTACT_DEPTH2_BURNED: 2, CONTACT_DEPTH2_DEBT: 5000, CONTACT_DEPTH2_REP: 5,
+  CONTACT_DEPTH3_DAY: 15, CONTACT_DEPTH3_BURNED: 5, CONTACT_DEPTH3_DEBT: 15000, CONTACT_DEPTH3_REP: 0,
+  CONTACT_TIER_WEIGHTS: [[1, 0, 0], [2, 3, 0], [1, 2, 4]],
+  CONTACT_HEAT_PENALTY: 0.005, CONTACT_HEAT_DECAY_QUIET: 20, CONTACT_HEAT_JAIL: 60, CONTACT_HEAT_MAX: 100,
+  CONTACT_P_MIN: 0.05, CONTACT_P_MAX: 0.95, CONTACT_REWARD_STEP: 100,
+  CONTACT_EV_PER_ENERGY_MAX: 8,
 
   LOG_LIMIT: 50
 } as const satisfies BalanceV1

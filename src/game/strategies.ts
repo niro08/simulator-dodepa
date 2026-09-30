@@ -3,7 +3,10 @@
  * Нужны тестам баланса и регресса (B-06, winrate). Решения бота — только через команды и геттеры ядра.
  */
 import { ITEM_IDS, type GameConfig, type ItemId } from './config'
+import { contactsOn, findOffer, jailRiskOpen, offerEv, pEff } from './contacts'
+import type { OfferDef } from './content/contacts'
 import { findSleepEvent, optionCost, optionRejection } from './day'
+import { canExecute } from './reducer'
 import { billTotal, checkBankLoan, checkMfoLoan, debtOf, isForkOpen, nextUnpaidBill, shiftPay } from './rules'
 import { exec, newSession, tryExec, type Session } from './testing'
 import type { EndingId, Profile, RunState } from './types'
@@ -76,6 +79,38 @@ const eveningFix = (s: Session): boolean => s.config.balance.FEATURE_EVENING_FIX
 function leaveIfWoke(s: Session): void {
   if (eveningFix(s) && s.run.location === 'casino') tryExec(s, { type: 'casino/leave' })
 }
+
+/** Лучшее предложение на руках (contacts-shady §7). */
+export interface BestOffer {
+  def: OfferDef
+  /** EV₽ по §5 с засветом до сделки и брошенной суммой. */
+  ev: number
+  p: number
+}
+
+/**
+ * bestOffer (contacts-shady §7): из предложений на руках без разводов, где canExecute проходит, — максимум EV₽(pEff);
+ * при равенстве меньший ярус, потом порядок контента. Разводы боты не берут никогда.
+ */
+export function bestOffer(run: RunState, config: GameConfig): BestOffer | null {
+  const c = run.contacts
+  if (!c) return null
+  const B = config.balance
+  let best: (BestOffer & { order: number }) | null = null
+  for (const held of c.offers) {
+    const def = findOffer(config, held.id)
+    if (!def || def.scam) continue
+    if (canExecute(run, { type: 'work/offer', offerId: def.id }, config)) continue
+    const ev = offerEv(def, c.heat, B, held.reward)
+    const order = config.contacts.offers.indexOf(def)
+    if (!best || ev > best.ev || (ev === best.ev && (def.tier < best.def.tier || (def.tier === best.def.tier && order < best.order)))) {
+      best = { def, ev, p: pEff(def, c.heat, B), order }
+    }
+  }
+  return best ? { def: best.def, ev: best.ev, p: best.p } : null
+}
+
+const contacts = (s: Session): boolean => contactsOn(s.config.balance)
 
 function todayBillTotal(s: Session): number {
   const bill = s.run.bills.find((b) => b.dueDay === s.run.day && b.status !== 'paid')
@@ -257,7 +292,11 @@ export const STRATEGIES = {
     day(s) {
       leaveIfWoke(s)
       tryExec(s, { type: 'work/shift' })
-      tryExec(s, { type: 'work/shady' })
+      if (contacts(s)) {
+        // contacts-shady §7: любое лучшее предложение, даже в минус
+        const best = bestOffer(s.run, s.config)
+        if (best) tryExec(s, { type: 'work/offer', offerId: best.def.id })
+      } else tryExec(s, { type: 'work/shady' })
       if (debtOf(s.run) > 0) repayAll(s)
     },
     bill(s) {
@@ -271,7 +310,20 @@ export const STRATEGIES = {
   shadyCautious: {
     day(s) {
       tryExec(s, { type: 'work/shift' })
-      if (s.run.rep >= 4 && reserveNeeded(s.run, s.config) > -2000) tryExec(s, { type: 'work/shady' })
+      if (contacts(s)) {
+        // contacts-shady §7: сделка при ❤️ ≥ 4, почти хватает к счёту, EV > 0, шанс ≥ 50%, риск ареста закрыт
+        const best = bestOffer(s.run, s.config)
+        const deal =
+          s.run.rep >= 4 &&
+          reserveNeeded(s.run, s.config) > -2000 &&
+          best !== null &&
+          best.ev > 0 &&
+          best.p >= 0.5 &&
+          !jailRiskOpen(s.run, s.config.balance)
+        if (deal && best && tryExec(s, { type: 'work/offer', offerId: best.def.id })) {
+          // сделка заняла вечер
+        } else tryExec(s, { type: 'family/help' })
+      } else if (s.run.rep >= 4 && reserveNeeded(s.run, s.config) > -2000) tryExec(s, { type: 'work/shady' })
       else tryExec(s, { type: 'family/help' })
       if (debtOf(s.run) > 0) repayAll(s)
     },

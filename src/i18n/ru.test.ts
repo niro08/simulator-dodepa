@@ -54,6 +54,7 @@ const EVENTS = {
   halfShiftWorked: { type: 'halfShiftWorked', pay: 405 },
   earlyBed: { type: 'earlyBed', tilt: 25, energy: 10 },
   schemeResolved: { type: 'schemeResolved', success: true, amount: 2300, fine: 0, jailed: false },
+  scamPaid: { type: 'scamPaid', offerId: 'mentor_course', price: 1500 },
   friendBorrowed: { type: 'friendBorrowed', amount: 350, diminished: false },
   friendsBlocked: { type: 'friendsBlocked' },
   familyHelped: { type: 'familyHelped' },
@@ -113,6 +114,9 @@ describe('i18n/ru', () => {
       { ...EVENTS.shiftWorked, repPenalty: true },
       { ...EVENTS.schemeResolved, success: false, fine: 2000 },
       { ...EVENTS.schemeResolved, success: false, jailed: true },
+      { ...EVENTS.schemeResolved, offerId: 'tolik_wash' },
+      { ...EVENTS.schemeResolved, success: false, fine: 2000, offerId: 'gosha_safe' },
+      { ...EVENTS.scamPaid, offerId: 'unknown' },
       { ...EVENTS.friendBorrowed, diminished: true },
       { ...EVENTS.loanTaken, lender: 'bank', amount: 5000 },
       { ...EVENTS.debtRepaid, repGain: 1 },
@@ -144,14 +148,14 @@ describe('i18n/ru', () => {
   it('все отказы всех команд имеют текст', () => {
     const commands: CommandType[] = [
       'day/wake', 'day/sleep', 'day/resume', 'event/choose', 'bills/pay', 'bills/defer', 'bills/refuse', 'run/quit', 'run/extend',
-      'casino/enter', 'casino/leave', 'casino/deposit', 'casino/withdraw', 'bet/set', 'slot/spin', 'work/shift', 'work/shady',
+      'casino/enter', 'casino/leave', 'casino/deposit', 'casino/withdraw', 'bet/set', 'slot/spin', 'work/shift', 'work/shady', 'work/offer',
       'family/help', 'friends/borrow', 'bank/loan', 'mfo/loan', 'debt/repay', 'pawn/pawn', 'pawn/redeem'
     ]
     const reasons: RejectReason[] = [
       'wrong_phase', 'in_casino', 'not_in_casino', 'no_energy', 'no_money', 'bet_below_min', 'amount_below_min', 'invalid_amount',
       'bonus_locked', 'daily_limit', 'friends_blocked', 'no_phone', 'friends_broke', 'rep_too_low', 'debt_limit', 'no_debt',
       'item_not_owned', 'item_not_pawned', 'no_bill', 'not_due', 'grace_used', 'not_fork_day', 'bill_unpaid', 'has_debt', 'forced',
-      'feature_disabled', 'no_event', 'option_unaffordable'
+      'feature_disabled', 'no_event', 'option_unaffordable', 'no_offer'
     ]
     for (const command of commands) {
       for (const reason of reasons) {

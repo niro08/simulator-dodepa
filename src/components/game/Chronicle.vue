@@ -63,6 +63,8 @@ function netOf(e: GameEvent): number | null {
       return e.viaBill ? null : -e.amount
     case 'casinoNight':
       return -e.lost
+    case 'scamPaid':
+      return -e.price
     default:
       return null
   }

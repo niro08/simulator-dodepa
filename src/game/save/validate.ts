@@ -1,10 +1,13 @@
-import { ITEM_IDS, type ItemId } from '../config'
+import { ITEM_IDS, type GameConfig, type ItemId } from '../config'
+import { contactsOn } from '../contacts'
+import { CONTACT_IDS, type ContactId } from '../content/contacts'
 import { applyInvariants, toInt } from '../invariants'
 import { ENDING_IDS, initialBills } from '../rules'
 import { freshDayCounters, freshEventState } from '../state'
 import type {
   Bill,
   BonusState,
+  ContactsState,
   DaySummary,
   EndingId,
   EveningSlot,
@@ -100,6 +103,7 @@ const EVENT_TYPES = {
   halfShiftWorked: true,
   earlyBed: true,
   schemeResolved: true,
+  scamPaid: true,
   friendBorrowed: true,
   friendsBlocked: true,
   familyHelped: true,
@@ -166,6 +170,34 @@ function validateEveningFix(x: Json, day: number, carryMax: number): Partial<Run
   }
   if (x.earlyBedPending === true) out.earlyBedPending = true
   if (x.wokeInCasino === true) out.wokeInCasino = true
+  return out
+}
+
+/**
+ * Контакты (contacts-shady §3.2): копируются, только если флаг включён и структура валидна.
+ * Неизвестные id (удалённые из контента) выкидываются.
+ */
+function validateContacts(x: unknown, day: number, config: GameConfig): ContactsState | undefined {
+  if (!contactsOn(config.balance) || !isRecord(x)) return undefined
+  if (!Array.isArray(x.offers) || !Array.isArray(x.used) || !Array.isArray(x.burned)) return undefined
+  if (typeof x.heat !== 'number' || !Number.isFinite(x.heat)) return undefined
+  const known = new Set(config.contacts.offers.map((o) => o.id))
+  const seen = new Set<string>()
+  const offers = x.offers
+    .filter(isRecord)
+    .filter((o) => typeof o.id === 'string' && known.has(o.id) && Number.isInteger(o.reward) && Number.isInteger(o.expiresDay))
+    .filter((o) => (seen.has(o.id as string) ? false : (seen.add(o.id as string), true)))
+    .map((o) => ({ id: o.id as string, reward: Math.max(0, o.reward as number), expiresDay: o.expiresDay as number }))
+  const used = [...new Set(stringList(x.used).filter((id) => known.has(id)))]
+  const burned = [...new Set(stringList(x.burned).filter((id): id is ContactId => (CONTACT_IDS as readonly string[]).includes(id)))]
+  const out: ContactsState = {
+    offers,
+    used,
+    burned,
+    heat: Math.min(config.balance.CONTACT_HEAT_MAX, Math.max(0, Math.floor(x.heat)))
+  }
+  if (Number.isInteger(x.lastDealDay) && (x.lastDealDay as number) >= 1 && (x.lastDealDay as number) <= day) out.lastDealDay = x.lastDealDay as number
+  if (Number.isInteger(x.fakeLuckUntil) && (x.fakeLuckUntil as number) >= 1) out.fakeLuckUntil = x.fakeLuckUntil as number
   return out
 }
 
@@ -337,6 +369,8 @@ export function validateRun(x: unknown, env: SaveEnv): RunState | null {
     nextLogId: Math.max(int(x.nextLogId, 1), maxLogId + 1),
   }
   Object.assign(run, validateEveningFix(x, run.day, B.EARLY_CARRY_MAX))
+  const contacts = validateContacts(x.contacts, run.day, env.config)
+  if (contacts) run.contacts = contacts
   return applyInvariants(run, env.config)
 }
 

@@ -12,10 +12,13 @@
  * GOLD-01 гоняется с FEATURE_EVENING_FIX=false (design/quick-fix-evening.md §7.3): при выключенном флаге
  * пакета «Быстрый фикс» базовый ран обязан совпасть со старым golden-файлом без перегенерации.
  * GOLD-02 — те же 20 сидов × 3 бота с флагом true, свой файл golden-evening.fixture.json.
+ * GOLD-01 и GOLD-02 явно ставят FEATURE_CONTACTS=false (design/contacts-shady.md §8): фикстуры не перегенерируются.
+ * GOLD-03 — оба флага true (пакет 2 «Контакты»), файл golden-contacts.fixture.json.
  *
  * Перегенерация golden-файла (только осознанно: изменение базового рана = изменение баланса/поведения):
  *   GOLDEN_UPDATE=1 npx vitest run src/game/golden-base.test.ts        — GOLD-01 (golden-base.fixture.json)
  *   GOLDEN_UPDATE=evening npx vitest run src/game/golden-base.test.ts  — GOLD-02 (golden-evening.fixture.json)
+ *   GOLDEN_UPDATE=contacts npx vitest run src/game/golden-base.test.ts — GOLD-03 (golden-contacts.fixture.json)
  * Затем закоммитить фикстуру и объяснить в PR, почему ран поменялся.
  */
 import { createHash } from 'node:crypto'
@@ -32,11 +35,15 @@ const FIXTURE_PATH = fileURLToPath(new URL('./golden-base.fixture.json', import.
 const EVENING_FIXTURE_PATH = fileURLToPath(new URL('./golden-evening.fixture.json', import.meta.url))
 const UPDATE_BASE = process.env.GOLDEN_UPDATE === '1'
 const UPDATE_EVENING = process.env.GOLDEN_UPDATE === 'evening'
+const CONTACTS_FIXTURE_PATH = fileURLToPath(new URL('./golden-contacts.fixture.json', import.meta.url))
+const UPDATE_CONTACTS = process.env.GOLDEN_UPDATE === 'contacts'
 
 /** GOLD-01: пакет «Быстрый фикс» выключен — ядро байт-в-байт старое. */
-const BASE_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: false } }
-/** GOLD-02: пакет включён. */
-const EVENING_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: true } }
+const BASE_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: false, FEATURE_CONTACTS: false } }
+/** GOLD-02: пакет включён, контакты — нет. */
+const EVENING_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: true, FEATURE_CONTACTS: false } }
+/** GOLD-03: оба пакета включены (contacts-shady §8). */
+const CONTACTS_CONFIG: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: true, FEATURE_CONTACTS: true } }
 
 /** Сиды 1…20. Меняются только вместе с перегенерацией golden-файла. */
 const SEEDS = Array.from({ length: 20 }, (_, i) => i + 1)
@@ -80,11 +87,17 @@ function hashEvents(events: readonly unknown[]): string {
 const RANDOM_BOT_SALT = 0x9e3779b9
 const RANDOM_BETS = [50, 100, 200, 500, 1000]
 
-function randomStrategy(seed: number, evening: boolean): Strategy {
+function randomStrategy(seed: number, evening: boolean, contacts = false): Strategy {
   const rng = createRng((seed ^ RANDOM_BOT_SALT) >>> 0)
   const actions: ((s: Session) => void)[] = [
     (s) => void tryExec(s, { type: 'work/shift' }),
-    (s) => void tryExec(s, { type: 'work/shady' }),
+    // contacts-shady §7: при контактах темка на той же позиции — случайное предложение с рук (пусто — без броска)
+    contacts
+      ? (s) => {
+          const offers = s.run.contacts?.offers ?? []
+          if (offers.length > 0) tryExec(s, { type: 'work/offer', offerId: rng.pick(offers).id })
+        }
+      : (s) => void tryExec(s, { type: 'work/shady' }),
     (s) => void tryExec(s, { type: 'family/help' }),
     (s) => void tryExec(s, { type: 'friends/borrow' }),
     (s) => void tryExec(s, { type: 'bank/loan' }),
@@ -123,7 +136,7 @@ function randomStrategy(seed: number, evening: boolean): Strategy {
   }
 }
 
-const BOTS: Record<string, (seed: number, evening: boolean) => Strategy> = {
+const BOTS: Record<string, (seed: number, evening: boolean, contacts: boolean) => Strategy> = {
   honest: () => STRATEGIES.honest,
   ludoman: () => STRATEGIES.ludoman,
   random: randomStrategy
@@ -141,7 +154,8 @@ interface GoldenEntry {
 
 function snapshot(bot: string, seed: number, config: GameConfig = BASE_CONFIG): GoldenEntry {
   // progress=true: события идут через applyProgress, как в сторе (статистика, ачивки, timeTracked)
-  const { outcome, session } = playRun(BOTS[bot]!(seed, config.balance.FEATURE_EVENING_FIX), seed, config, true)
+  const B = config.balance
+  const { outcome, session } = playRun(BOTS[bot]!(seed, B.FEATURE_EVENING_FIX, B.FEATURE_EVENING_FIX && B.FEATURE_CONTACTS), seed, config, true)
   return {
     outcome,
     day: session.run.day,
@@ -214,5 +228,45 @@ describe('GOLD-02: golden-снимок рана с пакетом «Быстры
 
   it('флаг реально меняет ран: GOLD-02 отличается от GOLD-01', () => {
     expect(snapshot('honest', 3, EVENING_CONFIG)).not.toEqual(snapshot('honest', 3, BASE_CONFIG))
+  })
+})
+
+describe('GOLD-03: golden-снимок рана с контактами (contacts-shady §8)', () => {
+  it('прогон детерминирован: повтор даёт те же хэши', () => {
+    expect(snapshot('random', 7, CONTACTS_CONFIG)).toEqual(snapshot('random', 7, CONTACTS_CONFIG))
+  })
+
+  it('20 сидов × 3 бота совпадают с golden-contacts.fixture.json', () => {
+    const actual = computeAll(CONTACTS_CONFIG)
+    if (UPDATE_CONTACTS) {
+      writeFileSync(CONTACTS_FIXTURE_PATH, JSON.stringify(actual, null, 2) + '\n', 'utf-8')
+      return
+    }
+    expect(existsSync(CONTACTS_FIXTURE_PATH), 'нет golden-файла: GOLDEN_UPDATE=contacts npx vitest run src/game/golden-base.test.ts').toBe(true)
+    const expected = JSON.parse(readFileSync(CONTACTS_FIXTURE_PATH, 'utf-8')) as Record<string, GoldenEntry>
+    expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort())
+    for (const key of Object.keys(expected)) {
+      expect(actual[key], `ран ${key} с контактами разошёлся с golden-файлом`).toEqual(expected[key])
+    }
+  })
+
+  it('флаг реально меняет ран: GOLD-03 ≠ GOLD-02 на random#7', () => {
+    expect(snapshot('random', 7, CONTACTS_CONFIG)).not.toEqual(snapshot('random', 7, EVENING_CONFIG))
+  })
+
+  it('§12 п.3: честный и лудоман не трогают контакты — исход по каждому сиду как в GOLD-02', () => {
+    for (const bot of ['honest', 'ludoman']) {
+      for (const seed of SEEDS) {
+        const a = snapshot(bot, seed, CONTACTS_CONFIG)
+        const b = snapshot(bot, seed, EVENING_CONFIG)
+        expect({ outcome: a.outcome, day: a.day, phase: a.phase, events: a.events, eventsHash: a.eventsHash }, `${bot}#${seed}`).toEqual({
+          outcome: b.outcome,
+          day: b.day,
+          phase: b.phase,
+          events: b.events,
+          eventsHash: b.eventsHash
+        })
+      }
+    }
   })
 })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { defaultConfig, noEventsConfig, type GameConfig } from './config'
 import { LIFE_EVENTS } from './content/events'
 import { debtOf } from './rules'
-import { casinoSession, playRun, STRATEGIES, winRate } from './strategies'
+import { bestOffer, casinoSession, playRun, STRATEGIES, winRate } from './strategies'
 import { exec, newSession, tryExec } from './testing'
 
 /**
@@ -14,7 +14,11 @@ import { exec, newSession, tryExec } from './testing'
  */
 
 /** Пакет «Быстрый фикс» выключен: старые коридоры economy §9 остаются регрессом прежнего поведения. */
-const withFix = (config: GameConfig, on: boolean): GameConfig => ({ ...config, balance: { ...config.balance, FEATURE_EVENING_FIX: on } })
+/** Контакты (contacts-shady §8) выключены: числа пакета 1 не плывут. */
+const withFix = (config: GameConfig, on: boolean): GameConfig => ({
+  ...config,
+  balance: { ...config.balance, FEATURE_EVENING_FIX: on, FEATURE_CONTACTS: false }
+})
 const legacyConfig = withFix(defaultConfig, false)
 
 type SimModule = {
@@ -170,12 +174,68 @@ describe('баланс: пакет «Быстрый фикс» (quick-fix-evenin
   })
 })
 
+/**
+ * Пакет 2 «Контакты» (design/contacts-shady.md §7, §12 п.11–12), оба флага true, полный пул событий.
+ * Факт, ядро, 2000 ранов: честный 57.6%, осторожный темщик 31.8%, темщик 0.5%, казино каждый день 5.7%, лудоман 0%.
+ * Подробно: economy-v1 §14.1b.
+ */
+describe('баланс: пакет «Контакты» (contacts-shady §7), FEATURE_CONTACTS=true', () => {
+  const on: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_EVENING_FIX: true, FEATURE_CONTACTS: true } }
+  const honest = winRate(STRATEGIES.honest, 1000, 1, on)
+  const honest2 = winRate(STRATEGIES.honest, 1000, 50_001, on)
+
+  it('честный: 55–66% (исходы по сидам те же, что без контактов)', () => {
+    for (const r of [honest, honest2]) {
+      expect(r.wins).toBeGreaterThanOrEqual(0.55)
+      expect(r.wins).toBeLessThanOrEqual(0.66)
+    }
+    expect(honest).toEqual(winRate(STRATEGIES.honest, 1000, 1, withFix(defaultConfig, true)))
+  })
+
+  it('осторожный темщик ≤ честный − 8 п.п.; темщик каждый день ≤ 5%', () => {
+    expect(winRate(STRATEGIES.shadyCautious, 1000, 1, on).wins).toBeLessThanOrEqual(honest.wins - 0.08)
+    const shady = winRate(STRATEGIES.shady, 600, 1, on)
+    expect(shady.wins).toBeLessThanOrEqual(0.05)
+    expect((shady.outcomes.jail ?? 0) + (shady.outcomes.family_left ?? 0)).toBeGreaterThan(0)
+  }, 60_000)
+
+  it('казино каждый день ≤ 10%, лудоман ≤ 2% — как в пакете 1', () => {
+    expect(winRate(STRATEGIES.casinoDaily, 600, 1, on).wins).toBeLessThanOrEqual(0.1)
+    expect(winRate(STRATEGIES.ludoman, 300, 1, on).wins).toBeLessThanOrEqual(0.02)
+  }, 60_000)
+
+  it('§12 п.12: логи 20 ранов осторожного темщика — «смена + то же предложение» ≤ 35% дней', () => {
+    const counts = new Map<string, number>()
+    let days = 0
+    for (let seed = 1; seed <= 20; seed++) {
+      const { session } = playRun(STRATEGIES.shadyCautious, seed, on, true)
+      let day: string[] = []
+      for (const e of session.events) {
+        if (e.type === 'dayStarted') day = []
+        else if (e.type === 'shiftWorked') day.push('shift')
+        else if (e.type === 'schemeResolved') day.push(`offer:${e.offerId ?? '?'}`)
+        else if (e.type === 'slept') {
+          days += 1
+          if (day.some((a) => a.startsWith('offer:'))) {
+            const key = day.join('+')
+            counts.set(key, (counts.get(key) ?? 0) + 1)
+          }
+        }
+      }
+    }
+    expect(days).toBeGreaterThan(0)
+    expect(Math.max(0, ...counts.values()) / days).toBeLessThanOrEqual(0.35)
+  })
+})
+
 describe('регресс B-06 (economy-v1 §10)', () => {
   it('цикл «⚡ на спины по 50 → темка»: средний прирост wallet + casino − debt ≤ +150₽/день', () => {
     let totalGain = 0
     let totalDays = 0
+    // Старая темка: контакты выключены (contacts-shady §8)
+    const config: GameConfig = { ...defaultConfig, balance: { ...defaultConfig.balance, FEATURE_CONTACTS: false } }
     for (let seed = 1; seed <= 1000; seed++) {
-      const s = newSession(seed, defaultConfig, false)
+      const s = newSession(seed, config, false)
       const start = s.run.wallet + s.run.casino - debtOf(s.run)
       while (s.run.phase !== 'ended' && s.run.day <= 28) {
         if (s.run.phase === 'daySummary') exec(s, { type: 'day/wake' })
@@ -188,6 +248,36 @@ describe('регресс B-06 (economy-v1 §10)', () => {
           casinoSession(s, { bet: 50, budget: 1000, maxSpins: Math.max(0, Math.floor(spinBudget / s.config.balance.SPIN_ENERGY)) })
           if (s.run.phase !== 'day') continue
           tryExec(s, { type: 'work/shady' })
+          tryExec(s, { type: 'bills/pay' })
+          if (s.run.phase === 'day') exec(s, { type: 'day/sleep' })
+        } else break
+      }
+      totalGain += s.run.wallet + s.run.casino - debtOf(s.run) - start
+      totalDays += s.run.day
+    }
+    expect(totalGain / totalDays).toBeLessThanOrEqual(150)
+  }, 60_000)
+
+  it('B-06c (contacts-shady §8): «спины по 50 на остаток ⚡ → bestOffer» с контактами ≤ +150₽/день', () => {
+    let totalGain = 0
+    let totalDays = 0
+    for (let seed = 1; seed <= 1000; seed++) {
+      const s = newSession(seed, defaultConfig, false)
+      const start = s.run.wallet + s.run.casino - debtOf(s.run)
+      while (s.run.phase !== 'ended' && s.run.day <= 28) {
+        if (s.run.phase === 'daySummary') exec(s, { type: 'day/wake' })
+        else if (s.run.phase === 'event') exec(s, { type: 'event/choose', option: 1 })
+        else if (s.run.phase === 'bills') {
+          if (!tryExec(s, { type: 'bills/pay' }) && !tryExec(s, { type: 'bills/defer' })) exec(s, { type: 'bills/refuse' })
+        } else if (s.run.phase === 'fork') break
+        else if (s.run.phase === 'day') {
+          if (s.run.location === 'casino') tryExec(s, { type: 'casino/leave' })
+          const planned = bestOffer(s.run, s.config)
+          const spinBudget = s.run.energy - (planned?.def.energy ?? 0)
+          casinoSession(s, { bet: 50, budget: 1000, maxSpins: Math.max(0, Math.floor(spinBudget / s.config.balance.SPIN_ENERGY)) })
+          if (s.run.phase !== 'day') continue
+          const best = bestOffer(s.run, s.config)
+          if (best) tryExec(s, { type: 'work/offer', offerId: best.def.id })
           tryExec(s, { type: 'bills/pay' })
           if (s.run.phase === 'day') exec(s, { type: 'day/sleep' })
         } else break
